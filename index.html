@@ -4,6 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Artículos HermosilloShop</title>
+  <meta name="theme-color" content="#00f5ff" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="HermosilloShop" />
+  <meta name="application-name" content="HermosilloShop" />
+  <meta name="description" content="Catálogo compartido de artículos HermosilloShop" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
@@ -413,6 +423,7 @@
         <p>Catálogo compartido en la nube</p>
       </div>
       <div class="header-actions">
+        <button type="button" class="ghost" id="btnInstall" hidden>Instalar app</button>
         <button type="button" class="ghost" id="btnRefresh">Actualizar</button>
         <button type="button" class="ghost" id="btnImport">Importar</button>
         <button type="button" class="ghost" id="btnExport">Exportar</button>
@@ -991,6 +1002,41 @@
       render();
       await persistOrder(articles.map((a) => a.id));
     });
+
+
+    // PWA: service worker + instalar en Android
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch((err) => console.warn("SW", err));
+      });
+    }
+
+    let deferredInstall = null;
+    const btnInstall = document.getElementById("btnInstall");
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredInstall = e;
+      if (btnInstall) btnInstall.hidden = false;
+    });
+    window.addEventListener("appinstalled", () => {
+      deferredInstall = null;
+      if (btnInstall) btnInstall.hidden = true;
+      toast("App instalada en tu dispositivo");
+    });
+    if (btnInstall) {
+      btnInstall.addEventListener("click", async () => {
+        if (!deferredInstall) {
+          toast("Usa el menú de Chrome: Instalar aplicación");
+          return;
+        }
+        deferredInstall.prompt();
+        try {
+          await deferredInstall.userChoice;
+        } catch (_) {}
+        deferredInstall = null;
+        btnInstall.hidden = true;
+      });
+    }
 
     loadArticles();
   </script>
