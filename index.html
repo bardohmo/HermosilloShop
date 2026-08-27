@@ -761,14 +761,198 @@
       }
     }
   
-/* Finanzas: apiladas de arriba hacia abajo, sin truncar texto */
-.article-finance-summary{display:flex;flex-direction:column;gap:5px;margin-top:7px;width:100%;}
-.article-finance-row{display:flex;align-items:center;justify-content:space-between;width:100%;min-width:0;padding:5px 8px;border:1px solid rgba(0,245,255,.14);border-radius:7px;background:rgba(0,0,0,.18);gap:10px;}
-.article-finance-row span{color:var(--muted);font-size:.66rem;line-height:1.2;font-weight:600;white-space:normal;overflow:visible;text-overflow:clip;flex:1 1 auto;}
-.article-finance-row strong{flex:0 0 auto;font-size:.70rem;line-height:1.2;font-weight:800;white-space:nowrap;}
-.article-finance-row.potential{border-color:rgba(61,255,154,.18);background:rgba(61,255,154,.045);}
-.article-finance-row.potential span{color:var(--text);}
-@media (max-width:480px){.article-finance-summary{gap:4px}.article-finance-row{padding:5px 7px}.article-finance-row span{font-size:.64rem}.article-finance-row strong{font-size:.68rem}}
+    /* Resumen financiero compacto de cada artículo */
+    .profit-summary{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:5px;
+      margin-top:7px;
+    }
+    .profit-metric{
+      min-width:0;
+      padding:5px 7px;
+      border:1px solid rgba(138,160,184,.16);
+      border-radius:7px;
+      background:rgba(0,0,0,.18);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:5px;
+    }
+    .profit-metric span,
+    .profit-potential-mini span{
+      color:var(--muted);
+      font-size:.56rem;
+      line-height:1.05;
+      text-transform:uppercase;
+      letter-spacing:.02em;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .profit-metric strong{
+      flex:0 0 auto;
+      font-size:.68rem;
+      line-height:1;
+      white-space:nowrap;
+    }
+    .profit-metric.purchase strong{color:var(--text)}
+    .profit-metric.sale strong{color:var(--cyan)}
+    .profit-metric.positive strong,
+    .profit-potential-mini.positive strong{color:var(--ok)}
+    .profit-metric.negative strong,
+    .profit-potential-mini.negative strong{color:var(--danger)}
+    .profit-potential-mini{
+      grid-column:1/-1;
+      min-width:0;
+      padding:5px 8px;
+      border:1px solid rgba(61,255,154,.16);
+      border-radius:7px;
+      background:rgba(61,255,154,.035);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:7px;
+    }
+    .profit-potential-mini strong{
+      flex:0 0 auto;
+      font-size:.72rem;
+      line-height:1;
+      white-space:nowrap;
+    }
+    @media (max-width:420px){
+      .profit-metric{padding:4px 6px}
+      .profit-metric span,.profit-potential-mini span{font-size:.52rem}
+      .profit-metric strong{font-size:.64rem}
+      .profit-potential-mini strong{font-size:.68rem}
+    }
+
+
+/* Panel "Inversión": cerrado por defecto y métricas con colores distintos */
+.investment-panel{
+  margin-top:7px;
+  width:100%;
+  border:1px solid rgba(139,92,255,.35);
+  border-radius:9px;
+  background:rgba(8,10,24,.48);
+  overflow:hidden;
+}
+.investment-toggle{
+  list-style:none;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-height:34px;
+  padding:6px 9px;
+  cursor:pointer;
+  user-select:none;
+}
+.investment-toggle::-webkit-details-marker{display:none}
+.investment-icon{
+  width:20px;
+  height:20px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(139,92,255,.6);
+  border-radius:5px;
+  color:#b48cff;
+  font-size:11px;
+}
+.investment-title{
+  color:#b48cff;
+  font-size:.72rem;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.investment-subtitle{
+  flex:1;
+  min-width:0;
+  color:var(--muted);
+  font-size:.59rem;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.investment-chevron{
+  color:#b48cff;
+  font-size:1rem;
+  line-height:1;
+  transition:transform .2s ease;
+}
+.investment-panel[open] .investment-chevron{transform:rotate(180deg)}
+.investment-details-list{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  padding:0 7px 7px;
+}
+.investment-card{
+  border-radius:7px;
+  padding:6px 8px;
+  min-height:43px;
+  display:grid;
+  grid-template-columns:1fr auto;
+  align-items:center;
+  column-gap:8px;
+  background:rgba(0,0,0,.18);
+}
+.investment-card-label{
+  font-size:.61rem;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.025em;
+}
+.investment-card strong{
+  font-size:.70rem;
+  line-height:1.1;
+  white-space:nowrap;
+}
+.purchase-card{
+  border:1px solid rgba(61,255,154,.55);
+  background:rgba(61,255,154,.07);
+}
+.purchase-card .investment-card-label,
+.purchase-card strong{color:#3dff9a}
+
+.gain-card{
+  border:1px solid rgba(255,196,0,.58);
+  background:rgba(255,196,0,.07);
+}
+.gain-card .investment-card-label,
+.gain-card strong{color:#ffc400}
+
+.roi-card{
+  border:1px solid rgba(0,190,255,.58);
+  background:rgba(0,190,255,.07);
+}
+.roi-card .investment-card-label,
+.roi-card strong{color:#00c8ff}
+
+.potential-card{
+  grid-template-columns:1fr auto;
+  border:1px solid rgba(255,43,214,.58);
+  background:rgba(255,43,214,.07);
+}
+.potential-card .investment-card-label,
+.potential-card strong{color:#ff4bdd}
+.potential-card span{
+  grid-column:1;
+  color:var(--muted);
+  font-size:.55rem;
+  margin-top:-2px;
+}
+.potential-card strong{grid-column:2;grid-row:1/3}
+
+@media(max-width:420px){
+  .investment-toggle{padding:6px 8px}
+  .investment-title{font-size:.68rem}
+  .investment-subtitle{font-size:.56rem}
+  .investment-card{padding:5px 7px;min-height:40px}
+  .investment-card-label{font-size:.58rem}
+  .investment-card strong{font-size:.66rem}
+}
+
 </style>
 </head>
 <body>
@@ -1309,12 +1493,33 @@
               const gain = sale - purchase;
               const roi = (gain / purchase) * 100;
               const potential = gain * (Number(a.stock) || 0);
-              return `<div class="article-finance-summary">
-  <div class="article-finance-row"><span>Compra</span><strong style="color:var(--text)">${money(purchase)}</strong></div>
-  <div class="article-finance-row"><span>Ganancia</span><strong style="color:${gain >= 0 ? 'var(--ok)' : 'var(--danger)'}">${money(gain)}</strong></div>
-  <div class="article-finance-row"><span>Rentabilidad</span><strong style="color:${gain >= 0 ? 'var(--ok)' : 'var(--danger)'}">${roi.toFixed(2)}%</strong></div>
-  <div class="article-finance-row potential"><span>Ganancia potencial</span><strong style="color:${potential >= 0 ? 'var(--ok)' : 'var(--danger)'}">${money(potential)} MXN</strong></div>
-</div>`;
+              return `<details class="investment-panel">
+  <summary class="investment-toggle">
+    <span class="investment-icon">▣</span>
+    <span class="investment-title">Inversión</span>
+    <span class="investment-subtitle">Costos y ganancias</span>
+    <span class="investment-chevron">⌄</span>
+  </summary>
+  <div class="investment-details-list">
+    <div class="investment-card purchase-card">
+      <div class="investment-card-label">Compra</div>
+      <strong>${money(purchase)}</strong>
+    </div>
+    <div class="investment-card gain-card">
+      <div class="investment-card-label">Ganancia</div>
+      <strong>${money(gain)}</strong>
+    </div>
+    <div class="investment-card roi-card">
+      <div class="investment-card-label">Rentabilidad</div>
+      <strong>${roi.toFixed(1)}%</strong>
+    </div>
+    <div class="investment-card potential-card">
+      <div class="investment-card-label">Ganancia potencial</div>
+      <span>${Number(a.stock) || 0} unidades</span>
+      <strong>${money(potential)} MXN</strong>
+    </div>
+  </div>
+</details>`;
             })() : (isUnlocked ? `<div class="purchase-missing-card">Precio de compra pendiente</div>` : "")}
             ${a.description ? `<div class="meta">${escapeHtml(a.description)}</div>` : ""}
             ${actions}
