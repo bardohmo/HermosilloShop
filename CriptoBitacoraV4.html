@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<title>Cripto Bitácora</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0f14;color:#f4f6f8;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+.wrap{max-width:620px;margin:auto;padding:18px 16px 90px}.top{display:flex;justify-content:space-between;align-items:center}
+h1{font-size:25px;margin:0;font-weight:800}.sub{color:#8d98a6;font-size:13px;margin-top:4px}
+.card{background:#151b23;border:1px solid #202a35;border-radius:18px;padding:18px;margin-top:16px;box-shadow:0 8px 30px #0004}
+.label{color:#8d98a6;font-size:13px}.big{font-size:29px;font-weight:800;margin-top:4px}.profit{color:#20c997;font-size:18px;font-weight:700;margin-top:6px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.mini{background:#11171e;border-radius:14px;padding:13px}.mini b{display:block;font-size:18px;margin-top:4px}
+button{border:0;border-radius:13px;padding:13px 16px;font-weight:800;font-size:14px;background:#f7931a;color:#111;cursor:pointer}
+.add{width:100%;margin-top:14px;font-size:15px}.section{display:flex;justify-content:space-between;align-items:center;margin:25px 2px 10px}
+.section h2{font-size:18px;margin:0}.empty{color:#8d98a6;text-align:center;padding:24px 10px}
+.item{display:flex;justify-content:space-between;gap:10px;padding:14px 0;border-bottom:1px solid #222b35}.item:last-child{border-bottom:0}
+.item strong{display:block}.item small{color:#8d98a6}.amt{text-align:right;font-weight:750;flex-shrink:0}
+.modal{position:fixed;inset:0;background:#000b;display:none;align-items:flex-end;justify-content:center;padding:12px}.modal.show{display:flex}
+.sheet{width:min(620px,100%);background:#121820;border:1px solid #26313d;border-radius:22px;padding:20px}
+.sheet h2{margin:0 0 15px}.field{margin:10px 0}.field label{display:block;color:#9aa4b2;font-size:12px;margin-bottom:5px}
+input,select{width:100%;padding:13px;border-radius:11px;border:1px solid #303b48;background:#0d1319;color:#fff;font-size:15px}
+.actions{display:flex;gap:10px;margin-top:16px}.actions button{flex:1}.cancel{background:#29333e;color:#fff}
+.note{font-size:11px;color:#7e8997;text-align:center;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>CRIPTO BITÁCORA</h1><div class="sub">Tu historial de inversiones</div></div>
+    <div style="font-size:28px">₿</div>
+  </div>
+
+  <div class="card">
+    <div class="label">Capital neto registrado</div>
+    <div class="big" id="capital">$0.00 MXN</div>
+    <div class="label" style="margin-top:15px">Ganancia / pérdida</div>
+    <div class="profit" id="profit">$0.00 MXN · 0.00%</div>
+    <div class="grid">
+      <div class="mini"><span class="label">Operaciones</span><b id="ops">0</b></div>
+      <div class="mini"><span class="label">Monedas</span><b id="coins">0</b></div>
+    </div>
+  </div>
+
+  <button class="add" onclick="openModal()">＋ AGREGAR ACTIVIDAD</button>
+
+  <div class="section"><h2>Últimas actividades</h2><button onclick="clearAll()" style="background:#29333e;color:#fff;padding:8px 10px;font-size:11px">BORRAR</button></div>
+  <div class="card" id="history"><div class="empty">Aún no tienes operaciones registradas.</div></div>
+<div class="note">Los datos se guardan en este dispositivo. No se envían a ningún servidor.</div>
+</div>
+
+<div class="modal" id="modal">
+ <div class="sheet">
+  <h2 id="modalTitle">Agregar actividad</h2>
+  <div class="field"><label>Tipo</label><select id="type">
+   <option>Compra</option><option>Venta</option><option>Depósito</option><option>Retiro</option><option>Conversión</option><option>Staking</option><option>Comisión</option>
+  </select></div>
+  <div class="field"><label>Criptomoneda</label><input id="coin" placeholder="BTC, ETH, DOGE..."></div>
+  <div class="field"><label>Monto en MXN</label><input id="amount" type="number" step="0.01" inputmode="decimal" placeholder="5000"></div>
+  <div class="grid">
+    <div class="field"><label>Fecha de operación</label><input id="date" type="date"></div>
+    <div class="field"><label>Hora de operación</label><input id="time" type="time"></div>
+  </div>
+  <div class="field"><label>Nota (opcional)</label><input id="note" placeholder="Ej. Compra en Binance"></div>
+  <div class="actions"><button class="cancel" onclick="closeModal()">Cancelar</button><button onclick="save()">Guardar</button></div>
+ </div>
+</div>
+
+<script>
+const KEY='cripto_bitacora_v2';
+let data=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem('cripto_bitacora_v1')||'[]');
+let editIndex=-1;
+const money=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(n);
+
+function localDateTimeValue(iso){
+ const d=iso?new Date(iso):new Date();
+ const pad=n=>String(n).padStart(2,'0');
+ return {date:`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,
+         time:`${pad(d.getHours())}:${pad(d.getMinutes())}`};
+}
+function render(){
+ let net=0;
+ data.forEach(x=>{
+   if(['Compra','Depósito','Staking'].includes(x.type)) net+=Number(x.amount);
+   if(['Venta','Retiro','Comisión'].includes(x.type)) net-=Number(x.amount);
+ });
+ document.getElementById('capital').textContent=money(net);
+ document.getElementById('profit').textContent=money(0)+' · 0.00%';
+ document.getElementById('ops').textContent=data.length;
+ document.getElementById('coins').textContent=new Set(data.map(x=>(x.coin||'').toUpperCase()).filter(Boolean)).size;
+
+ const h=document.getElementById('history');
+ if(!data.length){
+   h.innerHTML='<div class="empty">Aún no tienes operaciones registradas.</div>';
+   return;
+ }
+
+ h.innerHTML=data.map((x,i)=>{
+   const d=new Date(x.date);
+   const when=isNaN(d) ? 'Fecha no disponible' :
+     d.toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'});
+   return `<div class="item">
+     <div style="min-width:0">
+       <strong>${esc(x.type)} · ${esc(x.coin||'Cripto')}</strong>
+       <small>${when}${x.note?' · '+esc(x.note):''}</small>
+     </div>
+     <div class="amt">
+       ${money(Number(x.amount))}
+       <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:7px">
+         <button type="button" onclick="editActivity(${i})"
+           style="padding:7px 9px;background:#29333e;color:#fff;font-size:11px">EDITAR</button>
+         <button type="button" onclick="deleteActivity(${i})"
+           style="padding:7px 9px;background:#7b2525;color:#fff;font-size:11px">BORRAR</button>
+       </div>
+     </div>
+   </div>`;
+ }).join('');
+}
+
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function openModal(index=-1){
+ editIndex=index;
+ document.getElementById('modalTitle').textContent=index<0?'Agregar actividad':'Editar actividad';
+ if(index>=0){
+   const x=data[index], dt=localDateTimeValue(x.date);
+   document.getElementById('type').value=x.type||'Compra';
+   document.getElementById('coin').value=x.coin||'';
+   document.getElementById('amount').value=x.amount??'';
+   document.getElementById('date').value=dt.date;
+   document.getElementById('time').value=dt.time;
+   document.getElementById('note').value=x.note||'';
+ } else {
+   const dt=localDateTimeValue();
+   document.getElementById('type').value='Compra';
+   document.getElementById('coin').value='';
+   document.getElementById('amount').value='';
+   document.getElementById('date').value=dt.date;
+   document.getElementById('time').value=dt.time;
+   document.getElementById('note').value='';
+ }
+ document.getElementById('modal').classList.add('show');
+}
+function editActivity(index){openModal(index)}
+
+function deleteActivity(index){
+ const x=data[index];
+ if(!x) return;
+
+ const message =
+   '¿Quieres borrar esta actividad?\n\n' +
+   (x.type || 'Actividad') + ' · ' + (x.coin || 'Cripto') + '\n' +
+   money(Number(x.amount));
+
+ if(!confirm(message)) return;
+
+ data.splice(index,1);
+ localStorage.setItem(KEY,JSON.stringify(data));
+ render();
+}
+
+function closeModal(){document.getElementById('modal').classList.remove('show');editIndex=-1}
+function save(){
+ const amount=parseFloat(document.getElementById('amount').value);
+ const date=document.getElementById('date').value;
+ const time=document.getElementById('time').value;
+ if(!amount||amount<0){alert('Escribe un monto válido.');return}
+ if(!date||!time){alert('Selecciona fecha y hora.');return}
+ const obj={type:document.getElementById('type').value,coin:document.getElementById('coin').value.trim()||'Cripto',
+ amount,note:document.getElementById('note').value.trim(),date:new Date(`${date}T${time}`).toISOString()};
+ if(editIndex>=0) data[editIndex]=obj; else data.push(obj);
+ localStorage.setItem(KEY,JSON.stringify(data));
+ closeModal();render();
+}
+function clearAll(){if(data.length&&confirm('¿Borrar todo el historial?')){data=[];localStorage.removeItem(KEY);localStorage.removeItem('cripto_bitacora_v1');render()}}
+document.querySelector('.add').onclick=()=>openModal();
+render();
+</script>
+</body>
+</html>
