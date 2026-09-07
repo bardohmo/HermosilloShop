@@ -1182,6 +1182,10 @@
       #viewCotizar{padding:16px;border-radius:18px}
     }
 
+    .maps-link-field .maps-link-input-wrap { position: relative; display: flex; align-items: center; }
+    .maps-link-field .maps-link-input-wrap > input { padding-right: 54px; transition: background-color .25s ease, border-color .25s ease, box-shadow .25s ease; }
+    .maps-link-field.maps-valid .maps-link-input-wrap > input { background: rgba(45, 220, 145, .14) !important; border-color: rgba(87, 240, 194, .95) !important; box-shadow: 0 0 0 2px rgba(87, 240, 194, .10), 0 0 18px rgba(87, 240, 194, .16); }
+    .maps-link-check { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #57f0c2; color: #07121f; font-size: 18px; font-weight: 900; box-shadow: 0 0 14px rgba(87, 240, 194, .55); pointer-events: none; }
     .maps-resolve-progress { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid rgba(0, 220, 255, .28); border-radius: 12px; background: rgba(7, 18, 35, .72); box-shadow: 0 0 18px rgba(0, 210, 255, .08); }
     .maps-resolve-progress-top { display:flex; justify-content:space-between; gap:12px; font-size:12px; font-weight:700; margin-bottom:7px; opacity:.95; }
     .maps-resolve-progress-track { height:7px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.10); }
@@ -1351,9 +1355,12 @@
             <input type="time" id="delivTime" />
           </label>
         </div>
-        <label>
+        <label id="mapsLinkField" class="maps-link-field">
           <span>Link de Google Maps (opcional)</span>
-          <input type="text" id="delivMapsPaste" placeholder="Pega aquí el link de Maps para guardar el punto exacto" autocomplete="off" />
+          <div class="maps-link-input-wrap">
+            <input type="text" id="delivMapsPaste" placeholder="Pega aquí el link de Maps para guardar el punto exacto" autocomplete="off" />
+            <span id="mapsLinkCheck" class="maps-link-check" hidden aria-label="Link aceptado">✓</span>
+          </div>
         </label>
         <div id="mapsResolveProgress" class="maps-resolve-progress" hidden aria-live="polite">
           <div class="maps-resolve-progress-top"><span id="mapsResolveProgressText">Detectando ubicación…</span></div>
@@ -3324,7 +3331,15 @@
         del.address.value = row.address || "";
         // Recuperar el último enlace de Google Maps que se guardó.
         // Así permanece visible al volver a abrir "Editar".
-        if (del.mapsPaste) del.mapsPaste.value = del._mapsOriginalUrl || "";
+        if (del.mapsPaste) {
+          del.mapsPaste.value = del._mapsOriginalUrl || "";
+          if (del._mapsOriginalUrl && mapsLinkField) {
+            setMapsLinkState(true);
+            if (mapsProgress.box) mapsProgress.box.hidden = true;
+          } else {
+            clearMapsLinkState();
+          }
+        }
         if (del.time) del.time.value = normalizeTime(row.time) || "";
         if (del.date) del.date.value = normalizeDate(row.date) || "";
         delivItems = normalizeDeliveryItems(row.items);
@@ -3668,6 +3683,17 @@
       pct: document.getElementById("mapsResolveProgressPct"),
       done: document.getElementById("mapsResolveDone")
     };
+    const mapsLinkField = document.getElementById("mapsLinkField");
+    const mapsLinkCheck = document.getElementById("mapsLinkCheck");
+
+    function setMapsLinkState(valid) {
+      if (mapsLinkField) mapsLinkField.classList.toggle("maps-valid", !!valid);
+      if (mapsLinkCheck) mapsLinkCheck.hidden = !valid;
+    }
+
+    function clearMapsLinkState() {
+      setMapsLinkState(false);
+    }
     let mapsAutoTimer = null;
     let mapsResolveSeq = 0;
 
@@ -3681,10 +3707,12 @@
             if (mapsProgress.text) mapsProgress.text.textContent = text || "Procesando ubicación…";
     }
     function finishMapsProgress(text) {
-      setMapsProgress(100, text || "Ubicación lista", true);
-      mapsProgress.box && mapsProgress.box.classList.add("is-done");
-      if (mapsProgress.done) mapsProgress.done.hidden = false;
-      // La palomita permanece visible para que el usuario sepa que la ubicación quedó lista.
+      setMapsLinkState(true);
+      if (mapsProgress.box) {
+        mapsProgress.box.classList.remove("is-done");
+        mapsProgress.box.hidden = true;
+      }
+      if (mapsProgress.done) mapsProgress.done.hidden = true;
     }
 
     async function loadGoogleMapsFromInput() {
@@ -3767,12 +3795,29 @@
         if (!value) {
           mapsResolveSeq++;
           if (mapsProgress.box) mapsProgress.box.hidden = true;
+          clearMapsLinkState();
           return;
         }
-        if (!isGoogleMapsLink(value)) return;
+        if (!isGoogleMapsLink(value)) {
+          clearMapsLinkState();
+          return;
+        }
+        clearMapsLinkState();
         mapsAutoTimer = setTimeout(() => loadGoogleMapsFromInput(), 300);
       };
 
+      del.mapsPaste.addEventListener("focus", () => {
+        requestAnimationFrame(() => {
+          del.mapsPaste.select();
+          if (typeof del.mapsPaste.setSelectionRange === "function") del.mapsPaste.setSelectionRange(0, del.mapsPaste.value.length);
+        });
+      });
+      del.mapsPaste.addEventListener("click", () => {
+        requestAnimationFrame(() => {
+          del.mapsPaste.select();
+          if (typeof del.mapsPaste.setSelectionRange === "function") del.mapsPaste.setSelectionRange(0, del.mapsPaste.value.length);
+        });
+      });
       del.mapsPaste.addEventListener("paste", () => setTimeout(scheduleMapsAutoLoad, 0));
       del.mapsPaste.addEventListener("input", scheduleMapsAutoLoad);
       del.mapsPaste.addEventListener("change", scheduleMapsAutoLoad);
