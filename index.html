@@ -410,85 +410,6 @@
       width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
       background: rgba(0,0,0,0.35); color: var(--text); font: inherit; outline: none;
     }
-    /* Switch integrado al campo Celular */
-    .no-phone-toggle {
-      width: fit-content;
-      min-height: 28px;
-      margin-top: 7px;
-      padding: 4px 8px;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      border: 1px solid rgba(148,163,184,.20);
-      border-radius: 999px;
-      background: rgba(8,15,30,.62);
-      color: var(--muted);
-      cursor: pointer;
-      user-select: none;
-      transition: .2s ease;
-    }
-    .no-phone-toggle:hover {
-      border-color: rgba(0,245,255,.38);
-      color: var(--text);
-    }
-    .no-phone-toggle input {
-      position: absolute;
-      opacity: 0;
-      width: 1px;
-      height: 1px;
-      pointer-events: none;
-    }
-    .no-phone-switch {
-      position: relative;
-      width: 30px;
-      height: 18px;
-      flex: 0 0 30px;
-      border-radius: 999px;
-      background: rgba(100,116,139,.34);
-      border: 1px solid rgba(148,163,184,.28);
-      transition: .2s ease;
-    }
-    .no-phone-switch > span {
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: #cbd5e1;
-      box-shadow: 0 1px 4px rgba(0,0,0,.45);
-      transition: .2s ease;
-    }
-    .no-phone-text {
-      font-size: .76rem;
-      font-weight: 700;
-      letter-spacing: .01em;
-      order: 0;
-    }
-    .no-phone-switch { order: 1; }
-    .no-phone-toggle:has(input:checked) {
-      border-color: rgba(0,245,255,.40);
-      background: rgba(0,245,255,.07);
-      color: var(--text);
-    }
-    .no-phone-toggle:has(input:checked) .no-phone-switch {
-      background: rgba(0,245,255,.30);
-      border-color: rgba(0,245,255,.68);
-    }
-    .no-phone-toggle:has(input:checked) .no-phone-switch > span {
-      transform: translateX(12px);
-      background: var(--cyan);
-      box-shadow: 0 0 8px rgba(0,245,255,.60);
-    }
-    .no-phone-toggle:not(:has(input:checked)) {
-      border-color: rgba(255,55,75,.28);
-      background: rgba(255,55,75,.06);
-    }
-    .no-phone-toggle:not(:has(input:checked)) .no-phone-switch {
-      background: rgba(255,55,75,.18);
-      border-color: rgba(255,55,75,.50);
-    }
-
     .deliv-phone-field.phone-disabled,
     #delivPhone.phone-disabled {
       background: rgba(100,116,139,.12) !important;
@@ -1500,13 +1421,12 @@
         <input type="hidden" id="delivEditId" />
         <label>
           <span>Nombre de la persona</span>
-          <input type="text" id="delivName" required maxlength="80" placeholder="Ej. Juan Pérez" autocomplete="name" />
-         <span class="phone-title-switch" aria-hidden="true">
-              <input type="checkbox" id="delivNoPhone" checked>
-              <span class="no-phone-switch"><span></span></span>
-            </span></label>
+          <input type="text" id="delivName" required maxlength="80" placeholder="Ej. Juan Pérez" autocomplete="name" /></label>
         <label>
-          <span>Celular</span>
+          <span>Celular</span> <span class="phone-title-switch" aria-hidden="true">
+            <input type="checkbox" id="delivNoPhone" checked>
+            <span class="no-phone-switch"><span></span></span>
+          </span>
           <input type="tel" id="delivPhone" required maxlength="24" placeholder="Ej. 662 123 4567" autocomplete="tel" />
         </label>
         <label>
