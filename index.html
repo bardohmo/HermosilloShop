@@ -908,12 +908,20 @@
     .sale-calendar-summary-title { margin:14px 0 8px; font-size:.88rem; font-weight:800; color:var(--text); }
     .sale-calendar-summary-title small { color:var(--muted); font-weight:600; }
     .sale-month-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; }
-    .sale-month-card { min-width:0; padding:9px 5px; border-radius:10px; border:1px solid rgba(0,245,255,.12); background:rgba(5,12,23,.68); color:var(--text); text-align:center; cursor:pointer; box-shadow:none; }
+    .sale-month-card {
+      min-width:0; width:100%; box-sizing:border-box;
+      min-height:72px; padding:9px 6px;
+      border-radius:10px; border:1px solid rgba(0,245,255,.12);
+      background:rgba(5,12,23,.68); color:var(--text);
+      text-align:center; cursor:pointer; box-shadow:none;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:0; overflow:hidden;
+    }
     .sale-month-card:hover { transform:none; border-color:rgba(0,245,255,.34); }
     .sale-month-card.active { border-color:rgba(0,245,255,.72); box-shadow:0 0 0 1px rgba(0,245,255,.12); }
-    .sale-month-card strong { display:block; font-size:.78rem; }
-    .sale-month-card span { display:block; margin-top:3px; color:var(--muted); font-size:.61rem; }
-    .sale-month-card b { display:block; margin-top:4px; font-size:.70rem; white-space:nowrap; }
+    .sale-month-card strong { display:block; width:100%; font-size:.78rem; line-height:1.1; }
+    .sale-month-card span { display:block; width:100%; margin-top:4px; color:var(--muted); font-size:.61rem; line-height:1.1; }
+    .sale-month-card b { display:block; width:100%; margin-top:4px; font-size:.70rem; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .sale-month-card b.positive { color:var(--ok); }
     .sale-month-card b.negative { color:#ff526e; }
     .sale-month-card b.zero { color:#8290a4; }
@@ -926,7 +934,11 @@
       .sale-calendar-metrics { grid-template-columns:1fr; }
       .sale-calendar-metrics > div { border-right:0; border-bottom:1px solid rgba(255,255,255,.06); }
       .sale-calendar-metrics > div:last-child { border-bottom:0; }
-      .sale-month-summary { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .sale-month-summary { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+      .sale-month-card { min-height:68px; padding:8px 5px; }
+      .sale-month-card strong { font-size:.76rem; }
+      .sale-month-card span { font-size:.59rem; }
+      .sale-month-card b { font-size:.67rem; }
     }
     .io-group {
       display: inline-flex;
