@@ -1181,6 +1181,14 @@
     @media(max-width:700px){
       #viewCotizar{padding:16px;border-radius:18px}
     }
+
+    .maps-resolve-progress { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid rgba(0, 220, 255, .28); border-radius: 12px; background: rgba(7, 18, 35, .72); box-shadow: 0 0 18px rgba(0, 210, 255, .08); }
+    .maps-resolve-progress-top { display:flex; justify-content:space-between; gap:12px; font-size:12px; font-weight:700; margin-bottom:7px; opacity:.95; }
+    .maps-resolve-progress-track { height:7px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.10); }
+    .maps-resolve-progress-bar { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, #00d9ff, #5cf2ff); box-shadow:0 0 12px rgba(0,217,255,.55); transition:width .25s ease; }
+    .maps-resolve-done { width:24px; height:24px; margin:7px 0 0 auto; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; color:#07121f; background:#57f0c2; box-shadow:0 0 14px rgba(87,240,194,.55); }
+    .maps-resolve-progress.is-done .maps-resolve-progress-track, .maps-resolve-progress.is-done .maps-resolve-progress-pct { opacity:.55; }
+    .maps-resolve-progress.is-done .maps-resolve-progress-top { margin-bottom:0; }
 </style>
 <style>.delivery-payment-card .delivery-payment-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.delivery-payment-card select,.delivery-payment-card input{min-height:46px}.delivery-payment-card input[readonly]{opacity:.88;cursor:default}</style><style id="transfer-hide-change">#delivChangeField.transfer-hidden{display:none!important}
     /* CALENDARIO VENTAS - ESTRUCTURA LIMPIA */
@@ -1345,10 +1353,14 @@
         </div>
         <label>
           <span>Link de Google Maps (opcional)</span>
-          <input type="text" id="delivMapsPaste" placeholder="Pega aquí el link de Maps para guardar el punto exacto" />
+          <input type="text" id="delivMapsPaste" placeholder="Pega aquí el link de Maps para guardar el punto exacto" autocomplete="off" />
         </label>
+        <div id="mapsResolveProgress" class="maps-resolve-progress" hidden aria-live="polite">
+          <div class="maps-resolve-progress-top"><span id="mapsResolveProgressText">Detectando ubicación…</span><span id="mapsResolveProgressPct">0%</span></div>
+          <div class="maps-resolve-progress-track"><div id="mapsResolveProgressBar" class="maps-resolve-progress-bar"></div></div>
+          <div id="mapsResolveDone" class="maps-resolve-done" hidden aria-label="Ubicación lista">✓</div>
+        </div>
         <div class="photo-actions">
-          <button type="button" id="btnLoadMap">Cargar en Google Maps</button>
           <button type="button" class="ghost" id="btnMyLoc">Usar mi ubicación</button>
           <a class="btn ghost" id="btnOpenMaps" hidden target="_blank" rel="noreferrer">Abrir en Google Maps</a>
         </div>
@@ -3642,63 +3654,125 @@
         renderDeliveries();
       });
     });
-    document.getElementById("btnLoadMap").addEventListener("click", async () => {
-      // Leer directamente del elemento evita problemas de estado/autofill en Android.
+    const mapsProgress = {
+      box: document.getElementById("mapsResolveProgress"),
+      bar: document.getElementById("mapsResolveProgressBar"),
+      text: document.getElementById("mapsResolveProgressText"),
+      pct: document.getElementById("mapsResolveProgressPct"),
+      done: document.getElementById("mapsResolveDone")
+    };
+    let mapsAutoTimer = null;
+    let mapsResolveSeq = 0;
+
+    function setMapsProgress(percent, text, show = true) {
+      if (!mapsProgress.box) return;
+      mapsProgress.box.hidden = !show;
+      mapsProgress.box.classList.remove("is-done");
+      if (mapsProgress.done) mapsProgress.done.hidden = true;
+      const n = Math.max(0, Math.min(100, Number(percent) || 0));
+      if (mapsProgress.bar) mapsProgress.bar.style.width = n + "%";
+      if (mapsProgress.pct) mapsProgress.pct.textContent = Math.round(n) + "%";
+      if (mapsProgress.text) mapsProgress.text.textContent = text || "Procesando ubicación…";
+    }
+    function finishMapsProgress(text) {
+      setMapsProgress(100, text || "Ubicación lista ✓", true);
+      mapsProgress.box && mapsProgress.box.classList.add("is-done");
+      if (mapsProgress.done) mapsProgress.done.hidden = false;
+      if (mapsProgress.pct) mapsProgress.pct.textContent = "✓";
+      // La palomita permanece visible para que el usuario sepa que la ubicación quedó lista.
+    }
+
+    async function loadGoogleMapsFromInput() {
+      const seq = ++mapsResolveSeq;
       const pasteInput = document.getElementById("delivMapsPaste");
       const pastedRaw = String(pasteInput ? pasteInput.value : (del.mapsPaste && del.mapsPaste.value) || "").trim();
-      if (pastedRaw) {
-        const pasted = parseMapsUrl(pastedRaw);
+      if (!pastedRaw) return false;
 
-        if (pasted && validCoords(pasted.lat, pasted.lng)) {
-          const label = await reverseLabel(pasted.lat, pasted.lng);
-          setDelivPin(pasted.lat, pasted.lng, label);
+      setMapsProgress(8, "Detectando enlace de Google Maps…");
+      const pasted = parseMapsUrl(pastedRaw);
+
+      if (pasted && validCoords(pasted.lat, pasted.lng)) {
+        if (seq !== mapsResolveSeq) return false;
+        setMapsProgress(35, "Coordenadas encontradas…");
+        const label = await reverseLabel(pasted.lat, pasted.lng);
+        if (seq !== mapsResolveSeq) return false;
+        setMapsProgress(75, "Cargando ubicación exacta…");
+        setDelivPin(pasted.lat, pasted.lng, label);
+        del._mapsOriginalUrl = pastedRaw;
+        if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
+        if (label) del.address.value = label;
+        finishMapsProgress("Ubicación exacta cargada ✓");
+        toast("Ubicación exacta cargada desde Google Maps");
+        return true;
+      }
+
+      if (isGoogleMapsLink(pastedRaw)) {
+        setMapsProgress(25, "Resolviendo ubicación…");
+        const resolved = await resolveGoogleMapsShortUrl(pastedRaw);
+        if (seq !== mapsResolveSeq) return false;
+        if (resolved && validCoords(resolved.lat, resolved.lng)) {
+          setMapsProgress(62, "Obteniendo dirección exacta…");
+          const label = await reverseLabel(resolved.lat, resolved.lng);
+          if (seq !== mapsResolveSeq) return false;
+          setMapsProgress(84, "Marcando punto de entrega…");
+          setDelivPin(resolved.lat, resolved.lng, label);
           del._mapsOriginalUrl = pastedRaw;
           if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
           if (label) del.address.value = label;
-          toast("Ubicación cargada desde Google Maps");
-          return;
+          finishMapsProgress("Ubicación exacta cargada ✓");
+          toast("Ubicación exacta cargada desde Google Maps");
+          return true;
         }
 
-        if (isGoogleMapsLink(pastedRaw)) {
-          // Los maps.app.goo.gl son enlaces cortos: intentamos resolverlos para
-          // obtener lat/lng reales. Si el navegador bloquea la redirección,
-          // conservamos el enlace original y Google Maps lo abrirá exactamente.
-          if (del.hint) del.hint.textContent = "Resolviendo ubicación de Google Maps…";
-          const resolved = await resolveGoogleMapsShortUrl(pastedRaw);
-          if (resolved && validCoords(resolved.lat, resolved.lng)) {
-            const label = await reverseLabel(resolved.lat, resolved.lng);
-            setDelivPin(resolved.lat, resolved.lng, label);
-            del._mapsOriginalUrl = pastedRaw;
-            if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
-            if (label) del.address.value = label;
-            if (del.hint) del.hint.textContent = "Ubicación exacta cargada desde Google Maps.";
-            toast("Ubicación exacta cargada desde Google Maps");
-            return;
-          }
-
-          del._mapsOriginalUrl = pastedRaw;
-          if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
-          if (!(del.address.value || "").trim()) del.address.value = "Ubicación compartida de Google Maps";
-          if (del.hint) del.hint.textContent = "Enlace guardado. Se abrirá directamente en el punto compartido.";
-          toast("Link de Google Maps reconocido y guardado");
-          return;
-        }
+        del._mapsOriginalUrl = pastedRaw;
+        if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
+        if (!(del.address.value || "").trim()) del.address.value = "Ubicación compartida de Google Maps";
+        if (del.hint) del.hint.textContent = "Enlace reconocido. Se conservará el punto compartido de Google Maps.";
+        finishMapsProgress("Enlace de Google Maps reconocido ✓");
+        toast("Link de Google Maps reconocido y guardado");
+        return true;
       }
+      return false;
+    }
+
+    async function loadMapAutomatically() {
+      const ok = await loadGoogleMapsFromInput();
+      if (ok) return true;
 
       const address = String(del.address.value || "").trim();
-      if (!address) {
-        toast("Escribe una dirección o pega un link de Google Maps");
-        return;
-      }
+      if (!address) return false;
+
+      setMapsProgress(20, "Buscando dirección…");
       const hit = await geocodeQuery(address);
       if (!hit || !validCoords(hit.lat, hit.lng)) {
-        toast("No se encontró esa dirección");
-        return;
+        if (mapsProgress.box) mapsProgress.box.hidden = true;
+        return false;
       }
+      setMapsProgress(75, "Marcando punto de entrega…");
       setDelivPin(hit.lat, hit.lng, hit.label);
       if (hit.label) del.address.value = hit.label;
-      toast("Ubicación cargada en el mapa");
-    });
+      finishMapsProgress("Ubicación lista ✓");
+      return true;
+    }
+
+    if (del.mapsPaste) {
+      const scheduleMapsAutoLoad = () => {
+        clearTimeout(mapsAutoTimer);
+        const value = String(del.mapsPaste.value || "").trim();
+        if (!value) {
+          mapsResolveSeq++;
+          if (mapsProgress.box) mapsProgress.box.hidden = true;
+          return;
+        }
+        if (!isGoogleMapsLink(value)) return;
+        mapsAutoTimer = setTimeout(() => loadGoogleMapsFromInput(), 300);
+      };
+
+      del.mapsPaste.addEventListener("paste", () => setTimeout(scheduleMapsAutoLoad, 0));
+      del.mapsPaste.addEventListener("input", scheduleMapsAutoLoad);
+      del.mapsPaste.addEventListener("change", scheduleMapsAutoLoad);
+    }
+
     document.getElementById("btnMyLoc").addEventListener("click", () => {
       if (!navigator.geolocation) { toast("Tu dispositivo no comparte ubicación"); return; }
       navigator.geolocation.getCurrentPosition(async (pos) => {
