@@ -1800,6 +1800,40 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
+    /* PERSISTENT_SESSION_V1
+       Mantiene la sesión hasta que el usuario cierre sesión manualmente. */
+    const PERSISTENT_SESSION_KEY = "app_persistent_session_v1";
+
+    function savePersistentSession() {
+      try {
+        const current = (typeof state !== "undefined" && state && state.user)
+          ? state.user
+          : null;
+        if (current) {
+          localStorage.setItem(PERSISTENT_SESSION_KEY, JSON.stringify(current));
+        }
+      } catch (_) {}
+    }
+
+    function restorePersistentSession() {
+      try {
+        const raw = localStorage.getItem(PERSISTENT_SESSION_KEY);
+        if (!raw || typeof state === "undefined" || !state) return false;
+        const saved = JSON.parse(raw);
+        if (!saved) return false;
+        state.user = saved;
+        savePersistentSession();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function clearPersistentSession() {
+      try { localStorage.removeItem(PERSISTENT_SESSION_KEY); } catch (_) {}
+    }
+
+
     /* =========================================================
        CONFIG — pega aquí tus datos de Supabase (gratis)
        Project Settings → API → Project URL + anon public key
@@ -2339,6 +2373,7 @@
           sessionStorage.removeItem("hs_edit_unlocked");
           closeModal();
       
+    restorePersistentSession();
     applyAuthMode();
           toast("Sesión de edición cerrada");
           return;
