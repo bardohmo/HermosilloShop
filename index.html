@@ -469,6 +469,29 @@
       border-color:rgba(255,55,75,.50);
     }
 
+    .phone-title-row {
+      display:flex !important;
+      align-items:center !important;
+      gap:7px !important;
+      width:100%;
+      line-height:1.2;
+    }
+    .phone-title-row > .phone-title-switch {
+      display:inline-flex !important;
+      align-items:center !important;
+      flex:0 0 auto !important;
+      margin:0 !important;
+      padding:0 !important;
+      position:relative;
+    }
+    .phone-title-row > .phone-title-switch input {
+      position:absolute;
+      opacity:0;
+      width:1px;
+      height:1px;
+      pointer-events:none;
+    }
+    
     input:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.12); }
     /* Error visual para campos obligatorios vacíos */
     input.required-field-error,
@@ -1422,11 +1445,11 @@
         <label>
           <span>Nombre de la persona</span>
           <input type="text" id="delivName" required maxlength="80" placeholder="Ej. Juan Pérez" autocomplete="name" /></label>
-        <label>
-          <span>Celular</span> <span class="phone-title-switch" aria-hidden="true">
-            <input type="checkbox" id="delivNoPhone" checked>
-            <span class="no-phone-switch"><span></span></span>
-          </span>
+        <label class="phone-title-row">
+          <span>Celular</span> <span class="phone-title-switch">
+              <input type="checkbox" id="delivNoPhone" checked>
+              <span class="no-phone-switch"><span></span></span>
+            </span>
           <input type="tel" id="delivPhone" required maxlength="24" placeholder="Ej. 662 123 4567" autocomplete="tel" />
         </label>
         <label>
