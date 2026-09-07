@@ -414,6 +414,10 @@
     /* Error visual para campos obligatorios vacíos */
     input.required-field-error,
     input.required-field-error:focus,
+    input[type="date"].required-field-error,
+    input[type="tel"].required-field-error,
+    input[type="number"].required-field-error,
+    input[type="password"].required-field-error,
     textarea.required-field-error,
     textarea.required-field-error:focus,
     select.required-field-error,
@@ -1363,6 +1367,10 @@
         <label>
           <span>Celular</span>
           <input type="tel" id="delivPhone" required maxlength="24" placeholder="Ej. 662 123 4567" autocomplete="tel" />
+          <label class="checkbox-row" style="margin-top:6px;">
+            <input type="checkbox" id="delivNoPhone">
+            <span>Sin celular</span>
+          </label>
         </label>
         <label>
           <span>Dirección</span>
@@ -2133,8 +2141,28 @@
     }
     [els.purchasePrice, els.price, els.stock].forEach((el) => el.addEventListener("input", updateProfitPreview));
 
+    // Validación visual: marca inmediatamente en rojo translúcido los campos
+    // obligatorios que estén vacíos al intentar guardar cualquier formulario.
+    function markRequiredFields(form) {
+      let hasEmpty = false;
+      form.querySelectorAll("input[required], select[required], textarea[required]").forEach((field) => {
+        const empty = !String(field.value ?? "").trim();
+        field.classList.toggle("required-field-error", empty);
+        if (empty) hasEmpty = true;
+      });
+      return hasEmpty;
+    }
+
+    document.addEventListener("input", (e) => {
+      const field = e.target;
+      if (field && field.matches && field.matches("input[required], select[required], textarea[required]") && String(field.value ?? "").trim()) {
+        field.classList.remove("required-field-error");
+      }
+    }, true);
+
     els.form.addEventListener("submit", async (e) => {
       e.preventDefault();
+      if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
       if (!requireEdit()) return;
       if (!supabaseClient) return;
       const name = els.name.value.trim();
@@ -2221,31 +2249,6 @@
           sessionStorage.removeItem("hs_edit_unlocked");
           closeModal();
       
-    // Marcar visualmente los campos obligatorios que se dejan vacíos.
-    // Se aplica a todos los formularios que usan el atributo HTML "required".
-    (() => {
-      const requiredSelector = 'input[required], select[required], textarea[required]';
-      const clearRequiredError = (field) => {
-        if (field && String(field.value ?? '').trim()) field.classList.remove('required-field-error');
-      };
-      const markEmptyRequiredFields = (form) => {
-        let hasEmpty = false;
-        form.querySelectorAll(requiredSelector).forEach((field) => {
-          const empty = !String(field.value ?? '').trim();
-          field.classList.toggle('required-field-error', empty);
-          if (empty) hasEmpty = true;
-        });
-        return hasEmpty;
-      };
-      document.querySelectorAll('form').forEach((form) => {
-        form.addEventListener('submit', () => {
-          markEmptyRequiredFields(form);
-        }, true);
-        form.addEventListener('input', (e) => clearRequiredError(e.target), true);
-        form.addEventListener('change', (e) => clearRequiredError(e.target), true);
-      });
-    })();
-
     applyAuthMode();
           toast("Sesión de edición cerrada");
           return;
@@ -2264,6 +2267,7 @@
     if (els.loginForm) {
       els.loginForm.addEventListener("submit", (e) => {
         e.preventDefault();
+        if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
         const key = (els.loginKey.value || "").trim();
         if (key === CONFIG.EDIT_KEY) {
           isUnlocked = true;
@@ -3861,6 +3865,7 @@
     
     del.form.addEventListener("submit", (e) => {
       e.preventDefault();
+      if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
       const name = del.name.value.trim();
       const phone = del.phone.value.trim();
       const address = del.address.value.trim();
@@ -4429,6 +4434,7 @@
     if (saleEls.form) {
       saleEls.form.addEventListener("submit", (e) => {
         e.preventDefault();
+        if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
         if (!saleFormItems.length) { toast("Elige al menos un artículo"); return; }
         if (saleEls.customOn && saleEls.customOn.checked) {
           const raw = saleEls.customTotal ? String(saleEls.customTotal.value).trim() : "";
@@ -4499,6 +4505,31 @@
       })();
     });
 
+
+    
+    // Opción de entrega sin número de celular.
+    (() => {
+      const phone = document.getElementById("delivPhone");
+      const noPhone = document.getElementById("delivNoPhone");
+      if (!phone || !noPhone) return;
+
+      const syncNoPhone = () => {
+        if (noPhone.checked) {
+          phone.value = "";
+          phone.disabled = true;
+          phone.removeAttribute("required");
+          phone.placeholder = "Sin celular";
+          phone.classList.remove("required-field-error");
+        } else {
+          phone.disabled = false;
+          phone.setAttribute("required", "");
+          phone.placeholder = "Celular";
+        }
+      };
+
+      noPhone.addEventListener("change", syncNoPhone);
+      syncNoPhone();
+    })(); // Sin celular — delivNoPhone
 
     applyAuthMode();
     if (currentView) showView(currentView);
