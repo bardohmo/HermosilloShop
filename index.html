@@ -418,7 +418,7 @@
       padding: 5px 10px 5px 7px;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 7px;
       border: 1px solid rgba(148,163,184,.20);
       border-radius: 999px;
       background: rgba(8,15,30,.62);
@@ -1445,9 +1445,9 @@
           <span>Celular</span>
           <input type="tel" id="delivPhone" required maxlength="24" placeholder="Ej. 662 123 4567" autocomplete="tel" />
           <label class="no-phone-toggle" for="delivNoPhone">
+            <span class="no-phone-text">Sin número</span>
             <input type="checkbox" id="delivNoPhone">
             <span class="no-phone-switch" aria-hidden="true"><span></span></span>
-            <span class="no-phone-text">Sin celular</span>
           </label>
         </label>
         <label>
@@ -4596,6 +4596,7 @@
           phone.value = "";
           phone.disabled = true;
           phone.removeAttribute("required");
+          phone.setCustomValidity("");
           phone.placeholder = "Sin celular";
           phone.classList.remove("required-field-error");
         } else {
