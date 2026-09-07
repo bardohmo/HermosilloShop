@@ -411,6 +411,21 @@
       background: rgba(0,0,0,0.35); color: var(--text); font: inherit; outline: none;
     }
     input:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.12); }
+    /* Error visual para campos obligatorios vacíos */
+    input.required-field-error,
+    input.required-field-error:focus,
+    textarea.required-field-error,
+    textarea.required-field-error:focus,
+    select.required-field-error,
+    select.required-field-error:focus {
+      background: rgba(255, 55, 75, 0.16) !important;
+      border-color: rgba(255, 55, 75, 0.90) !important;
+      box-shadow: 0 0 0 3px rgba(255, 55, 75, 0.14), 0 0 14px rgba(255, 55, 75, 0.16) !important;
+    }
+    input.required-field-error::placeholder,
+    textarea.required-field-error::placeholder {
+      color: rgba(255, 190, 195, 0.78);
+    }
     textarea { min-height: 72px; resize: vertical; }
     .photo-preview {
       width: 100%; aspect-ratio: 16 / 10; border-radius: 12px; border: 1px dashed var(--line);
