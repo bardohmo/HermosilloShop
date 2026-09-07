@@ -1207,6 +1207,9 @@
 
 /* Tonos distintos pero visualmente cercanos */
 .purchase-row{border-color:rgba(90,190,255,.30)}
+.net-gain-row{border-color:rgba(87,240,194,.34)}
+    .net-gain-row strong{color:#57f0c2}
+    
 .purchase-row span,.purchase-row strong{color:#72caff}
 
 .gain-row{border-color:rgba(105,210,190,.28)}
@@ -2018,9 +2021,33 @@
             ${isUnlocked && a.purchase_price !== null && a.purchase_price !== undefined && String(a.purchase_price).trim() !== "" && Number(a.purchase_price) > 0 ? (() => {
               const purchase = Number(a.purchase_price);
               const sale = Number(a.price) || 0;
-              const gain = sale - purchase;
-              const roi = (gain / purchase) * 100;
-              const potential = gain * (Number(a.stock) || 0);
+              const stock = Number(a.stock) || 0;
+
+              // Ventas realizadas de este artículo.
+              const productSales = (sales || []).reduce((acc, s) => {
+                (s.items || []).forEach((it) => {
+                  if (String(it.id) !== String(a.id)) return;
+                  const qty = Math.max(0, Number(it.qty) || 0);
+                  const itemSalePrice = Number(it.price);
+                  const realizedUnitPrice = Number.isFinite(itemSalePrice) ? itemSalePrice : sale;
+                  acc.qty += qty;
+                  acc.revenue += qty * realizedUnitPrice;
+                });
+                return acc;
+              }, { qty: 0, revenue: 0 });
+
+              // Se estima la inversión total de compra a partir de las unidades
+              // vendidas + las que aún quedan en existencia.
+              const purchasedQty = productSales.qty + stock;
+              const purchaseInvestment = purchase * purchasedQty;
+              const realizedGain = productSales.revenue - (purchase * productSales.qty);
+
+              // Resultado acumulado después de descontar la inversión de compra.
+              const netGain = productSales.revenue - purchaseInvestment;
+
+              const roi = ((sale - purchase) / purchase) * 100;
+              const potential = (sale - purchase) * stock;
+
               return `<details class="investment-details">
   <summary class="investment-summary">
     <span class="investment-title"><span class="investment-icon">$</span> Inversión</span>
@@ -2029,28 +2056,33 @@
   </summary>
   <div class="investment-content">
     <div class="investment-row purchase-row">
-      <span>Compra</span>
+      <span>Compra por unidad</span>
       <strong>${money(purchase)} MXN</strong>
     </div>
     <div class="investment-row gain-row">
-      <span>Ganancia</span>
-      <strong>${money(gain)} MXN</strong>
+      <span>Ganancia por unidad</span>
+      <strong>${money(sale - purchase)} MXN</strong>
+    </div>
+    <div class="investment-row net-gain-row">
+      <span>Ganancia neta</span>
+      <strong>${money(netGain)} MXN</strong>
     </div>
     <div class="investment-row roi-row">
-      <span>Rentabilidad</span>
+      <span>Rentabilidad por unidad</span>
       <strong>${roi.toFixed(1)}%</strong>
     </div>
     <div class="investment-row potential-row">
-      <span>Ganancia potencial · ${Number(a.stock) || 0} uds.</span>
+      <span>Ganancia potencial · ${stock} uds.</span>
       <strong>${money(potential)} MXN</strong>
     </div>
   </div>
 </details>`;
-            })() : (isUnlocked ? `<div class="purchase-missing-card">Precio de compra pendiente</div>` : "")}
+            })() : ""}
             ${a.description ? `<div class="meta">${escapeHtml(a.description)}</div>` : ""}
             ${actions}
           </div>
         </article>`;
+
       }).join("");
     }
 
@@ -3103,6 +3135,7 @@
       });
       try { sessionStorage.setItem(SALES_KEY, JSON.stringify(sales)); } catch (_) {}
       renderSales();
+      render();
     }
 
     async function saveSalesStore() {
