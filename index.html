@@ -512,12 +512,6 @@
     .net-gain-row small {
       color: rgba(148,163,184,.62) !important;
     }
-    .investment-missing-cost{
-      margin-top:4px;
-      font-size:.58rem;
-      color:rgba(148,163,184,.58);
-      font-style:italic;
-    }
     input:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.12); }
     /* Error visual para campos obligatorios vacíos */
     input.required-field-error,
@@ -2078,7 +2072,7 @@
               // Resultado acumulado después de descontar la inversión de compra.
               const netGain = productSales.revenue - purchaseInvestment;
 
-              const roi = ((sale - purchase) / purchase) * 100;
+              const roi = hasPurchaseCost ? ((sale - purchase) / purchase) * 100 : 0;
               const potential = (sale - purchase) * stock;
 
               return `<details class="investment-details">
@@ -2088,7 +2082,7 @@
     <span class="investment-arrow">⌄</span>
   </summary>
   <div class="investment-content">
-    <div class="investment-row purchase-row">
+    ${hasPurchaseCost ? `<div class="investment-row purchase-row">
       <span>Compra por unidad</span>
       <strong>${money(purchase)} MXN</strong>
     </div>
@@ -2096,25 +2090,22 @@
       <span>Ganancia por unidad</span>
       <strong>${money(sale - purchase)} MXN</strong>
     </div>
-    
     <div class="investment-row roi-row">
       <span>Rentabilidad por unidad</span>
       <strong>${roi.toFixed(1)}%</strong>
-    </div>
-${hasPurchaseCost ? `    <div class="investment-row potential-row">
+    </div>` : ""}
+    <div class="investment-row potential-row">
       <span>Ganancia potencial · ${stock} uds.</span>
-      <strong>${money(potential)} MXN</strong>
+      <strong>${hasPurchaseCost ? money(potential) : "—"} MXN</strong>
     </div>
-` : ""}
-${hasPurchaseCost ? `    <div class="investment-row net-gain-row ${netGain >= 0 ? "net-positive" : "net-negative"}">
+    ${hasPurchaseCost ? `<div class="investment-row net-gain-row ${netGain >= 0 ? "net-positive" : "net-negative"}">
       <span>
         <span class="net-gain-label">Ganancia neta</span>
         <small>(ganancias después de inversión)</small>
       </span>
       <strong>${netGain > 0 ? "+" : netGain < 0 ? "-" : ""}${money(Math.abs(netGain))} MXN</strong>
-    </div>
-  ` : ""}
-</div>
+    </div>` : ""}
+  </div>
 </details>`;
             })() : ""}
             ${a.description ? `<div class="meta">${escapeHtml(a.description)}</div>` : ""}
