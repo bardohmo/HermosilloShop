@@ -502,6 +502,16 @@
       margin-top:6px;
     }
 
+    .net-gain-label {
+      color: var(--text) !important;
+    }
+    .net-gain-row.net-negative .net-gain-label,
+    .net-gain-row.net-positive .net-gain-label {
+      color: var(--text) !important;
+    }
+    .net-gain-row small {
+      color: rgba(148,163,184,.62) !important;
+    }
     input:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.12); }
     /* Error visual para campos obligatorios vacíos */
     input.required-field-error,
@@ -1216,7 +1226,7 @@
       filter:none !important;}
     .net-gain-row.net-positive{border-color:rgba(87,240,194,.30)}
     .net-gain-row.net-positive strong{color:#57f0c2 !important}
-    .net-gain-row.net-negative strong{color:#57f0c2 !important}
+    .net-gain-row.net-negative strong{color:#9ca3af !important}
     .net-gain-row small{
       display:block;
       margin-top:2px;
