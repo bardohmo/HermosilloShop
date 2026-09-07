@@ -2193,7 +2193,33 @@
           isUnlocked = false;
           sessionStorage.removeItem("hs_edit_unlocked");
           closeModal();
-          applyAuthMode();
+      
+    // Marcar visualmente los campos obligatorios que se dejan vacíos.
+    // Se aplica a todos los formularios que usan el atributo HTML "required".
+    (() => {
+      const requiredSelector = 'input[required], select[required], textarea[required]';
+      const clearRequiredError = (field) => {
+        if (field && String(field.value ?? '').trim()) field.classList.remove('required-field-error');
+      };
+      const markEmptyRequiredFields = (form) => {
+        let hasEmpty = false;
+        form.querySelectorAll(requiredSelector).forEach((field) => {
+          const empty = !String(field.value ?? '').trim();
+          field.classList.toggle('required-field-error', empty);
+          if (empty) hasEmpty = true;
+        });
+        return hasEmpty;
+      };
+      document.querySelectorAll('form').forEach((form) => {
+        form.addEventListener('submit', () => {
+          markEmptyRequiredFields(form);
+        }, true);
+        form.addEventListener('input', (e) => clearRequiredError(e.target), true);
+        form.addEventListener('change', (e) => clearRequiredError(e.target), true);
+      });
+    })();
+
+    applyAuthMode();
           toast("Sesión de edición cerrada");
           return;
         }
