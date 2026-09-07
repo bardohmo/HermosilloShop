@@ -2562,15 +2562,20 @@
       trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>',
     };
 
+    function validCoords(lat, lng) {
+      const a = Number(lat), b = Number(lng);
+      // 0,0 is Null Island and must never be treated as a valid delivery point.
+      return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180 && !(a === 0 && b === 0);
+    }
     function mapsSearchUrl(address, lat, lng) {
-      if (lat != null && lng != null && isFinite(lat) && isFinite(lng)) {
-        return "https://www.google.com/maps/search/?api=1&query=" + lat + "," + lng;
+      if (validCoords(lat, lng)) {
+        return "https://www.google.com/maps/search/?api=1&query=" + Number(lat) + "," + Number(lng);
       }
       return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent((address || "").trim());
     }
     function mapsDirUrl(address, lat, lng) {
-      const dest = lat != null && lng != null && isFinite(lat) && isFinite(lng)
-        ? lat + "," + lng
+      const dest = validCoords(lat, lng)
+        ? Number(lat) + "," + Number(lng)
         : encodeURIComponent((address || "").trim());
       return "https://www.google.com/maps/dir/?api=1&destination=" + dest + "&travelmode=driving";
     }
@@ -2589,7 +2594,7 @@
         if (m) {
           const lat = Number(m[1]);
           const lng = Number(m[2]);
-          if (isFinite(lat) && isFinite(lng)) return { lat, lng };
+          if (validCoords(lat, lng)) return { lat, lng };
         }
       }
       return null;
@@ -3583,7 +3588,7 @@
     });
     document.getElementById("btnLoadMap").addEventListener("click", async () => {
       const pasted = parseMapsUrl(del.mapsPaste.value);
-      if (pasted) {
+      if (pasted && validCoords(pasted.lat, pasted.lng)) {
         const label = await reverseLabel(pasted.lat, pasted.lng);
         setDelivPin(pasted.lat, pasted.lng, label);
         toast("Ubicación cargada desde Google Maps");
