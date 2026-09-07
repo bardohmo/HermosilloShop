@@ -3994,23 +3994,32 @@
       const payment = { method: paymentMethod, transferStatus, deliveryFee, amountToReceive, amountPaid: amountToReceive, totalToCharge, changeToReturn };
       const prev = del.editId.value ? deliveries.find((r) => r.id === del.editId.value) : null;
       (async () => {
-        // El stock se reserva desde que la entrega queda pendiente.
-        // Al marcarla como realizada no se vuelve a descontar.
+        // El stock se descuenta solo cuando la entrega está/queda realizada.
+        // En pendiente solo se agenda; no se toca el catálogo.
         if (prev) {
           const prevItems = normalizeDeliveryItems(prev.items);
-          if (prev.status === "pending") {
+          const prevDone = prev.status === "done";
+          const nextDone = delivStatus === "done";
+          if (prevDone && nextDone) {
+            // Editar una realizada: ajustar delta de stock y recrear venta.
             const ok = await applyStockChanges(prevItems, items);
             if (!ok) return;
-          } else {
+            await removeDeliverySale(prev.id);
+          } else if (prevDone && !nextDone) {
+            // Pasar de realizada a pendiente: devolver stock y quitar venta.
             const restored = await applyStockChanges(prevItems, []);
             if (!restored) return;
             await removeDeliverySale(prev.id);
+          } else if (!prevDone && nextDone) {
+            // Pasar de pendiente a realizada (desde el formulario): descontar.
             if (items.length) {
               const ok = await applyStockChanges([], items);
               if (!ok) return;
             }
           }
-        } else if (items.length) {
+          // pendiente -> pendiente: sin cambio de stock
+        } else if (delivStatus === "done" && items.length) {
+          // Nueva entrega ya marcada como realizada.
           const ok = await applyStockChanges([], items);
           if (!ok) return;
         }
@@ -4063,7 +4072,11 @@
           const goingDone = row.status === "pending";
           const items = normalizeDeliveryItems(row.items);
           if (goingDone) {
-            // Ya estaba reservado el stock mientras estaba pendiente.
+            // Descontar stock al marcar realizada.
+            if (items.length) {
+              const ok = await applyStockChanges([], items);
+              if (!ok) return;
+            }
             row.status = "done";
             row.updatedAt = new Date().toISOString();
             saveDelivStore();
@@ -4074,24 +4087,28 @@
             }
             renderDeliveries();
             renderSales();
-            toast("Entrega realizada · venta registrada");
+            toast("Entrega realizada · stock descontado");
             return;
           } else {
-            // Sigue siendo una reserva: no devolvemos el stock.
+            // Volver a pendiente: devolver stock y quitar venta.
+            if (items.length) {
+              const ok = await applyStockChanges(items, []);
+              if (!ok) return;
+            }
             await removeDeliverySale(row.id);
             row.status = "pending";
           }
           row.updatedAt = new Date().toISOString();
           saveDelivStore();
           renderDeliveries();
-          toast(row.status === "done" ? "Entrega realizada" : "Entrega pendiente · venta revertida");
+          toast(row.status === "done" ? "Entrega realizada" : "Entrega pendiente · stock restaurado");
         })();
       }
       if (action === "delete") {
         pendingDelivDelete = row;
         del.deleteText.textContent = row.status === "done"
           ? "Se quitará a " + row.name + " de la lista de entregas. La venta histórica y el inventario se conservarán porque la entrega ya fue realizada."
-          : "Se quitará a " + row.name + " de la lista de entregas. Como aún está pendiente, el stock reservado se devolverá al catálogo.";
+          : "Se quitará a " + row.name + " de la lista de entregas. Como aún está pendiente, el stock del catálogo no se modifica.";
         del.deleteOverlay.classList.add("open");
       }
     });
@@ -4109,12 +4126,8 @@
         const items = normalizeLineItems(rowToDelete.items, false);
 
         if (!wasDone) {
-          // Entrega pendiente: el stock estaba reservado.
-          // Al eliminarla, se libera nuevamente y no debe quedar venta asociada.
-          if (items.length) {
-            const restored = await applyStockChanges(items, []);
-            if (!restored) return;
-          }
+          // Entrega pendiente: el stock aún no se descontó (solo se descuenta al realizar).
+          // Al eliminarla, no hay inventario que devolver; solo se limpia venta huérfana si existiera.
           await removeDeliverySale(deletedDeliveryId);
         } else {
           // Entrega realizada: es una operación cerrada.
@@ -4130,7 +4143,7 @@
         renderSales();
         toast(wasDone
           ? "Entrega eliminada · venta e inventario conservados"
-          : "Entrega eliminada · stock restaurado");
+          : "Entrega eliminada");
       }
 
       pendingDelivDelete = null;
