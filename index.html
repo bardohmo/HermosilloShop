@@ -410,6 +410,83 @@
       width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
       background: rgba(0,0,0,0.35); color: var(--text); font: inherit; outline: none;
     }
+    /* Control elegante para indicar que el cliente no tiene celular */
+    .no-phone-toggle {
+      width: fit-content;
+      min-height: 34px;
+      margin-top: 8px;
+      padding: 5px 10px 5px 7px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(148,163,184,.20);
+      border-radius: 999px;
+      background: rgba(8,15,30,.62);
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      transition: .2s ease;
+    }
+    .no-phone-toggle:hover {
+      border-color: rgba(0,245,255,.38);
+      background: rgba(0,245,255,.055);
+      color: var(--text);
+    }
+    .no-phone-toggle input {
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+      pointer-events: none;
+    }
+    .no-phone-switch {
+      position: relative;
+      width: 34px;
+      height: 20px;
+      flex: 0 0 34px;
+      border-radius: 999px;
+      background: rgba(100,116,139,.34);
+      border: 1px solid rgba(148,163,184,.28);
+      box-shadow: inset 0 1px 3px rgba(0,0,0,.35);
+      transition: .2s ease;
+    }
+    .no-phone-switch > span {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #cbd5e1;
+      box-shadow: 0 1px 4px rgba(0,0,0,.45);
+      transition: .2s ease;
+    }
+    .no-phone-text {
+      font-size: .76rem;
+      font-weight: 700;
+      letter-spacing: .01em;
+    }
+    .no-phone-toggle:has(input:checked) {
+      border-color: rgba(0,245,255,.46);
+      background: rgba(0,245,255,.09);
+      color: var(--text);
+      box-shadow: 0 0 12px rgba(0,245,255,.08);
+    }
+    .no-phone-toggle:has(input:checked) .no-phone-switch {
+      background: rgba(0,245,255,.34);
+      border-color: rgba(0,245,255,.72);
+      box-shadow: 0 0 8px rgba(0,245,255,.14);
+    }
+    .no-phone-toggle:has(input:checked) .no-phone-switch > span {
+      transform: translateX(14px);
+      background: var(--cyan);
+      box-shadow: 0 0 8px rgba(0,245,255,.65);
+    }
+    .no-phone-toggle input:focus-visible + .no-phone-switch {
+      outline: 2px solid rgba(0,245,255,.55);
+      outline-offset: 2px;
+    }
+
     input:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.12); }
     /* Error visual para campos obligatorios vacíos */
     input.required-field-error,
@@ -1367,9 +1444,10 @@
         <label>
           <span>Celular</span>
           <input type="tel" id="delivPhone" required maxlength="24" placeholder="Ej. 662 123 4567" autocomplete="tel" />
-          <label class="checkbox-row" style="margin-top:6px;">
+          <label class="no-phone-toggle" for="delivNoPhone">
             <input type="checkbox" id="delivNoPhone">
-            <span>Sin celular</span>
+            <span class="no-phone-switch" aria-hidden="true"><span></span></span>
+            <span class="no-phone-text">Sin celular</span>
           </label>
         </label>
         <label>
