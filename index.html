@@ -410,12 +410,12 @@
       width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
       background: rgba(0,0,0,0.35); color: var(--text); font: inherit; outline: none;
     }
-    /* Control elegante para indicar que el cliente no tiene celular */
+    /* Switch integrado al campo Celular */
     .no-phone-toggle {
       width: fit-content;
-      min-height: 34px;
-      margin-top: 8px;
-      padding: 5px 10px 5px 7px;
+      min-height: 28px;
+      margin-top: 7px;
+      padding: 4px 8px;
       display: inline-flex;
       align-items: center;
       gap: 7px;
@@ -429,7 +429,6 @@
     }
     .no-phone-toggle:hover {
       border-color: rgba(0,245,255,.38);
-      background: rgba(0,245,255,.055);
       color: var(--text);
     }
     .no-phone-toggle input {
@@ -441,21 +440,20 @@
     }
     .no-phone-switch {
       position: relative;
-      width: 34px;
-      height: 20px;
-      flex: 0 0 34px;
+      width: 30px;
+      height: 18px;
+      flex: 0 0 30px;
       border-radius: 999px;
       background: rgba(100,116,139,.34);
       border: 1px solid rgba(148,163,184,.28);
-      box-shadow: inset 0 1px 3px rgba(0,0,0,.35);
       transition: .2s ease;
     }
     .no-phone-switch > span {
       position: absolute;
       top: 2px;
       left: 2px;
-      width: 14px;
-      height: 14px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       background: #cbd5e1;
       box-shadow: 0 1px 4px rgba(0,0,0,.45);
@@ -465,26 +463,40 @@
       font-size: .76rem;
       font-weight: 700;
       letter-spacing: .01em;
+      order: 0;
     }
+    .no-phone-switch { order: 1; }
     .no-phone-toggle:has(input:checked) {
-      border-color: rgba(0,245,255,.46);
-      background: rgba(0,245,255,.09);
+      border-color: rgba(0,245,255,.40);
+      background: rgba(0,245,255,.07);
       color: var(--text);
-      box-shadow: 0 0 12px rgba(0,245,255,.08);
     }
     .no-phone-toggle:has(input:checked) .no-phone-switch {
-      background: rgba(0,245,255,.34);
-      border-color: rgba(0,245,255,.72);
-      box-shadow: 0 0 8px rgba(0,245,255,.14);
+      background: rgba(0,245,255,.30);
+      border-color: rgba(0,245,255,.68);
     }
     .no-phone-toggle:has(input:checked) .no-phone-switch > span {
-      transform: translateX(14px);
+      transform: translateX(12px);
       background: var(--cyan);
-      box-shadow: 0 0 8px rgba(0,245,255,.65);
+      box-shadow: 0 0 8px rgba(0,245,255,.60);
     }
-    .no-phone-toggle input:focus-visible + .no-phone-switch {
-      outline: 2px solid rgba(0,245,255,.55);
-      outline-offset: 2px;
+    .no-phone-toggle:not(:has(input:checked)) {
+      border-color: rgba(255,55,75,.28);
+      background: rgba(255,55,75,.06);
+    }
+    .no-phone-toggle:not(:has(input:checked)) .no-phone-switch {
+      background: rgba(255,55,75,.18);
+      border-color: rgba(255,55,75,.50);
+    }
+
+    .deliv-phone-field.phone-disabled,
+    #delivPhone.phone-disabled {
+      background: rgba(100,116,139,.12) !important;
+      color: rgba(148,163,184,.58) !important;
+      border-color: rgba(148,163,184,.20) !important;
+      box-shadow: none !important;
+      cursor: not-allowed;
+      opacity: .72;
     }
 
     input:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.12); }
@@ -1445,8 +1457,8 @@
           <span>Celular</span>
           <input type="tel" id="delivPhone" required maxlength="24" placeholder="Ej. 662 123 4567" autocomplete="tel" />
           <label class="no-phone-toggle" for="delivNoPhone">
-            <span class="no-phone-text">Sin número</span>
-            <input type="checkbox" id="delivNoPhone">
+            <span class="no-phone-text">Celular</span>
+            <input type="checkbox" id="delivNoPhone" checked>
             <span class="no-phone-switch" aria-hidden="true"><span></span></span>
           </label>
         </label>
@@ -4593,16 +4605,18 @@
 
       const syncNoPhone = () => {
         if (noPhone.checked) {
+          phone.disabled = false;
+          phone.setAttribute("required", "");
+          phone.placeholder = "Celular";
+          phone.classList.remove("phone-disabled");
+        } else {
           phone.value = "";
           phone.disabled = true;
           phone.removeAttribute("required");
           phone.setCustomValidity("");
-          phone.placeholder = "Sin celular";
+          phone.placeholder = "Celular desactivado";
           phone.classList.remove("required-field-error");
-        } else {
-          phone.disabled = false;
-          phone.setAttribute("required", "");
-          phone.placeholder = "Celular";
+          phone.classList.add("phone-disabled");
         }
       };
 
