@@ -1211,10 +1211,12 @@
       margin-top:8px;
       padding-top:8px;
       border-top:1px solid rgba(148,163,184,.16);
-    }
+    
+      opacity:1 !important;
+      filter:none !important;}
     .net-gain-row.net-positive{border-color:rgba(87,240,194,.30)}
-    .net-gain-row.net-positive strong{color:#57f0c2}
-    .net-gain-row.net-negative strong{color:#9ca3af}
+    .net-gain-row.net-positive strong{color:#57f0c2 !important}
+    .net-gain-row.net-negative strong{color:#57f0c2 !important}
     .net-gain-row small{
       display:block;
       margin-top:2px;
@@ -2077,13 +2079,7 @@
       <span>Ganancia por unidad</span>
       <strong>${money(sale - purchase)} MXN</strong>
     </div>
-    <div class="investment-row net-gain-row ${netGain >= 0 ? "net-positive" : "net-negative"}">
-      <span>
-        <span class="net-gain-label">Ganancia neta</span>
-        <small>(ganancias después de inversión)</small>
-      </span>
-      <strong>${money(netGain)} MXN</strong>
-    </div>
+    
     <div class="investment-row roi-row">
       <span>Rentabilidad por unidad</span>
       <strong>${roi.toFixed(1)}%</strong>
@@ -2091,6 +2087,13 @@
     <div class="investment-row potential-row">
       <span>Ganancia potencial · ${stock} uds.</span>
       <strong>${money(potential)} MXN</strong>
+    </div>
+    <div class="investment-row net-gain-row ${netGain >= 0 ? "net-positive" : "net-negative"}">
+      <span>
+        <span class="net-gain-label">Ganancia neta</span>
+        <small>(ganancias después de inversión)</small>
+      </span>
+      <strong>${netGain > 0 ? "+" : netGain < 0 ? "-" : ""}${money(Math.abs(netGain))} MXN</strong>
     </div>
   </div>
 </details>`;
