@@ -2094,10 +2094,10 @@
       <span>Rentabilidad por unidad</span>
       <strong>${roi.toFixed(1)}%</strong>
     </div>` : ""}
-    <div class="investment-row potential-row">
+    ${stock > 0 ? `<div class="investment-row potential-row">
       <span>Ganancia potencial · ${stock} uds.</span>
-      <strong>${hasPurchaseCost ? money(potential) : "—"} MXN</strong>
-    </div>
+      <strong>${money(hasPurchaseCost ? potential : (sale * stock))} MXN</strong>
+    </div>` : ""}
     ${hasPurchaseCost ? `<div class="investment-row net-gain-row ${netGain >= 0 ? "net-positive" : "net-negative"}">
       <span>
         <span class="net-gain-label">Ganancia neta</span>
