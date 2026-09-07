@@ -1345,7 +1345,7 @@
     .sales-chart-wrap{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.025)}
     .sales-chart-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
     .sales-chart-title{font-size:.9rem;font-weight:800}
-    .sales-chart-subtitle{font-size:.62rem;color:var(--muted);margin-top:2px}
+    .sales-chart-subtitle{font-size:.78rem;color:var(--text);margin-top:3px;font-weight:600;line-height:1.25}
     .sales-periods{display:flex;gap:5px;flex-wrap:wrap}
     .sales-period-btn{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:5px 9px;font-size:.62rem;font-weight:700;cursor:pointer}
     .sales-period-btn.active{background:rgba(87,240,194,.12);border-color:rgba(87,240,194,.45);color:#57f0c2}
@@ -4748,9 +4748,17 @@
     let salesChartPeriod = "day";
 
     function salesDateValue(s) {
-      const raw = s?.created_at || s?.date || s?.createdAt || s?.timestamp;
-      const d = raw ? new Date(raw) : null;
-      return d && !Number.isNaN(d.getTime()) ? d : null;
+      // Use the same calendar date used by the sales/month summary first.
+      // This prevents UTC/local timezone conversion from moving a sale
+      // to the previous month.
+      const rawDate = s?.date;
+      if (rawDate && /^\d{4}-\d{2}-\d{2}$/.test(String(rawDate))) {
+        const [y,m,d] = String(rawDate).split("-").map(Number);
+        return new Date(y, m - 1, d);
+      }
+      const raw = s?.createdAt || s?.created_at || s?.timestamp;
+      const parsed = raw ? new Date(raw) : null;
+      return parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
     }
 
     function salesTotalValue(s) {
