@@ -1344,8 +1344,8 @@
 
     .sales-chart-wrap{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.025)}
     .sales-chart-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-    .sales-chart-title{font-size:.9rem;font-weight:800}
-    .sales-chart-subtitle{font-size:.78rem;color:var(--text);margin-top:3px;font-weight:600;line-height:1.25}
+    .sales-chart-title{font-size:.72rem;font-weight:700}
+    .sales-chart-subtitle{font-size:.62rem;color:var(--muted);margin-top:2px;font-weight:500;line-height:1.15}
     .sales-periods{display:flex;gap:5px;flex-wrap:wrap}
     .sales-period-btn{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:5px 9px;font-size:.62rem;font-weight:700;cursor:pointer}
     .sales-period-btn.active{background:rgba(87,240,194,.12);border-color:rgba(87,240,194,.45);color:#57f0c2}
@@ -1670,7 +1670,8 @@
               <div class="sales-chart-subtitle" id="salesChartSubtitle">Total vendido</div>
             </div>
             <div class="sales-periods" role="tablist" aria-label="Periodo de ventas">
-              <button type="button" class="sales-period-btn active" data-sales-period="day">Día</button>
+              <button type="button" class="sales-period-btn active" data-sales-period="all">Todas</button>
+              <button type="button" class="sales-period-btn" data-sales-period="day">Día</button>
               <button type="button" class="sales-period-btn" data-sales-period="week">Semana</button>
               <button type="button" class="sales-period-btn" data-sales-period="month">Mes</button>
               <button type="button" class="sales-period-btn" data-sales-period="year">Año</button>
@@ -4745,7 +4746,7 @@
     }
   
     /* Gráfica de líneas de ventas: día / semana / mes / año */
-    let salesChartPeriod = "day";
+    let salesChartPeriod = "all";
 
     function salesDateValue(s) {
       // Use the same calendar date used by the sales/month summary first.
@@ -4772,6 +4773,7 @@
     }
 
     function salesPeriodKey(d, period) {
+      if (period === "all") return "all";
       if (period === "day") {
         return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
       }
@@ -4795,7 +4797,10 @@
         const [y,m] = key.split("-").map(Number);
         return new Intl.DateTimeFormat("es-MX",{month:"short",year:"numeric"}).format(new Date(y,m-1,1));
       }
-      if (period === "week") return key.replace("-", " ");
+      if (period === "week") {
+        const m = String(key).match(/^(\d{4})-W(\d{1,2})$/);
+        return m ? `Semana ${Number(m[2])} de ${m[1]}` : key;
+      }
       const [y,m,d] = key.split("-").map(Number);
       return new Intl.DateTimeFormat("es-MX",{day:"2-digit",month:"short"}).format(new Date(y,m-1,d));
     }
@@ -4803,9 +4808,10 @@
     function renderSalesLineChart() {
       const root = document.getElementById("salesLineChart");
       if (!root) return;
+      const chartPeriod = salesChartPeriod === "all" ? "day" : salesChartPeriod;
       const rows = (sales || []).map(s => {
         const d = salesDateValue(s);
-        return d ? { key:salesPeriodKey(d,salesChartPeriod), value:salesTotalValue(s) } : null;
+        return d ? { key:salesPeriodKey(d,chartPeriod), value:salesTotalValue(s) } : null;
       }).filter(Boolean);
 
       const grouped = {};
@@ -4813,7 +4819,7 @@
       const keys = Object.keys(grouped).sort();
 
       const subtitle = document.getElementById("salesChartSubtitle");
-      if (subtitle) subtitle.textContent = keys.length ? "Total vendido por " + ({day:"día",week:"semana",month:"mes",year:"año"}[salesChartPeriod]) : "Aún no hay ventas registradas";
+      if (subtitle) subtitle.textContent = keys.length ? "Total vendido por " + ({all:"día",day:"día",week:"semana",month:"mes",year:"año"}[salesChartPeriod]) : "Aún no hay ventas registradas";
 
       if (!keys.length) {
         root.innerHTML = '<div class="sales-chart-empty">Sin ventas para mostrar</div>';
@@ -4837,7 +4843,7 @@
       const dots=points.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#57f0c2"><title>${salesPeriodLabel(p.k,salesChartPeriod)} · ${money(p.v)} MXN</title></circle>`).join("");
       const labels=points.map((p,i)=>{
         if (keys.length>12 && i%Math.ceil(keys.length/12)!==0 && i!==keys.length-1) return "";
-        return `<text x="${p.x}" y="${H-10}" text-anchor="middle" fill="rgba(148,163,184,.75)" font-size="10">${salesPeriodLabel(p.k,salesChartPeriod)}</text>`;
+        return `<text x="${p.x}" y="${H-8}" text-anchor="middle" fill="rgba(226,232,240,.9)" font-size="14" font-weight="700">${salesPeriodLabel(p.k,salesChartPeriod)}</text>`;
       }).join("");
       root.innerHTML=`<svg class="sales-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Gráfica de ventas">
         ${grid}
