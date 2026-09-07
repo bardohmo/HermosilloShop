@@ -1670,8 +1670,7 @@
               <div class="sales-chart-subtitle" id="salesChartSubtitle">Total vendido</div>
             </div>
             <div class="sales-periods" role="tablist" aria-label="Periodo de ventas">
-              <button type="button" class="sales-period-btn active" data-sales-period="all">Todas</button>
-              <button type="button" class="sales-period-btn" data-sales-period="day">Día</button>
+              <button type="button" class="sales-period-btn active" data-sales-period="day">Día</button>
               <button type="button" class="sales-period-btn" data-sales-period="week">Semana</button>
               <button type="button" class="sales-period-btn" data-sales-period="month">Mes</button>
               <button type="button" class="sales-period-btn" data-sales-period="year">Año</button>
@@ -3071,6 +3070,7 @@
     const SALES_KEY = "hs_sales_v1";
     let sales = [];
     let saleCalendarMonth = new Date().getMonth();
+    let saleShowAllHistory = true;
     let saleYear = new Date().getFullYear();
     let delivItems = [];
     let saleFormItems = [];
@@ -4444,18 +4444,21 @@
       const prev = host.querySelector("[data-cal-prev]");
       const next = host.querySelector("[data-cal-next]");
       if (prev) prev.addEventListener("click", () => {
+        saleShowAllHistory = false;
         saleCalendarMonth--;
         if (saleCalendarMonth < 0) { saleCalendarMonth = 11; saleYear--; }
         fillSaleYears();
         renderSales();
       });
       if (next) next.addEventListener("click", () => {
+        saleShowAllHistory = false;
         saleCalendarMonth++;
         if (saleCalendarMonth > 11) { saleCalendarMonth = 0; saleYear++; }
         fillSaleYears();
         renderSales();
       });
       host.querySelectorAll("[data-summary-month]").forEach((btn) => btn.addEventListener("click", () => {
+        saleShowAllHistory = false;
         saleCalendarMonth = Number(btn.getAttribute("data-summary-month")) || 0;
         renderSales();
       }));
@@ -4517,12 +4520,12 @@
       if (saleEls.avg) { const dayKeys = new Set(inYear.map((r) => r.date)); saleEls.avg.textContent = "Días con ventas en " + saleYear + ": " + dayKeys.size; }
       fillSaleYears();
       drawSaleCalendar(saleYear);
-      // Mostrar únicamente las ventas del mes actualmente seleccionado
-      // en el calendario/resumen mensual.
+      // Al entrar a Ventas se muestra todo el historial. Después de
+      // seleccionar/navegar a un mes, la lista queda limitada a ese mes.
       const selectedMonthPrefix = String(saleYear) + "-" + String(saleCalendarMonth + 1).padStart(2, "0");
       const q = (saleEls.search && saleEls.search.value || "").trim().toLowerCase();
       const list = sales.filter((row) => {
-        if (!String(row.date || "").startsWith(selectedMonthPrefix)) return false;
+        if (!saleShowAllHistory && !String(row.date || "").startsWith(selectedMonthPrefix)) return false;
         if (!q) return true;
         return row.customer.toLowerCase().includes(q) || row.date.includes(q) || row.items.some((it) => (it.name||"").toLowerCase().includes(q)) || (row.source === "delivery" && "entrega".includes(q));
       });
@@ -4552,7 +4555,6 @@
         </article>`;
       }).join("");
     }
-      renderSalesLineChart();
     function openSaleForm(row) {
       saleFormItems = row ? normalizeLineItems(row.items, true) : [];
       saleEls.form.reset();
@@ -4581,6 +4583,7 @@
     if (saleEls.year) saleEls.year.addEventListener("change", () => {
       saleYear = Number(saleEls.year.value) || new Date().getFullYear();
       const now = new Date();
+      saleShowAllHistory = false;
       saleCalendarMonth = saleYear === now.getFullYear() ? now.getMonth() : 0;
       renderSales();
     });
@@ -4746,7 +4749,7 @@
     }
   
     /* Gráfica de líneas de ventas: día / semana / mes / año */
-    let salesChartPeriod = "all";
+    let salesChartPeriod = "day";
 
     function salesDateValue(s) {
       // Use the same calendar date used by the sales/month summary first.
@@ -4773,7 +4776,6 @@
     }
 
     function salesPeriodKey(d, period) {
-      if (period === "all") return "all";
       if (period === "day") {
         return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
       }
@@ -4808,10 +4810,9 @@
     function renderSalesLineChart() {
       const root = document.getElementById("salesLineChart");
       if (!root) return;
-      const chartPeriod = salesChartPeriod === "all" ? "day" : salesChartPeriod;
       const rows = (sales || []).map(s => {
         const d = salesDateValue(s);
-        return d ? { key:salesPeriodKey(d,chartPeriod), value:salesTotalValue(s) } : null;
+        return d ? { key:salesPeriodKey(d,salesChartPeriod), value:salesTotalValue(s) } : null;
       }).filter(Boolean);
 
       const grouped = {};
@@ -4819,7 +4820,7 @@
       const keys = Object.keys(grouped).sort();
 
       const subtitle = document.getElementById("salesChartSubtitle");
-      if (subtitle) subtitle.textContent = keys.length ? "Total vendido por " + ({all:"día",day:"día",week:"semana",month:"mes",year:"año"}[salesChartPeriod]) : "Aún no hay ventas registradas";
+      if (subtitle) subtitle.textContent = keys.length ? "Total vendido por " + ({day:"día",week:"semana",month:"mes",year:"año"}[salesChartPeriod]) : "Aún no hay ventas registradas";
 
       if (!keys.length) {
         root.innerHTML = '<div class="sales-chart-empty">Sin ventas para mostrar</div>';
@@ -4851,6 +4852,8 @@
         ${dots}${labels}
       </svg>`;
     }
+
+    renderSalesLineChart();
 
     document.addEventListener("click", (e)=>{
       const btn=e.target.closest(".sales-period-btn");
