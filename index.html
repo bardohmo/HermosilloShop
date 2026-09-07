@@ -1341,6 +1341,17 @@
     .maps-resolve-done { width:24px; height:24px; margin:7px 0 0 auto; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; color:#07121f; background:#57f0c2; box-shadow:0 0 14px rgba(87,240,194,.55); }
     .maps-resolve-progress.is-done .maps-resolve-progress-track, .maps-resolve-progress.is-done .maps-resolve-progress-pct { opacity:.55; }
     .maps-resolve-progress.is-done .maps-resolve-progress-top { margin-bottom:0; }
+
+    .sales-chart-wrap{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.025)}
+    .sales-chart-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+    .sales-chart-title{font-size:.9rem;font-weight:800}
+    .sales-chart-subtitle{font-size:.62rem;color:var(--muted);margin-top:2px}
+    .sales-periods{display:flex;gap:5px;flex-wrap:wrap}
+    .sales-period-btn{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:5px 9px;font-size:.62rem;font-weight:700;cursor:pointer}
+    .sales-period-btn.active{background:rgba(87,240,194,.12);border-color:rgba(87,240,194,.45);color:#57f0c2}
+    .sales-chart{width:100%;height:220px;display:block}
+    .sales-chart-empty{height:220px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.72rem}
+
 </style>
 <style>.delivery-payment-card .delivery-payment-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.delivery-payment-card select,.delivery-payment-card input{min-height:46px}.delivery-payment-card input[readonly]{opacity:.88;cursor:default}</style><style id="transfer-hide-change">#delivChangeField.transfer-hidden{display:none!important}
     /* CALENDARIO VENTAS - ESTRUCTURA LIMPIA */
@@ -1652,6 +1663,22 @@
         <div class="sale-chart-head">
           <div>
             <h2>Ventas del año</h2>
+        <div class="sales-chart-wrap">
+          <div class="sales-chart-head">
+            <div>
+              <div class="sales-chart-title">Ventas por periodo</div>
+              <div class="sales-chart-subtitle" id="salesChartSubtitle">Total vendido</div>
+            </div>
+            <div class="sales-periods" role="tablist" aria-label="Periodo de ventas">
+              <button type="button" class="sales-period-btn active" data-sales-period="day">Día</button>
+              <button type="button" class="sales-period-btn" data-sales-period="week">Semana</button>
+              <button type="button" class="sales-period-btn" data-sales-period="month">Mes</button>
+              <button type="button" class="sales-period-btn" data-sales-period="year">Año</button>
+            </div>
+          </div>
+          <div id="salesLineChart"></div>
+        </div>
+
             <p id="saleAvg">Días con ventas: 0</p>
           </div>
           <div class="sale-chart-controls">
@@ -2059,18 +2086,18 @@
                   const realizedUnitPrice = Number.isFinite(itemSalePrice) ? itemSalePrice : sale;
                   acc.qty += qty;
                   acc.revenue += qty * realizedUnitPrice;
+                  acc.profit += hasPurchaseCost ? qty * (realizedUnitPrice - purchase) : 0;
                 });
                 return acc;
-              }, { qty: 0, revenue: 0 });
+              }, { qty: 0, revenue: 0, profit: 0 });
 
               // Se estima la inversión total de compra a partir de las unidades
               // vendidas + las que aún quedan en existencia.
-              const purchasedQty = productSales.qty + stock;
-              const purchaseInvestment = purchase * purchasedQty;
-              const realizedGain = productSales.revenue - (purchase * productSales.qty);
+              
+              const realizedGain = productSales.profit;
 
               // Resultado acumulado después de descontar la inversión de compra.
-              const netGain = productSales.revenue - purchaseInvestment;
+              const netGain = productSales.profit;
 
               const roi = hasPurchaseCost ? ((sale - purchase) / purchase) * 100 : 0;
               const potential = (sale - purchase) * stock;
@@ -3165,6 +3192,7 @@
       });
       try { sessionStorage.setItem(SALES_KEY, JSON.stringify(sales)); } catch (_) {}
       renderSales();
+      renderSalesLineChart();
       render();
     }
 
@@ -4523,6 +4551,7 @@
         </article>`;
       }).join("");
     }
+      renderSalesLineChart();
     function openSaleForm(row) {
       saleFormItems = row ? normalizeLineItems(row.items, true) : [];
       saleEls.form.reset();
@@ -4714,6 +4743,109 @@
         console.warn("Error sincronizando ventas/entregas:", err);
       });
     }
-  </script>
+  
+    /* Gráfica de líneas de ventas: día / semana / mes / año */
+    let salesChartPeriod = "day";
+
+    function salesDateValue(s) {
+      const raw = s?.created_at || s?.date || s?.createdAt || s?.timestamp;
+      const d = raw ? new Date(raw) : null;
+      return d && !Number.isNaN(d.getTime()) ? d : null;
+    }
+
+    function salesTotalValue(s) {
+      const direct = Number(s?.total);
+      if (Number.isFinite(direct)) return direct;
+      return (s?.items || []).reduce((sum, it) => {
+        const q = Math.max(0, Number(it?.qty) || 0);
+        const p = Number(it?.price);
+        return sum + (Number.isFinite(p) ? q * p : 0);
+      }, 0);
+    }
+
+    function salesPeriodKey(d, period) {
+      if (period === "day") {
+        return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      }
+      if (period === "month") {
+        return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+      }
+      if (period === "year") return String(d.getFullYear());
+
+      // ISO week
+      const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const day = x.getUTCDay() || 7;
+      x.setUTCDate(x.getUTCDate() + 4 - day);
+      const yearStart = new Date(Date.UTC(x.getUTCFullYear(),0,1));
+      const week = Math.ceil((((x-yearStart)/86400000)+1)/7);
+      return x.getUTCFullYear()+"-W"+String(week).padStart(2,"0");
+    }
+
+    function salesPeriodLabel(key, period) {
+      if (period === "year") return key;
+      if (period === "month") {
+        const [y,m] = key.split("-").map(Number);
+        return new Intl.DateTimeFormat("es-MX",{month:"short",year:"numeric"}).format(new Date(y,m-1,1));
+      }
+      if (period === "week") return key.replace("-", " ");
+      const [y,m,d] = key.split("-").map(Number);
+      return new Intl.DateTimeFormat("es-MX",{day:"2-digit",month:"short"}).format(new Date(y,m-1,d));
+    }
+
+    function renderSalesLineChart() {
+      const root = document.getElementById("salesLineChart");
+      if (!root) return;
+      const rows = (sales || []).map(s => {
+        const d = salesDateValue(s);
+        return d ? { key:salesPeriodKey(d,salesChartPeriod), value:salesTotalValue(s) } : null;
+      }).filter(Boolean);
+
+      const grouped = {};
+      rows.forEach(r => { grouped[r.key] = (grouped[r.key] || 0) + r.value; });
+      const keys = Object.keys(grouped).sort();
+
+      const subtitle = document.getElementById("salesChartSubtitle");
+      if (subtitle) subtitle.textContent = keys.length ? "Total vendido por " + ({day:"día",week:"semana",month:"mes",year:"año"}[salesChartPeriod]) : "Aún no hay ventas registradas";
+
+      if (!keys.length) {
+        root.innerHTML = '<div class="sales-chart-empty">Sin ventas para mostrar</div>';
+        return;
+      }
+
+      const W=900,H=220,L=48,R=12,T=12,B=34;
+      const iw=W-L-R, ih=H-T-B;
+      const vals=keys.map(k=>grouped[k]);
+      const max=Math.max(...vals,1);
+      const points=keys.map((k,i)=>{
+        const x=keys.length===1 ? L+iw/2 : L+(i/(keys.length-1))*iw;
+        const y=T+ih-(grouped[k]/max)*ih;
+        return {x,y,k,v:grouped[k]};
+      });
+      const path=points.map((p,i)=>(i?"L":"M")+p.x.toFixed(1)+" "+p.y.toFixed(1)).join(" ");
+      const grid=[0,.25,.5,.75,1].map(t=>{
+        const y=T+ih-t*ih;
+        return `<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="rgba(148,163,184,.14)"/>`;
+      }).join("");
+      const dots=points.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#57f0c2"><title>${salesPeriodLabel(p.k,salesChartPeriod)} · ${money(p.v)} MXN</title></circle>`).join("");
+      const labels=points.map((p,i)=>{
+        if (keys.length>12 && i%Math.ceil(keys.length/12)!==0 && i!==keys.length-1) return "";
+        return `<text x="${p.x}" y="${H-10}" text-anchor="middle" fill="rgba(148,163,184,.75)" font-size="10">${salesPeriodLabel(p.k,salesChartPeriod)}</text>`;
+      }).join("");
+      root.innerHTML=`<svg class="sales-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Gráfica de ventas">
+        ${grid}
+        <path d="${path}" fill="none" stroke="#57f0c2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        ${dots}${labels}
+      </svg>`;
+    }
+
+    document.addEventListener("click", (e)=>{
+      const btn=e.target.closest(".sales-period-btn");
+      if(!btn) return;
+      salesChartPeriod=btn.dataset.salesPeriod;
+      document.querySelectorAll(".sales-period-btn").forEach(b=>b.classList.toggle("active",b===btn));
+      renderSalesLineChart();
+    });
+
+</script>
 </body>
 </html>
