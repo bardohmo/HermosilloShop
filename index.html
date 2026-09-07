@@ -470,16 +470,19 @@
     }
 
     .phone-title-row {
-      display:flex !important;
-      align-items:center !important;
-      gap:7px !important;
+      display:block !important;
       width:100%;
       line-height:1.2;
+    }
+    .phone-title-row > span:first-child {
+      display:inline !important;
+      width:auto !important;
     }
     .phone-title-row > .phone-title-switch {
       display:inline-flex !important;
       align-items:center !important;
       flex:0 0 auto !important;
+      vertical-align:middle;
       margin:0 !important;
       padding:0 !important;
       position:relative;
@@ -492,6 +495,13 @@
       pointer-events:none;
     }
     
+    #delivPhone {
+      display:block !important;
+      width:100% !important;
+      box-sizing:border-box;
+      margin-top:6px;
+    }
+
     input:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.12); }
     /* Error visual para campos obligatorios vacíos */
     input.required-field-error,
