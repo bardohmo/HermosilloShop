@@ -512,6 +512,12 @@
     .net-gain-row small {
       color: rgba(148,163,184,.62) !important;
     }
+    .investment-missing-cost{
+      margin-top:4px;
+      font-size:.58rem;
+      color:rgba(148,163,184,.58);
+      font-style:italic;
+    }
     input:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.12); }
     /* Error visual para campos obligatorios vacíos */
     input.required-field-error,
@@ -2044,8 +2050,9 @@
             <h3>${escapeHtml(a.name)}</h3>
             <div class="price">${money(a.price)}</div>
             <div class="meta">Existencia: <strong style="color:var(--text)">${Number(a.stock) || 0}</strong></div>
-            ${isUnlocked && a.purchase_price !== null && a.purchase_price !== undefined && String(a.purchase_price).trim() !== "" && Number(a.purchase_price) > 0 ? (() => {
-              const purchase = Number(a.purchase_price);
+            ${isUnlocked ? (() => {
+              const hasPurchaseCost = a.purchase_price !== null && a.purchase_price !== undefined && String(a.purchase_price).trim() !== "" && Number(a.purchase_price) > 0;
+              const purchase = hasPurchaseCost ? Number(a.purchase_price) : 0;
               const sale = Number(a.price) || 0;
               const stock = Number(a.stock) || 0;
 
@@ -2094,18 +2101,20 @@
       <span>Rentabilidad por unidad</span>
       <strong>${roi.toFixed(1)}%</strong>
     </div>
-    <div class="investment-row potential-row">
+${hasPurchaseCost ? `    <div class="investment-row potential-row">
       <span>Ganancia potencial · ${stock} uds.</span>
       <strong>${money(potential)} MXN</strong>
     </div>
-    <div class="investment-row net-gain-row ${netGain >= 0 ? "net-positive" : "net-negative"}">
+` : ""}
+${hasPurchaseCost ? `    <div class="investment-row net-gain-row ${netGain >= 0 ? "net-positive" : "net-negative"}">
       <span>
         <span class="net-gain-label">Ganancia neta</span>
         <small>(ganancias después de inversión)</small>
       </span>
       <strong>${netGain > 0 ? "+" : netGain < 0 ? "-" : ""}${money(Math.abs(netGain))} MXN</strong>
     </div>
-  </div>
+  ` : ""}
+</div>
 </details>`;
             })() : ""}
             ${a.description ? `<div class="meta">${escapeHtml(a.description)}</div>` : ""}
