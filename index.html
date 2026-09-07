@@ -1356,7 +1356,7 @@
           <input type="text" id="delivMapsPaste" placeholder="Pega aquí el link de Maps para guardar el punto exacto" autocomplete="off" />
         </label>
         <div id="mapsResolveProgress" class="maps-resolve-progress" hidden aria-live="polite">
-          <div class="maps-resolve-progress-top"><span id="mapsResolveProgressText">Detectando ubicación…</span><span id="mapsResolveProgressPct">0%</span></div>
+          <div class="maps-resolve-progress-top"><span id="mapsResolveProgressText">Detectando ubicación…</span></div>
           <div class="maps-resolve-progress-track"><div id="mapsResolveProgressBar" class="maps-resolve-progress-bar"></div></div>
           <div id="mapsResolveDone" class="maps-resolve-done" hidden aria-label="Ubicación lista">✓</div>
         </div>
@@ -3290,7 +3290,11 @@
     }
 
     function openDelivForm(row) {
-      del._mapsOriginalUrl = row ? String(row.mapsOriginalUrl || (row.mapsUrl && /maps\.app\.goo\.gl/i.test(row.mapsUrl) ? row.mapsUrl : "") || "") : "";
+      del._mapsOriginalUrl = row ? String(
+        row.mapsOriginalUrl ||
+        (row.mapsUrl && /(?:maps\.app\.goo\.gl|goo\.gl\/maps|google\.com\/maps)/i.test(row.mapsUrl) ? row.mapsUrl : "") ||
+        ""
+      ) : "";
       delivStatus = "pending";
       delivLat = null;
       delivLng = null;
@@ -3318,6 +3322,9 @@
         del.name.value = row.name;
         del.phone.value = row.phone;
         del.address.value = row.address || "";
+        // Recuperar el último enlace de Google Maps que se guardó.
+        // Así permanece visible al volver a abrir "Editar".
+        if (del.mapsPaste) del.mapsPaste.value = del._mapsOriginalUrl || "";
         if (del.time) del.time.value = normalizeTime(row.time) || "";
         if (del.date) del.date.value = normalizeDate(row.date) || "";
         delivItems = normalizeDeliveryItems(row.items);
@@ -3671,14 +3678,12 @@
       if (mapsProgress.done) mapsProgress.done.hidden = true;
       const n = Math.max(0, Math.min(100, Number(percent) || 0));
       if (mapsProgress.bar) mapsProgress.bar.style.width = n + "%";
-      if (mapsProgress.pct) mapsProgress.pct.textContent = Math.round(n) + "%";
-      if (mapsProgress.text) mapsProgress.text.textContent = text || "Procesando ubicación…";
+            if (mapsProgress.text) mapsProgress.text.textContent = text || "Procesando ubicación…";
     }
     function finishMapsProgress(text) {
-      setMapsProgress(100, text || "Ubicación lista ✓", true);
+      setMapsProgress(100, text || "Ubicación lista", true);
       mapsProgress.box && mapsProgress.box.classList.add("is-done");
       if (mapsProgress.done) mapsProgress.done.hidden = false;
-      if (mapsProgress.pct) mapsProgress.pct.textContent = "✓";
       // La palomita permanece visible para que el usuario sepa que la ubicación quedó lista.
     }
 
@@ -3701,7 +3706,7 @@
         del._mapsOriginalUrl = pastedRaw;
         if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
         if (label) del.address.value = label;
-        finishMapsProgress("Ubicación exacta cargada ✓");
+        finishMapsProgress("Ubicación exacta cargada");
         toast("Ubicación exacta cargada desde Google Maps");
         return true;
       }
@@ -3719,7 +3724,7 @@
           del._mapsOriginalUrl = pastedRaw;
           if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
           if (label) del.address.value = label;
-          finishMapsProgress("Ubicación exacta cargada ✓");
+          finishMapsProgress("Ubicación exacta cargada");
           toast("Ubicación exacta cargada desde Google Maps");
           return true;
         }
@@ -3728,7 +3733,7 @@
         if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
         if (!(del.address.value || "").trim()) del.address.value = "Ubicación compartida de Google Maps";
         if (del.hint) del.hint.textContent = "Enlace reconocido. Se conservará el punto compartido de Google Maps.";
-        finishMapsProgress("Enlace de Google Maps reconocido ✓");
+        finishMapsProgress("Enlace de Google Maps reconocido");
         toast("Link de Google Maps reconocido y guardado");
         return true;
       }
@@ -3751,7 +3756,7 @@
       setMapsProgress(75, "Marcando punto de entrega…");
       setDelivPin(hit.lat, hit.lng, hit.label);
       if (hit.label) del.address.value = hit.label;
-      finishMapsProgress("Ubicación lista ✓");
+      finishMapsProgress("Ubicación lista");
       return true;
     }
 
@@ -3807,7 +3812,10 @@
       loadDelivStore();
       loadSalesStore();
       const now = new Date().toISOString();
-      const mapsUrl = mapsSearchUrl(address, delivLat, delivLng, del._mapsOriginalUrl || "");
+      // Si el usuario pegó un enlace de Google Maps, conservamos ese enlace exacto
+      // como mapsUrl para que al volver a editar la entrega siga apareciendo.
+      const originalMapsUrl = String(del._mapsOriginalUrl || "").trim();
+      const mapsUrl = originalMapsUrl || mapsSearchUrl(address, delivLat, delivLng, "");
       if (del.itemsSelected) {
         del.itemsSelected.querySelectorAll("[data-item-qty]").forEach((inp) => {
           const id = inp.getAttribute("data-item-qty");
