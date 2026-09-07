@@ -410,7 +410,118 @@
       width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
       background: rgba(0,0,0,0.35); color: var(--text); font: inherit; outline: none;
     }
+    .deliv-phone-field.phone-disabled,
+    #delivPhone.phone-disabled {
+      background: rgba(100,116,139,.12) !important;
+      color: rgba(148,163,184,.58) !important;
+      border-color: rgba(148,163,184,.20) !important;
+      box-shadow: none !important;
+      cursor: not-allowed;
+      opacity: .72;
+    }
+
+    .phone-title-switch {
+      display:inline-flex;
+      vertical-align:middle;
+      margin-left:7px;
+      align-items:center;
+      cursor:pointer;
+    }
+    .phone-title-switch input {
+      position:absolute;
+      opacity:0;
+      width:1px;
+      height:1px;
+      pointer-events:none;
+    }
+    .phone-title-switch .no-phone-switch {
+      display:inline-block;
+      position:relative;
+      width:30px;
+      height:18px;
+      border-radius:999px;
+      background:rgba(100,116,139,.34);
+      border:1px solid rgba(148,163,184,.28);
+      transition:.2s ease;
+    }
+    .phone-title-switch .no-phone-switch > span {
+      position:absolute;
+      top:2px;
+      left:2px;
+      width:12px;
+      height:12px;
+      border-radius:50%;
+      background:#cbd5e1;
+      transition:.2s ease;
+      box-shadow:0 1px 4px rgba(0,0,0,.45);
+    }
+    .phone-title-switch:has(input:checked) .no-phone-switch {
+      background:rgba(0,245,255,.30);
+      border-color:rgba(0,245,255,.68);
+    }
+    .phone-title-switch:has(input:checked) .no-phone-switch > span {
+      transform:translateX(12px);
+      background:var(--cyan);
+      box-shadow:0 0 8px rgba(0,245,255,.60);
+    }
+    .phone-title-switch:not(:has(input:checked)) .no-phone-switch {
+      background:rgba(255,55,75,.18);
+      border-color:rgba(255,55,75,.50);
+    }
+
+    .phone-title-row {
+      display:block !important;
+      width:100%;
+      line-height:1.2;
+    }
+    .phone-title-row > span:first-child {
+      display:inline !important;
+      width:auto !important;
+    }
+    .phone-title-row > .phone-title-switch {
+      display:inline-flex !important;
+      align-items:center !important;
+      flex:0 0 auto !important;
+      vertical-align:middle;
+      margin:0 !important;
+      padding:0 !important;
+      position:relative;
+    }
+    .phone-title-row > .phone-title-switch input {
+      position:absolute;
+      opacity:0;
+      width:1px;
+      height:1px;
+      pointer-events:none;
+    }
+    
+    #delivPhone {
+      display:block !important;
+      width:100% !important;
+      box-sizing:border-box;
+      margin-top:6px;
+    }
+
     input:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.12); }
+    /* Error visual para campos obligatorios vacíos */
+    input.required-field-error,
+    input.required-field-error:focus,
+    input[type="date"].required-field-error,
+    input[type="tel"].required-field-error,
+    input[type="number"].required-field-error,
+    input[type="password"].required-field-error,
+    textarea.required-field-error,
+    textarea.required-field-error:focus,
+    select.required-field-error,
+    select.required-field-error:focus {
+      background: rgba(255, 55, 75, 0.16) !important;
+      border-color: rgba(255, 55, 75, 0.90) !important;
+      box-shadow: 0 0 0 3px rgba(255, 55, 75, 0.14), 0 0 14px rgba(255, 55, 75, 0.16) !important;
+    }
+    input.required-field-error::placeholder,
+    textarea.required-field-error::placeholder {
+      color: rgba(255, 190, 195, 0.78);
+    }
     textarea { min-height: 72px; resize: vertical; }
     .photo-preview {
       width: 100%; aspect-ratio: 16 / 10; border-radius: 12px; border: 1px dashed var(--line);
@@ -893,12 +1004,20 @@
     .sale-calendar-summary-title { margin:14px 0 8px; font-size:.88rem; font-weight:800; color:var(--text); }
     .sale-calendar-summary-title small { color:var(--muted); font-weight:600; }
     .sale-month-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; }
-    .sale-month-card { min-width:0; padding:9px 5px; border-radius:10px; border:1px solid rgba(0,245,255,.12); background:rgba(5,12,23,.68); color:var(--text); text-align:center; cursor:pointer; box-shadow:none; }
+    .sale-month-card {
+      min-width:0; width:100%; box-sizing:border-box;
+      min-height:72px; padding:9px 6px;
+      border-radius:10px; border:1px solid rgba(0,245,255,.12);
+      background:rgba(5,12,23,.68); color:var(--text);
+      text-align:center; cursor:pointer; box-shadow:none;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:0; overflow:hidden;
+    }
     .sale-month-card:hover { transform:none; border-color:rgba(0,245,255,.34); }
     .sale-month-card.active { border-color:rgba(0,245,255,.72); box-shadow:0 0 0 1px rgba(0,245,255,.12); }
-    .sale-month-card strong { display:block; font-size:.78rem; }
-    .sale-month-card span { display:block; margin-top:3px; color:var(--muted); font-size:.61rem; }
-    .sale-month-card b { display:block; margin-top:4px; font-size:.70rem; white-space:nowrap; }
+    .sale-month-card strong { display:block; width:100%; font-size:.78rem; line-height:1.1; }
+    .sale-month-card span { display:block; width:100%; margin-top:4px; color:var(--muted); font-size:.61rem; line-height:1.1; }
+    .sale-month-card b { display:block; width:100%; margin-top:4px; font-size:.70rem; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .sale-month-card b.positive { color:var(--ok); }
     .sale-month-card b.negative { color:#ff526e; }
     .sale-month-card b.zero { color:#8290a4; }
@@ -911,7 +1030,11 @@
       .sale-calendar-metrics { grid-template-columns:1fr; }
       .sale-calendar-metrics > div { border-right:0; border-bottom:1px solid rgba(255,255,255,.06); }
       .sale-calendar-metrics > div:last-child { border-bottom:0; }
-      .sale-month-summary { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .sale-month-summary { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+      .sale-month-card { min-height:68px; padding:8px 5px; }
+      .sale-month-card strong { font-size:.76rem; }
+      .sale-month-card span { font-size:.59rem; }
+      .sale-month-card b { font-size:.67rem; }
     }
     .io-group {
       display: inline-flex;
@@ -1181,6 +1304,14 @@
     @media(max-width:700px){
       #viewCotizar{padding:16px;border-radius:18px}
     }
+
+    .maps-resolve-progress { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid rgba(0, 220, 255, .28); border-radius: 12px; background: rgba(7, 18, 35, .72); box-shadow: 0 0 18px rgba(0, 210, 255, .08); }
+    .maps-resolve-progress-top { display:flex; justify-content:space-between; gap:12px; font-size:12px; font-weight:700; margin-bottom:7px; opacity:.95; }
+    .maps-resolve-progress-track { height:7px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.10); }
+    .maps-resolve-progress-bar { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, #00d9ff, #5cf2ff); box-shadow:0 0 12px rgba(0,217,255,.55); transition:width .25s ease; }
+    .maps-resolve-done { width:24px; height:24px; margin:7px 0 0 auto; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; color:#07121f; background:#57f0c2; box-shadow:0 0 14px rgba(87,240,194,.55); }
+    .maps-resolve-progress.is-done .maps-resolve-progress-track, .maps-resolve-progress.is-done .maps-resolve-progress-pct { opacity:.55; }
+    .maps-resolve-progress.is-done .maps-resolve-progress-top { margin-bottom:0; }
 </style>
 <style>.delivery-payment-card .delivery-payment-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.delivery-payment-card select,.delivery-payment-card input{min-height:46px}.delivery-payment-card input[readonly]{opacity:.88;cursor:default}</style><style id="transfer-hide-change">#delivChangeField.transfer-hidden{display:none!important}
     /* CALENDARIO VENTAS - ESTRUCTURA LIMPIA */
@@ -1323,10 +1454,12 @@
         <input type="hidden" id="delivEditId" />
         <label>
           <span>Nombre de la persona</span>
-          <input type="text" id="delivName" required maxlength="80" placeholder="Ej. Juan Pérez" autocomplete="name" />
-        </label>
-        <label>
-          <span>Celular</span>
+          <input type="text" id="delivName" required maxlength="80" placeholder="Ej. Juan Pérez" autocomplete="name" /></label>
+        <label class="phone-title-row">
+          <span>Celular</span> <span class="phone-title-switch">
+              <input type="checkbox" id="delivNoPhone" checked>
+              <span class="no-phone-switch"><span></span></span>
+            </span>
           <input type="tel" id="delivPhone" required maxlength="24" placeholder="Ej. 662 123 4567" autocomplete="tel" />
         </label>
         <label>
@@ -1345,10 +1478,14 @@
         </div>
         <label>
           <span>Link de Google Maps (opcional)</span>
-          <input type="text" id="delivMapsPaste" placeholder="Pega aquí el link de Maps para guardar el punto exacto" />
+          <input type="text" id="delivMapsPaste" placeholder="Pega aquí el link de Maps para guardar el punto exacto" autocomplete="off" />
         </label>
+        <div id="mapsResolveProgress" class="maps-resolve-progress" hidden aria-live="polite">
+          <div class="maps-resolve-progress-top"><span id="mapsResolveProgressText">Detectando ubicación…</span></div>
+          <div class="maps-resolve-progress-track"><div id="mapsResolveProgressBar" class="maps-resolve-progress-bar"></div></div>
+          <div id="mapsResolveDone" class="maps-resolve-done" hidden aria-label="Ubicación lista">✓</div>
+        </div>
         <div class="photo-actions">
-          <button type="button" id="btnLoadMap">Cargar en Google Maps</button>
           <button type="button" class="ghost" id="btnMyLoc">Usar mi ubicación</button>
           <a class="btn ghost" id="btnOpenMaps" hidden target="_blank" rel="noreferrer">Abrir en Google Maps</a>
         </div>
@@ -1663,31 +1800,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    /* PERSISTENT_SESSION_V2: keep login until explicit logout */
-    const PERSISTENT_SESSION_KEY = "app_persistent_session_v2";
-
-    function persistSession(user) {
-      try {
-        if (user) localStorage.setItem(PERSISTENT_SESSION_KEY, JSON.stringify(user));
-      } catch (_) {}
-    }
-
-    function restoreSession() {
-      try {
-        const raw = localStorage.getItem(PERSISTENT_SESSION_KEY);
-        if (!raw) return null;
-        const user = JSON.parse(raw);
-        return user && typeof user === "object" ? user : null;
-      } catch (_) {
-        return null;
-      }
-    }
-
-    function forgetSession() {
-      try { localStorage.removeItem(PERSISTENT_SESSION_KEY); } catch (_) {}
-    }
-
-
     /* =========================================================
        CONFIG — pega aquí tus datos de Supabase (gratis)
        Project Settings → API → Project URL + anon public key
@@ -1757,7 +1869,7 @@
     let existingPhotoUrl = null;
     let removePhoto = false;
     let toastTimer = 0;
-    let isUnlocked = sessionStorage.getItem("hs_edit_unlocked") === "1";
+    let isUnlocked = localStorage.getItem("hs_edit_unlocked") === "1";
 
     function applyAuthMode() {
       document.body.classList.toggle("view-only", !isUnlocked);
@@ -2119,8 +2231,28 @@
     }
     [els.purchasePrice, els.price, els.stock].forEach((el) => el.addEventListener("input", updateProfitPreview));
 
+    // Validación visual: marca inmediatamente en rojo translúcido los campos
+    // obligatorios que estén vacíos al intentar guardar cualquier formulario.
+    function markRequiredFields(form) {
+      let hasEmpty = false;
+      form.querySelectorAll("input[required], select[required], textarea[required]").forEach((field) => {
+        const empty = !String(field.value ?? "").trim();
+        field.classList.toggle("required-field-error", empty);
+        if (empty) hasEmpty = true;
+      });
+      return hasEmpty;
+    }
+
+    document.addEventListener("input", (e) => {
+      const field = e.target;
+      if (field && field.matches && field.matches("input[required], select[required], textarea[required]") && String(field.value ?? "").trim()) {
+        field.classList.remove("required-field-error");
+      }
+    }, true);
+
     els.form.addEventListener("submit", async (e) => {
       e.preventDefault();
+      if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
       if (!requireEdit()) return;
       if (!supabaseClient) return;
       const name = els.name.value.trim();
@@ -2204,16 +2336,10 @@
       els.btnLogin.addEventListener("click", () => {
         if (isUnlocked) {
           isUnlocked = false;
-          sessionStorage.removeItem("hs_edit_unlocked");
+          localStorage.removeItem("hs_edit_unlocked");
           closeModal();
-          
-    const __savedPersistentUser = restoreSession();
-    if (__savedPersistentUser && typeof state !== "undefined" && state) {
-      state.user = __savedPersistentUser;
-      persistSession(state.user);
-    }
-
-applyAuthMode();
+      
+    applyAuthMode();
           toast("Sesión de edición cerrada");
           return;
         }
@@ -2231,10 +2357,11 @@ applyAuthMode();
     if (els.loginForm) {
       els.loginForm.addEventListener("submit", (e) => {
         e.preventDefault();
+        if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
         const key = (els.loginKey.value || "").trim();
         if (key === CONFIG.EDIT_KEY) {
           isUnlocked = true;
-          sessionStorage.setItem("hs_edit_unlocked", "1");
+          localStorage.setItem("hs_edit_unlocked", "1");
           closeLogin();
           applyAuthMode();
           toast("Modo edición activado");
@@ -2594,21 +2721,36 @@ applyAuthMode();
       trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>',
     };
 
-    function mapsSearchUrl(address, lat, lng) {
-      if (lat != null && lng != null && isFinite(lat) && isFinite(lng)) {
-        return "https://www.google.com/maps/search/?api=1&query=" + lat + "," + lng;
+    function validCoords(lat, lng) {
+      const a = Number(lat), b = Number(lng);
+      // 0,0 is Null Island and must never be treated as a valid delivery point.
+      return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180 && !(a === 0 && b === 0);
+    }
+    function mapsSearchUrl(address, lat, lng, originalMapsUrl) {
+      const original = String(originalMapsUrl || "").trim();
+      if (/^(https?:\/\/)?(?:maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(original)) return original;
+      if (validCoords(lat, lng)) {
+        return "https://www.google.com/maps/search/?api=1&query=" + Number(lat) + "," + Number(lng);
       }
       return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent((address || "").trim());
     }
-    function mapsDirUrl(address, lat, lng) {
-      const dest = lat != null && lng != null && isFinite(lat) && isFinite(lng)
-        ? lat + "," + lng
+    function mapsDirUrl(address, lat, lng, originalMapsUrl) {
+      const original = String(originalMapsUrl || "").trim();
+      if (/^(https?:\/\/)?(?:maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(original)) return original;
+      const dest = validCoords(lat, lng)
+        ? Number(lat) + "," + Number(lng)
         : encodeURIComponent((address || "").trim());
       return "https://www.google.com/maps/dir/?api=1&destination=" + dest + "&travelmode=driving";
     }
     function parseMapsUrl(raw) {
       const url = String(raw || "").trim();
       if (!url) return null;
+      // Los enlaces cortos de Google Maps (maps.app.goo.gl) no exponen
+      // necesariamente las coordenadas en el texto del enlace. En ese caso
+      // conservamos el enlace original y nunca inventamos 0,0.
+      if (/^(https?:\/\/)?maps\.app\.goo\.gl\//i.test(url) || /^(https?:\/\/)?goo\.gl\/maps\//i.test(url)) {
+        return { shortUrl: /^https?:\/\//i.test(url) ? url : "https://" + url };
+      }
       const patterns = [
         /@(-?\d+\.\d+),(-?\d+\.\d+)/,
         /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,
@@ -2621,7 +2763,7 @@ applyAuthMode();
         if (m) {
           const lat = Number(m[1]);
           const lng = Number(m[2]);
-          if (isFinite(lat) && isFinite(lng)) return { lat, lng };
+          if (validCoords(lat, lng)) return { lat, lng };
         }
       }
       return null;
@@ -2660,6 +2802,51 @@ applyAuthMode();
       } catch (_) {
         return null;
       }
+    }
+
+    function isGoogleMapsLink(value) {
+      const v = String(value || "").trim();
+      return /^(?:https?:\/\/)?(?:www\.)?(?:google\.com\/maps|maps\.google\.com|maps\.app\.goo\.gl|goo\.gl\/maps)(?:[/?#]|$)/i.test(v);
+    }
+
+    async function resolveGoogleMapsShortUrl(shortUrl) {
+      const original = String(shortUrl || "").trim();
+      if (!isGoogleMapsLink(original)) return null;
+
+      // Primero intentamos resolverlo directamente. En algunos navegadores
+      // esto funciona; si CORS lo bloquea, pasamos al resolvedor auxiliar.
+      const candidates = [
+        original,
+        "https://r.jina.ai/" + (/^https?:\/\//i.test(original) ? original : "https://" + original),
+        "https://api.allorigins.win/raw?url=" + encodeURIComponent(/^https?:\/\//i.test(original) ? original : "https://" + original)
+      ];
+
+      for (const target of candidates) {
+        try {
+          const res = await fetch(target, { redirect: "follow", headers: { Accept: "text/html,text/plain,*/*" } });
+          if (!res.ok) continue;
+          const text = await res.text();
+          const finalUrl = res.url && !/^(?:https?:\/\/)?(?:r\.jina\.ai|api\.allorigins\.win)/i.test(res.url) ? res.url : "";
+          const possible = [finalUrl, text].filter(Boolean).join("\n");
+
+          const parsed = parseMapsUrl(possible);
+          if (parsed && validCoords(parsed.lat, parsed.lng)) return parsed;
+
+          // Google Maps también deja coordenadas en fragmentos JSON/texto.
+          const coordPatterns = [
+            /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+            /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/,
+            /[?&](?:q|query|ll)=(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/
+          ];
+          for (const re of coordPatterns) {
+            const m = possible.match(re);
+            if (m && validCoords(Number(m[1]), Number(m[2]))) {
+              return { lat: Number(m[1]), lng: Number(m[2]), resolvedUrl: finalUrl || original };
+            }
+          }
+        } catch (_) {}
+      }
+      return null;
     }
     function loadDelivStore() {
       // La memoria local solo mantiene la vista actual; la fuente persistente es Supabase.
@@ -3150,8 +3337,8 @@ applyAuthMode();
       del.grid.innerHTML = list.map((row) => {
         const call = phoneHref(row.phone);
         const wa = whatsappHref(row.phone);
-        const maps = mapsSearchUrl(row.address, row.lat, row.lng);
-        const dir = mapsDirUrl(row.address, row.lat, row.lng);
+        const maps = mapsSearchUrl(row.address, row.lat, row.lng, row.mapsOriginalUrl || row.mapsUrl || "");
+        const dir = mapsDirUrl(row.address, row.lat, row.lng, row.mapsOriginalUrl || row.mapsUrl || "");
         const pinned = row.lat != null && row.lng != null;
         const when = formatWhen(row);
         const items = normalizeDeliveryItems(row.items);
@@ -3249,12 +3436,27 @@ applyAuthMode();
       setTimeout(() => delivMap.invalidateSize(), 280);
     }
 
+    function setTodayDeliveryDate() {
+      if (!del.date || (del.date.value || "").trim()) return;
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      del.date.value = `${y}-${m}-${d}`;
+    }
+
     function openDelivForm(row) {
+      del._mapsOriginalUrl = row ? String(
+        row.mapsOriginalUrl ||
+        (row.mapsUrl && /(?:maps\.app\.goo\.gl|goo\.gl\/maps|google\.com\/maps)/i.test(row.mapsUrl) ? row.mapsUrl : "") ||
+        ""
+      ) : "";
       delivStatus = "pending";
       delivLat = null;
       delivLng = null;
       delivItems = [];
       del.form.reset();
+      if (!row) setTodayDeliveryDate();
       if (del.paymentMethod) del.paymentMethod.value = "none";
       if (del.transferStatus) del.transferStatus.value = "pending";
       if (del.deliveryFee) del.deliveryFee.value = "0";
@@ -3277,6 +3479,9 @@ applyAuthMode();
         del.name.value = row.name;
         del.phone.value = row.phone;
         del.address.value = row.address || "";
+        // Recuperar el último enlace de Google Maps que se guardó.
+        // Así permanece visible al volver a abrir "Editar".
+        if (del.mapsPaste) del.mapsPaste.value = del._mapsOriginalUrl || "";
         if (del.time) del.time.value = normalizeTime(row.time) || "";
         if (del.date) del.date.value = normalizeDate(row.date) || "";
         delivItems = normalizeDeliveryItems(row.items);
@@ -3613,27 +3818,123 @@ applyAuthMode();
         renderDeliveries();
       });
     });
-    document.getElementById("btnLoadMap").addEventListener("click", async () => {
-      const pasted = parseMapsUrl(del.mapsPaste.value);
-      if (pasted) {
+    const mapsProgress = {
+      box: document.getElementById("mapsResolveProgress"),
+      bar: document.getElementById("mapsResolveProgressBar"),
+      text: document.getElementById("mapsResolveProgressText"),
+      pct: document.getElementById("mapsResolveProgressPct"),
+      done: document.getElementById("mapsResolveDone")
+    };
+    let mapsAutoTimer = null;
+    let mapsResolveSeq = 0;
+
+    function setMapsProgress(percent, text, show = true) {
+      if (!mapsProgress.box) return;
+      mapsProgress.box.hidden = !show;
+      mapsProgress.box.classList.remove("is-done");
+      if (mapsProgress.done) mapsProgress.done.hidden = true;
+      const n = Math.max(0, Math.min(100, Number(percent) || 0));
+      if (mapsProgress.bar) mapsProgress.bar.style.width = n + "%";
+            if (mapsProgress.text) mapsProgress.text.textContent = text || "Procesando ubicación…";
+    }
+    function finishMapsProgress(text) {
+      setMapsProgress(100, text || "Ubicación lista", true);
+      mapsProgress.box && mapsProgress.box.classList.add("is-done");
+      if (mapsProgress.done) mapsProgress.done.hidden = false;
+      // La palomita permanece visible para que el usuario sepa que la ubicación quedó lista.
+    }
+
+    async function loadGoogleMapsFromInput() {
+      const seq = ++mapsResolveSeq;
+      const pasteInput = document.getElementById("delivMapsPaste");
+      const pastedRaw = String(pasteInput ? pasteInput.value : (del.mapsPaste && del.mapsPaste.value) || "").trim();
+      if (!pastedRaw) return false;
+
+      setMapsProgress(8, "Detectando enlace de Google Maps…");
+      const pasted = parseMapsUrl(pastedRaw);
+
+      if (pasted && validCoords(pasted.lat, pasted.lng)) {
+        if (seq !== mapsResolveSeq) return false;
+        setMapsProgress(35, "Coordenadas encontradas…");
         const label = await reverseLabel(pasted.lat, pasted.lng);
+        if (seq !== mapsResolveSeq) return false;
+        setMapsProgress(75, "Cargando ubicación exacta…");
         setDelivPin(pasted.lat, pasted.lng, label);
-        toast("Ubicación cargada desde Google Maps");
-        return;
+        del._mapsOriginalUrl = pastedRaw;
+        if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
+        if (label) del.address.value = label;
+        finishMapsProgress("Ubicación exacta cargada");
+        toast("Ubicación exacta cargada desde Google Maps");
+        return true;
       }
-      if (!(del.address.value || "").trim()) {
-        toast("Escribe una dirección o pega un link de Google Maps");
-        return;
+
+      if (isGoogleMapsLink(pastedRaw)) {
+        setMapsProgress(25, "Resolviendo ubicación…");
+        const resolved = await resolveGoogleMapsShortUrl(pastedRaw);
+        if (seq !== mapsResolveSeq) return false;
+        if (resolved && validCoords(resolved.lat, resolved.lng)) {
+          setMapsProgress(62, "Obteniendo dirección exacta…");
+          const label = await reverseLabel(resolved.lat, resolved.lng);
+          if (seq !== mapsResolveSeq) return false;
+          setMapsProgress(84, "Marcando punto de entrega…");
+          setDelivPin(resolved.lat, resolved.lng, label);
+          del._mapsOriginalUrl = pastedRaw;
+          if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
+          if (label) del.address.value = label;
+          finishMapsProgress("Ubicación exacta cargada");
+          toast("Ubicación exacta cargada desde Google Maps");
+          return true;
+        }
+
+        del._mapsOriginalUrl = pastedRaw;
+        if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
+        if (!(del.address.value || "").trim()) del.address.value = "Ubicación compartida de Google Maps";
+        if (del.hint) del.hint.textContent = "Enlace reconocido. Se conservará el punto compartido de Google Maps.";
+        finishMapsProgress("Enlace de Google Maps reconocido");
+        toast("Link de Google Maps reconocido y guardado");
+        return true;
       }
-      const hit = await geocodeQuery(del.address.value.trim());
-      if (!hit || !isFinite(hit.lat)) {
-        toast("No se encontró esa dirección");
-        return;
+      return false;
+    }
+
+    async function loadMapAutomatically() {
+      const ok = await loadGoogleMapsFromInput();
+      if (ok) return true;
+
+      const address = String(del.address.value || "").trim();
+      if (!address) return false;
+
+      setMapsProgress(20, "Buscando dirección…");
+      const hit = await geocodeQuery(address);
+      if (!hit || !validCoords(hit.lat, hit.lng)) {
+        if (mapsProgress.box) mapsProgress.box.hidden = true;
+        return false;
       }
+      setMapsProgress(75, "Marcando punto de entrega…");
       setDelivPin(hit.lat, hit.lng, hit.label);
       if (hit.label) del.address.value = hit.label;
-      toast("Ubicación cargada en el mapa");
-    });
+      finishMapsProgress("Ubicación lista");
+      return true;
+    }
+
+    if (del.mapsPaste) {
+      const scheduleMapsAutoLoad = () => {
+        clearTimeout(mapsAutoTimer);
+        const value = String(del.mapsPaste.value || "").trim();
+        if (!value) {
+          mapsResolveSeq++;
+          if (mapsProgress.box) mapsProgress.box.hidden = true;
+          return;
+        }
+        if (!isGoogleMapsLink(value)) return;
+        mapsAutoTimer = setTimeout(() => loadGoogleMapsFromInput(), 300);
+      };
+
+      del.mapsPaste.addEventListener("paste", () => setTimeout(scheduleMapsAutoLoad, 0));
+      del.mapsPaste.addEventListener("input", scheduleMapsAutoLoad);
+      del.mapsPaste.addEventListener("change", scheduleMapsAutoLoad);
+    }
+
     document.getElementById("btnMyLoc").addEventListener("click", () => {
       if (!navigator.geolocation) { toast("Tu dispositivo no comparte ubicación"); return; }
       navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -3654,6 +3955,7 @@ applyAuthMode();
     
     del.form.addEventListener("submit", (e) => {
       e.preventDefault();
+      if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
       const name = del.name.value.trim();
       const phone = del.phone.value.trim();
       const address = del.address.value.trim();
@@ -3668,7 +3970,10 @@ applyAuthMode();
       loadDelivStore();
       loadSalesStore();
       const now = new Date().toISOString();
-      const mapsUrl = mapsSearchUrl(address, delivLat, delivLng);
+      // Si el usuario pegó un enlace de Google Maps, conservamos ese enlace exacto
+      // como mapsUrl para que al volver a editar la entrega siga apareciendo.
+      const originalMapsUrl = String(del._mapsOriginalUrl || "").trim();
+      const mapsUrl = originalMapsUrl || mapsSearchUrl(address, delivLat, delivLng, "");
       if (del.itemsSelected) {
         del.itemsSelected.querySelectorAll("[data-item-qty]").forEach((inp) => {
           const id = inp.getAttribute("data-item-qty");
@@ -3714,14 +4019,14 @@ applyAuthMode();
         if (id) {
           deliveries = deliveries.map((row) => row.id === id ? {
             ...row, name: name.slice(0, 80), phone: phone.slice(0, 24), address: address.slice(0, 240),
-            lat: delivLat, lng: delivLng, mapsUrl, status: delivStatus, date, time, items, payment, updatedAt: now,
+            lat: delivLat, lng: delivLng, mapsUrl, mapsOriginalUrl: del._mapsOriginalUrl || "", status: delivStatus, date, time, items, payment, updatedAt: now,
           } : row);
           toast("Contacto actualizado");
         } else {
           id = uid();
           deliveries.unshift({
             id, name: name.slice(0, 80), phone: phone.slice(0, 24), address: address.slice(0, 240),
-            lat: delivLat, lng: delivLng, mapsUrl, status: delivStatus, date, time, items, payment, createdAt: now, updatedAt: now,
+            lat: delivLat, lng: delivLng, mapsUrl, mapsOriginalUrl: del._mapsOriginalUrl || "", status: delivStatus, date, time, items, payment, createdAt: now, updatedAt: now,
           });
           toast("Contacto agregado");
         }
@@ -4219,6 +4524,7 @@ applyAuthMode();
     if (saleEls.form) {
       saleEls.form.addEventListener("submit", (e) => {
         e.preventDefault();
+        if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
         if (!saleFormItems.length) { toast("Elige al menos un artículo"); return; }
         if (saleEls.customOn && saleEls.customOn.checked) {
           const raw = saleEls.customTotal ? String(saleEls.customTotal.value).trim() : "";
@@ -4289,6 +4595,34 @@ applyAuthMode();
       })();
     });
 
+
+    
+    // Opción de entrega sin número de celular.
+    (() => {
+      const phone = document.getElementById("delivPhone");
+      const noPhone = document.getElementById("delivNoPhone");
+      if (!phone || !noPhone) return;
+
+      const syncNoPhone = () => {
+        if (noPhone.checked) {
+          phone.disabled = false;
+          phone.setAttribute("required", "");
+          phone.placeholder = "Celular";
+          phone.classList.remove("phone-disabled");
+        } else {
+          phone.value = "";
+          phone.disabled = true;
+          phone.removeAttribute("required");
+          phone.setCustomValidity("");
+          phone.placeholder = "Celular desactivado";
+          phone.classList.remove("required-field-error");
+          phone.classList.add("phone-disabled");
+        }
+      };
+
+      noPhone.addEventListener("change", syncNoPhone);
+      syncNoPhone();
+    })(); // Sin celular — delivNoPhone
 
     applyAuthMode();
     if (currentView) showView(currentView);
