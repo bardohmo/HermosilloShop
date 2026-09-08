@@ -1206,6 +1206,16 @@
 .hs-img-menu button[data-act=browser] .hs-menu-icon{color:#b895ff}
 .hs-img-menu svg{width:18px;height:18px;display:block;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 @keyframes hsMenuIn{from{opacity:0;transform:translateY(4px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+/* Menú de imagen HermosilloShop */
+.hs-img-menu{position:fixed;z-index:99999;width:268px;box-sizing:border-box;padding:7px;border:1px solid rgba(0,245,255,.22);border-radius:16px;background:rgba(7,10,22,.97);box-shadow:0 16px 42px rgba(0,0,0,.58),0 0 20px rgba(0,245,255,.08);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);animation:hsMenuIn .14s ease-out}
+.hs-img-menu .hs-menu-title{display:flex;align-items:center;gap:9px;height:38px;padding:0 8px 5px;box-sizing:border-box;color:#eafcff;font:700 11px/1 system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hs-title-icon,.hs-menu-icon{display:grid;place-items:center;color:#00f5ff;background:rgba(0,245,255,.07);border:1px solid rgba(0,245,255,.15)}
+.hs-title-icon{width:30px;height:30px;min-width:30px;border-radius:9px}.hs-menu-icon{width:34px;height:34px;min-width:34px;border-radius:10px}
+.hs-img-menu button{width:100%;height:48px;margin:2px 0;padding:5px 8px;display:flex;align-items:center;gap:11px;border:0;border-radius:12px;background:transparent;color:#edfaff;text-align:left;cursor:pointer;font:600 13px/1 system-ui,sans-serif}
+.hs-img-menu button:hover,.hs-img-menu button:focus-visible{outline:none;background:rgba(0,245,255,.08)}
+.hs-img-menu button:nth-of-type(3) .hs-menu-icon{color:#ff67dc}.hs-img-menu button:nth-of-type(4) .hs-menu-icon{color:#b895ff}
+.hs-img-menu svg{width:18px;height:18px;display:block;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@keyframes hsMenuIn{from{opacity:0;transform:translateY(4px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
 </style>
 <style>.delivery-payment-card .delivery-payment-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.delivery-payment-card select,.delivery-payment-card input{min-height:46px}.delivery-payment-card input[readonly]{opacity:.88;cursor:default}</style><style id="transfer-hide-change">#delivChangeField.transfer-hidden{display:none!important}
     /* CALENDARIO VENTAS - ESTRUCTURA LIMPIA */
@@ -1883,7 +1893,7 @@
       els.grid.innerHTML = list.map((a) => {
         const badge = stockBadge(a.stock);
         const media = a.photo_url
-          ? `<img src="${escapeHtml(a.photo_url)}" alt="${escapeHtml(a.name)}" loading="lazy" data-save-photo="1" data-photo-url="${escapeHtml(a.photo_url)}" data-photo-name="${escapeHtml(a.name)}" title="Toca para guardar la foto" />`
+          ? `<img src="${escapeHtml(a.photo_url)}" alt="${escapeHtml(a.name)}" loading="lazy" data-save-photo="1" data-photo-url="${escapeHtml(a.photo_url)}" data-original-url="${escapeHtml(a.photo_url)}" data-photo-name="${escapeHtml(a.name)}" title="Toca para guardar la foto" />`
           : `<div class="placeholder">Sin<br>foto</div>`;
         const dragAttr = isUnlocked ? ' draggable="true"' : "";
         const handle = isUnlocked ? `<div class="drag-handle" title="Arrastrar">⋮⋮</div>` : "";
@@ -4314,90 +4324,77 @@
 
 
 
+
+
 <script>
-/* HermosilloShop — acciones de imagen (mantener presionado / clic derecho) */
 (function(){
-  const ICONS = {
-    image:`<svg viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="3"></rect><circle cx="8.5" cy="9" r="1.4"></circle><path d="m4.5 17 4.2-4.2 3.1 3.1 2.2-2.2 5.5 5.2"></path></svg>`,
-    copy:`<svg viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"></rect><path d="M15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"></path></svg>`,
-    download:`<svg viewBox="0 0 24 24"><path d="M12 3.5v10"></path><path d="m8 10 4 4 4-4"></path><path d="M4.5 19.5h15"></path></svg>`,
-    share:`<svg viewBox="0 0 24 24"><circle cx="18" cy="5.5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="18.5" r="2.5"></circle><path d="m8.3 10.8 7.3-4.1M8.3 13.2l7.3 4.1"></path></svg>`,
-    browser:`<svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="3"></rect><path d="M3.5 8.5h17"></path><circle cx="7" cy="6.3" r=".65" fill="currentColor" stroke="none"></circle><circle cx="10" cy="6.3" r=".65" fill="currentColor" stroke="none"></circle></svg>`
-  }
-  let menu, timer, startX, startY, longPressed=false, activeImg=null;
+  const I={
+    image:'<svg viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="3"/><circle cx="8.5" cy="9" r="1.4"/><path d="m4.5 17 4.2-4.2 3.1 3.1 2.2-2.2 5.5 5.2"/></svg>',
+    copy:'<svg viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/></svg>',
+    download:'<svg viewBox="0 0 24 24"><path d="M12 3.5v10"/><path d="m8 10 4 4 4-4"/><path d="M4.5 19.5h15"/></svg>',
+    share:'<svg viewBox="0 0 24 24"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="m8.3 10.8 7.3-4.1M8.3 13.2l7.3 4.1"/></svg>',
+    browser:'<svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="3"/><path d="M3.5 8.5h17"/></svg>'
+  };
+  let menu=null,timer=null,sx=0,sy=0;
+  const close=()=>{if(timer)clearTimeout(timer);timer=null;if(menu)menu.remove();menu=null};
+  const src=img=>img.dataset.originalUrl||img.dataset.photoUrl||img.currentSrc||img.src;
+  const safe=s=>String(s||'imagen-articulo').replace(/[\\/:*?"<>|]+/g,'_').trim().slice(0,90)||'imagen-articulo';
 
-  function removeMenu(){ if(menu){menu.remove();menu=null;} }
-  function titleFor(img){ return (img?.alt || img?.closest('[data-name]')?.dataset.name || "imagen").trim(); }
-
-  function downloadImage(src, name){
-    const a=document.createElement('a'); a.href=src; a.download=(name.replace(/[\\/:*?"<>|]+/g,'_')||'imagen')+'.jpg';
-    document.body.appendChild(a); a.click(); a.remove();
-  }
-  async function copyImage(src){
+  async function download(img){
+    const url=src(img), name=safe(img.dataset.photoName||img.alt);
     try{
-      const r=await fetch(src,{mode:'cors'});
-      const b=await r.blob();
-      if(navigator.clipboard && window.ClipboardItem){
-        await navigator.clipboard.write([new ClipboardItem({[b.type||'image/png']:b})]);
-        if(typeof window.toast==='function') window.toast('Imagen copiada');
-        return;
-      }
-    }catch(e){}
-    if(typeof window.toast==='function') window.toast('No se pudo copiar; usa Descargar imagen');
+      const r=await fetch(url,{mode:'cors',cache:'no-store'}); if(!r.ok) throw 0;
+      const b=await r.blob(), u=URL.createObjectURL(b), ext=(b.type.split('/')[1]||'jpg');
+      const a=document.createElement('a'); a.href=u; a.download=name+'.'+ext; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(u),2000);
+    }catch(e){ window.open(url,'_blank','noopener,noreferrer'); }
   }
-  async function shareImage(src,name){
-    try{
-      const r=await fetch(src,{mode:'cors'}), b=await r.blob();
-      const f=new File([b],(name||'imagen')+'.jpg',{type:b.type||'image/jpeg'});
-      if(navigator.share && (!navigator.canShare || navigator.canShare({files:[f]}))){
-        await navigator.share({title:name,text:name,files:[f]});
-      } else if(navigator.share) await navigator.share({title:name,url:src});
-    }catch(e){}
+  async function copy(img){
+    try{const b=await (await fetch(src(img),{mode:'cors',cache:'no-store'})).blob();
+      if(!navigator.clipboard||!window.ClipboardItem) throw 0;
+      await navigator.clipboard.write([new ClipboardItem({[b.type||'image/png']:b})]);
+    }catch(e){alert('No se pudo copiar directamente. Usa Descargar imagen.');}
   }
-  function showMenu(img,x,y){
-    removeMenu(); activeImg=img;
-    menu=document.createElement('div'); menu.className='hs-img-menu';
-    const name=titleFor(img), src=img.currentSrc||img.src;
-    menu.innerHTML=`
-      <div class="hs-menu-title"><span class="hs-title-icon">${ICONS.image}</span><span>${name.replace(/[<>&"]/g,'')}</span></div>
-      <button data-act="copy"><span class="hs-menu-icon">${ICONS.copy}</span><span>Copiar imagen</span></button>
-      <button data-act="download"><span class="hs-menu-icon">${ICONS.download}</span><span>Descargar imagen</span></button>
-      <button data-act="share"><span class="hs-menu-icon">${ICONS.share}</span><span>Compartir imagen</span></button>
-      <button data-act="browser"><span class="hs-menu-icon">${ICONS.browser}</span><span>Abrir en el navegador</span></button>`;
+  async function share(img){
+    try{const r=await fetch(src(img),{mode:'cors',cache:'no-store'}),b=await r.blob();
+      const f=new File([b],safe(img.dataset.photoName||img.alt)+'.jpg',{type:b.type||'image/jpeg'});
+      if(navigator.share&&navigator.canShare&&navigator.canShare({files:[f]})) await navigator.share({title:img.alt||'Imagen del artículo',files:[f]});
+      else if(navigator.share) await navigator.share({title:img.alt||'Imagen del artículo',url:src(img)});
+      else throw 0;
+    }catch(e){if(e.name!=='AbortError')alert('Tu navegador no permite compartir esta imagen.');}
+  }
+  function show(img,x,y){
+    close(); menu=document.createElement('div'); menu.className='hs-img-menu';
+    const name=safe(img.dataset.photoName||img.alt||'Artículo').replace(/_/g,' ');
+    menu.innerHTML='<div class="hs-menu-title"><span class="hs-title-icon">'+I.image+'</span><span>'+name.replace(/[<>&"]/g,'')+'</span></div>'+
+      '<button data-a="copy"><span class="hs-menu-icon">'+I.copy+'</span><span>Copiar imagen</span></button>'+
+      '<button data-a="download"><span class="hs-menu-icon">'+I.download+'</span><span>Descargar imagen</span></button>'+
+      '<button data-a="share"><span class="hs-menu-icon">'+I.share+'</span><span>Compartir imagen</span></button>'+
+      '<button data-a="browser"><span class="hs-menu-icon">'+I.browser+'</span><span>Abrir en el navegador</span></button>';
     document.body.appendChild(menu);
     const r=menu.getBoundingClientRect();
     menu.style.left=Math.max(10,Math.min(x,innerWidth-r.width-10))+'px';
     menu.style.top=Math.max(10,Math.min(y,innerHeight-r.height-10))+'px';
-    menu.querySelector('[data-act="copy"]').onclick=()=>{copyImage(src);removeMenu()};
-    menu.querySelector('[data-act="download"]').onclick=()=>{downloadImage(src,name);removeMenu()};
-    menu.querySelector('[data-act="share"]').onclick=()=>{shareImage(src,name);removeMenu()};
-    menu.querySelector('[data-act="browser"]').onclick=()=>{window.open(src,'_blank','noopener,noreferrer');removeMenu()};
-    setTimeout(()=>document.addEventListener('pointerdown', outside, {once:true}),0);
+    menu.querySelector('[data-a="copy"]').onclick=()=>{close();copy(img)};
+    menu.querySelector('[data-a="download"]').onclick=()=>{close();download(img)};
+    menu.querySelector('[data-a="share"]').onclick=()=>{close();share(img)};
+    menu.querySelector('[data-a="browser"]').onclick=()=>{const u=src(img);close();window.open(u,'_blank','noopener,noreferrer')};
   }
-  function outside(e){ if(menu && !menu.contains(e.target)) removeMenu(); }
-  function isImage(t){ return t && t.tagName==='IMG' && t.src; }
-
   document.addEventListener('contextmenu',e=>{
-    if(isImage(e.target)){ e.preventDefault(); showMenu(e.target,e.clientX,e.clientY); }
+    const img=e.target.closest&&e.target.closest('img[data-photo-url],img[data-save-photo]');
+    if(img){e.preventDefault();show(img,e.clientX,e.clientY);}
   },{passive:false});
-
   document.addEventListener('pointerdown',e=>{
-    if(!isImage(e.target)) return;
-    activeImg=e.target; longPressed=false; startX=e.clientX; startY=e.clientY;
-    clearTimeout(timer);
-    timer=setTimeout(()=>{
-      longPressed=true; showMenu(activeImg,startX,startY);
-      if(navigator.vibrate) navigator.vibrate(18);
-    },550);
+    const img=e.target.closest&&e.target.closest('img[data-photo-url],img[data-save-photo]');
+    if(!img)return; sx=e.clientX;sy=e.clientY;
+    timer=setTimeout(()=>{show(img,sx,sy);if(navigator.vibrate)navigator.vibrate(15)},520);
   },{passive:true});
-  document.addEventListener('pointermove',e=>{
-    if(Math.hypot(e.clientX-startX,e.clientY-startY)>12) clearTimeout(timer);
-  },{passive:true});
-  document.addEventListener('pointerup',()=>clearTimeout(timer),{passive:true});
-  document.addEventListener('pointercancel',()=>clearTimeout(timer),{passive:true});
-  window.addEventListener('scroll',removeMenu,{passive:true});
+  document.addEventListener('pointermove',e=>{if(Math.hypot(e.clientX-sx,e.clientY-sy)>14)close()},{passive:true});
+  document.addEventListener('pointerup',close,{passive:true});
+  document.addEventListener('pointercancel',close,{passive:true});
+  window.addEventListener('scroll',close,{passive:true});
+  window.addEventListener('resize',close);
 })();
 </script>
-
 </body>
 </html>
