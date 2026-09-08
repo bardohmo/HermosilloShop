@@ -302,7 +302,8 @@
     @media (min-width: 640px) {
       .card-media { width: 96px; height: 96px; }
     }
-    .card-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .card-media img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer; }
+    .card-media img:active { transform: scale(.985); }
     .card-media .placeholder {
       width: 100%; height: 100%; display: grid; place-items: center; color: var(--muted);
       font-size: 0.65rem; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; padding: 4px;
@@ -1181,7 +1182,14 @@
     @media(max-width:700px){
       #viewCotizar{padding:16px;border-radius:18px}
     }
-</style>
+
+    .photo-context-menu { position: fixed; z-index: 99999; display:none; min-width:220px; padding:8px; border:1px solid rgba(0,245,255,.28); border-radius:16px; background:rgba(12,16,24,.97); box-shadow:0 18px 50px rgba(0,0,0,.55); backdrop-filter:blur(14px); }
+    .photo-context-menu.open { display:block; }
+    .photo-context-menu button { width:100%; border:0; background:transparent; color:var(--text); text-align:left; padding:12px 13px; border-radius:10px; font:inherit; cursor:pointer; }
+    .photo-context-menu button:hover, .photo-context-menu button:focus { background:rgba(0,245,255,.10); outline:none; }
+    .photo-context-menu .menu-title { padding:8px 12px 7px; color:var(--muted); font-size:.72rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  </style>
 <style>.delivery-payment-card .delivery-payment-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.delivery-payment-card select,.delivery-payment-card input{min-height:46px}.delivery-payment-card input[readonly]{opacity:.88;cursor:default}</style><style id="transfer-hide-change">#delivChangeField.transfer-hidden{display:none!important}
     /* CALENDARIO VENTAS - ESTRUCTURA LIMPIA */
     #saleChart.sale-chart-body {
@@ -1236,35 +1244,6 @@
       #saleChart .sale-calendar-grid { gap: 3px !important; grid-auto-rows: 48px !important; }
       #saleChart .sale-calendar-day { height:48px !important; min-height:48px !important; }
     }
-
-<style id="product-image-download-styles">
-  .card-media img { cursor: zoom-in; }
-  .image-viewer-modal {
-    width:min(92vw,720px); max-height:90vh; padding:14px;
-    display:flex; flex-direction:column; gap:12px;
-  }
-  .image-viewer-content {
-    display:flex; align-items:center; justify-content:center;
-    min-height:220px; max-height:68vh; border-radius:14px;
-    overflow:hidden; background:rgba(0,0,0,.35);
-  }
-  .image-viewer-content img {
-    display:block; max-width:100%; max-height:68vh; width:auto; height:auto;
-    object-fit:contain; border-radius:10px;
-  }
-  .image-viewer-title {
-    font-size:1rem; font-weight:800; overflow:hidden;
-    text-overflow:ellipsis; white-space:nowrap;
-  }
-  .image-viewer-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
-  .image-viewer-actions button, .image-viewer-actions a { min-height:42px; }
-  @media(max-width:520px){
-    .image-viewer-modal{width:94vw;padding:10px}
-    .image-viewer-content{max-height:64vh}
-    .image-viewer-content img{max-height:64vh}
-  }
-</style>
-
 </style></head>
 <body>
   <div class="app">
@@ -1653,20 +1632,6 @@
     </div>
   </div>
 
-
-  <div class="overlay" id="imageViewerOverlay" role="dialog" aria-modal="true" aria-labelledby="imageViewerTitle">
-    <div class="modal image-viewer-modal">
-      <h2 class="image-viewer-title" id="imageViewerTitle">Imagen del artículo</h2>
-      <div class="image-viewer-content">
-        <img id="imageViewerImg" alt="Imagen del artículo" />
-      </div>
-      <div class="image-viewer-actions">
-        <button type="button" class="ghost" id="btnImageViewerClose">Cerrar</button>
-        <button type="button" class="primary" id="btnImageViewerDownload">Descargar imagen</button>
-      </div>
-    </div>
-  </div>
-
   <div class="overlay" id="ubicacionOverlay" role="dialog" aria-modal="true">
     <div class="modal ubicacion-modal" style="max-width:560px">
       <h2>Ubicación</h2>
@@ -1775,7 +1740,7 @@
     let existingPhotoUrl = null;
     let removePhoto = false;
     let toastTimer = 0;
-    let isUnlocked = sessionStorage.getItem("hs_edit_unlocked") === "1";
+    let isUnlocked = localStorage.getItem("hs_edit_unlocked") === "1";
 
     function applyAuthMode() {
       document.body.classList.toggle("view-only", !isUnlocked);
@@ -1901,7 +1866,7 @@
       els.grid.innerHTML = list.map((a) => {
         const badge = stockBadge(a.stock);
         const media = a.photo_url
-          ? `<img src="${escapeHtml(a.photo_url)}" alt="${escapeHtml(a.name)}" loading="lazy" />`
+          ? `<img src="${escapeHtml(a.photo_url)}" alt="${escapeHtml(a.name)}" loading="lazy" data-save-photo="1" data-photo-url="${escapeHtml(a.photo_url)}" data-photo-name="${escapeHtml(a.name)}" title="Toca para guardar la foto" />`
           : `<div class="placeholder">Sin<br>foto</div>`;
         const dragAttr = isUnlocked ? ' draggable="true"' : "";
         const handle = isUnlocked ? `<div class="drag-handle" title="Arrastrar">⋮⋮</div>` : "";
@@ -1960,6 +1925,104 @@
       }).join("");
     }
 
+    let activePhotoMenu = null;
+    let activePhotoTimer = null;
+    let activePhotoTouch = false;
+
+    function getPhotoMenu() { return document.getElementById("photoContextMenu"); }
+    function closePhotoMenu() {
+      const menu = getPhotoMenu();
+      if (!menu) return;
+      menu.classList.remove("open");
+      menu.setAttribute("aria-hidden", "true");
+      activePhotoMenu = null;
+    }
+    function openPhotoMenu(img, x, y) {
+      const menu = getPhotoMenu();
+      if (!menu || !img) return;
+      activePhotoMenu = { url: img.dataset.photoUrl || img.currentSrc || img.src, name: img.dataset.photoName || img.alt || "artículo" };
+      document.getElementById("photoContextTitle").textContent = activePhotoMenu.name;
+      menu.classList.add("open");
+      menu.setAttribute("aria-hidden", "false");
+      const pad = 10, rect = menu.getBoundingClientRect();
+      menu.style.left = Math.max(pad, Math.min(x, window.innerWidth - rect.width - pad)) + "px";
+      menu.style.top = Math.max(pad, Math.min(y, window.innerHeight - rect.height - pad)) + "px";
+    }
+    async function getPhotoBlob(url) {
+      const response = await fetch(url, { mode: "cors", cache: "no-store" });
+      if (!response.ok) throw new Error("No se pudo obtener la imagen");
+      return await response.blob();
+    }
+    function photoFilename(name, blob) {
+      const clean = String(name || "articulo").replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ _-]/g, "").trim().replace(/\s+/g, "-").slice(0,80) || "articulo";
+      const ext = (blob && blob.type && blob.type.includes("png")) ? "png" : (blob && blob.type && blob.type.includes("webp")) ? "webp" : "jpg";
+      return clean + "." + ext;
+    }
+    async function downloadPhoto(url, name) {
+      try {
+        const blob = await getPhotoBlob(url);
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = blobUrl; a.download = photoFilename(name, blob);
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+        toast("Imagen descargada en la mejor calidad disponible");
+      } catch (_) {
+        window.open(url, "_blank", "noopener");
+        toast("Abriendo la imagen para guardarla");
+      }
+    }
+    async function copyPhoto(url) {
+      try {
+        const blob = await getPhotoBlob(url);
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([new ClipboardItem({ [blob.type || "image/jpeg"]: blob })]);
+          toast("Imagen copiada"); return;
+        }
+        throw new Error("Clipboard no disponible");
+      } catch (_) {
+        try { await navigator.clipboard.writeText(url); toast("Enlace de la imagen copiado"); }
+        catch (_) { toast("No se pudo copiar la imagen en este navegador"); }
+      }
+    }
+    async function sharePhoto(url, name) {
+      try {
+        const blob = await getPhotoBlob(url);
+        const file = new File([blob], photoFilename(name, blob), { type: blob.type || "image/jpeg" });
+        if (navigator.share && (!navigator.canShare || navigator.canShare({ files:[file] }))) {
+          await navigator.share({ title: name || "Imagen", files:[file] });
+        } else if (navigator.share) {
+          await navigator.share({ title: name || "Imagen", url });
+        } else { throw new Error("share no disponible"); }
+      } catch (err) { if (err && err.name !== "AbortError") toast("Compartir no está disponible en este navegador"); }
+    }
+    function bindPhotoLongPress() {
+      els.grid.addEventListener("contextmenu", (e) => {
+        const img = e.target.closest("img[data-save-photo]"); if (!img) return;
+        e.preventDefault(); openPhotoMenu(img, e.clientX, e.clientY);
+      });
+      els.grid.addEventListener("touchstart", (e) => {
+        const img = e.target.closest("img[data-save-photo]"); if (!img) return;
+        activePhotoTouch = true; const t = e.touches[0];
+        clearTimeout(activePhotoTimer);
+        activePhotoTimer = setTimeout(() => { openPhotoMenu(img, t.clientX, t.clientY); }, 550);
+      }, { passive:true });
+      els.grid.addEventListener("touchend", () => { clearTimeout(activePhotoTimer); activePhotoTouch = false; }, { passive:true });
+      els.grid.addEventListener("touchmove", () => clearTimeout(activePhotoTimer), { passive:true });
+      document.addEventListener("click", (e) => { if (!e.target.closest("#photoContextMenu")) closePhotoMenu(); });
+      document.addEventListener("scroll", closePhotoMenu, true);
+      window.addEventListener("resize", closePhotoMenu);
+      getPhotoMenu().addEventListener("click", async (e) => {
+        const btn = e.target.closest("button[data-photo-menu]"); if (!btn || !activePhotoMenu) return;
+        const {url,name} = activePhotoMenu; closePhotoMenu();
+        const action = btn.dataset.photoMenu;
+        if (action === "copy") await copyPhoto(url);
+        else if (action === "download") await downloadPhoto(url,name);
+        else if (action === "share") await sharePhoto(url,name);
+        else if (action === "browser") window.open(url,"_blank","noopener");
+      });
+    }
+
+
     async function loadArticles() {
       if (!supabaseClient) {
         setStatus("", "Sin configurar Supabase");
@@ -1998,24 +2061,7 @@
         if (!file.type.startsWith("image/")) { reject(new Error("El archivo debe ser una imagen.")); return; }
         if (file.size > 4 * 1024 * 1024) { reject(new Error("La imagen debe pesar menos de 4 MB.")); return; }
         const reader = new FileReader();
-        reader.onload = () => {
-          const img = new Image();
-          img.onload = () => {
-            const max = 320;
-            let { width, height } = img;
-            if (width > max || height > max) {
-              const scale = Math.min(max / width, max / height);
-              width = Math.round(width * scale);
-              height = Math.round(height * scale);
-            }
-            const canvas = document.createElement("canvas");
-            canvas.width = width; canvas.height = height;
-            canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL("image/jpeg", 0.68));
-          };
-          img.onerror = () => reject(new Error("No se pudo leer la imagen."));
-          img.src = String(reader.result);
-        };
+        reader.onload = () => resolve(String(reader.result));
         reader.onerror = () => reject(new Error("No se pudo leer el archivo."));
         reader.readAsDataURL(file);
       });
@@ -2209,6 +2255,12 @@
     });
 
     els.search.addEventListener("input", render);
+    els.grid.addEventListener("click", (e) => {
+      const img = e.target.closest("img[data-save-photo]");
+      if (!img) return;
+      // El menú de acciones aparece con pulsación prolongada / clic derecho.
+    });
+    bindPhotoLongPress();
     els.btnRefresh.addEventListener("click", () => {
       const viewBeforeRefresh = currentView || sessionStorage.getItem(VIEW_KEY) || "catalog";
       try { sessionStorage.setItem(VIEW_KEY, viewBeforeRefresh); } catch (_) {}
@@ -2222,89 +2274,9 @@
       els.btnLogin.addEventListener("click", () => {
         if (isUnlocked) {
           isUnlocked = false;
-          sessionStorage.removeItem("hs_edit_unlocked");
+          localStorage.removeItem("hs_edit_unlocked");
           closeModal();
-      
-    // Visor de imágenes del catálogo: al tocar una foto se puede descargar esa imagen.
-    const imageViewerOverlay = document.getElementById("imageViewerOverlay");
-    const imageViewerImg = document.getElementById("imageViewerImg");
-    const imageViewerTitle = document.getElementById("imageViewerTitle");
-    const btnImageViewerClose = document.getElementById("btnImageViewerClose");
-    const btnImageViewerDownload = document.getElementById("btnImageViewerDownload");
-    let imageViewerUrl = "";
-    let imageViewerName = "imagen-articulo";
-
-    function openImageViewer(article) {
-      if (!article || !article.photo_url || !imageViewerOverlay) return;
-      imageViewerUrl = article.photo_url;
-      imageViewerName = (String(article.name || "imagen-articulo")
-        .replace(/[^a-z0-9áéíóúüñ _-]/gi, "")
-        .trim().replace(/\s+/g, "-").slice(0, 80)) || "imagen-articulo";
-      imageViewerTitle.textContent = article.name || "Imagen del artículo";
-      imageViewerImg.src = article.photo_url;
-      imageViewerImg.alt = article.name || "Imagen del artículo";
-      imageViewerOverlay.classList.add("open");
-    }
-
-    function closeImageViewer() {
-      if (!imageViewerOverlay) return;
-      imageViewerOverlay.classList.remove("open");
-      imageViewerImg.removeAttribute("src");
-      imageViewerUrl = "";
-    }
-
-    async function downloadArticleImage() {
-      if (!imageViewerUrl) return;
-      btnImageViewerDownload.disabled = true;
-      try {
-        const response = await fetch(imageViewerUrl, { mode: "cors" });
-        if (!response.ok) throw new Error("No se pudo descargar la imagen");
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = blobUrl;
-        a.download = imageViewerName + ".jpg";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
-        toast("Imagen descargada");
-      } catch (err) {
-        // Si el navegador bloquea la descarga directa por CORS, abre la imagen para guardarla.
-        const a = document.createElement("a");
-        a.href = imageViewerUrl;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        toast("Abriendo imagen para guardarla");
-      } finally {
-        btnImageViewerDownload.disabled = false;
-      }
-    }
-
-    if (els.grid) {
-      els.grid.addEventListener("click", (e) => {
-        const img = e.target.closest(".card-media img");
-        if (!img) return;
-        e.preventDefault();
-        e.stopPropagation();
-        const card = img.closest(".card[data-id]");
-        if (!card) return;
-        const article = articles.find((a) => a.id === card.getAttribute("data-id"));
-        if (article) openImageViewer(article);
-      });
-    }
-    if (btnImageViewerClose) btnImageViewerClose.addEventListener("click", closeImageViewer);
-    if (btnImageViewerDownload) btnImageViewerDownload.addEventListener("click", downloadArticleImage);
-    if (imageViewerOverlay) {
-      imageViewerOverlay.addEventListener("click", (e) => {
-        if (e.target === imageViewerOverlay) closeImageViewer();
-      });
-    }
-
-    applyAuthMode();
+          applyAuthMode();
           toast("Sesión de edición cerrada");
           return;
         }
@@ -2325,7 +2297,7 @@
         const key = (els.loginKey.value || "").trim();
         if (key === CONFIG.EDIT_KEY) {
           isUnlocked = true;
-          sessionStorage.setItem("hs_edit_unlocked", "1");
+          localStorage.setItem("hs_edit_unlocked", "1");
           closeLogin();
           applyAuthMode();
           toast("Modo edición activado");
@@ -4371,5 +4343,14 @@
       });
     }
   </script>
+
+  <div id="photoContextMenu" class="photo-context-menu" role="menu" aria-hidden="true">
+    <div id="photoContextTitle" class="menu-title">Imagen del artículo</div>
+    <button type="button" data-photo-menu="copy">📋 Copiar imagen</button>
+    <button type="button" data-photo-menu="download">⬇️ Descargar imagen</button>
+    <button type="button" data-photo-menu="share">↗️ Compartir imagen</button>
+    <button type="button" data-photo-menu="browser">🌐 Abrir en el navegador</button>
+  </div>
+
 </body>
 </html>
