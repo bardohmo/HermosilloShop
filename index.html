@@ -1366,6 +1366,13 @@
 
 
     .deliv-qty-label-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;width:100%}
+    .sale-toolbar-row{display:flex;flex-wrap:wrap;gap:10px;align-items:end;width:100%}
+    .sale-toolbar-row .search{flex:1 1 220px}
+    .sale-sort-wrap{display:grid;gap:4px;min-width:210px}
+    .sale-sort-wrap span{font-size:.72rem;color:var(--muted);font-weight:600}
+    .sale-sort-wrap select{min-height:42px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text);padding:8px 10px}
+    .sale-total-label{display:block;font-size:.68rem;color:var(--muted);font-weight:600;margin-bottom:2px}
+
     .deliv-qty-label-row > span:first-child{flex:0 0 auto}
     .deliv-stock-note{font-size:.58rem;color:var(--muted);line-height:1.15;font-weight:500;text-align:right}
     .deliv-sel-qty-wrap{display:flex;flex-direction:column;gap:3px}
@@ -1688,7 +1695,7 @@
           <div class="sales-chart-head">
             <div>
               <div class="sales-chart-title">Ventas por periodo</div>
-              <div class="sales-chart-subtitle" id="salesChartSubtitle">Total vendido</div>
+              <div class="sales-chart-subtitle" id="salesChartSubtitle">Total cobrado</div>
             </div>
             <div class="sales-periods" role="tablist" aria-label="Periodo de ventas">
               <button type="button" class="sales-period-btn active" data-sales-period="day">Día</button>
@@ -1712,8 +1719,19 @@
         <div class="sale-chart-body" id="saleChart"></div>
       </section>
       <div class="toolbar">
-        <div class="search">
-          <input type="search" id="saleSearch" placeholder="Buscar por artículo, cliente o fecha..." autocomplete="off" />
+        <div class="sale-toolbar-row">
+          <div class="search">
+            <input type="search" id="saleSearch" placeholder="Buscar por artículo, cliente o fecha..." autocomplete="off" />
+          </div>
+          <label class="sale-sort-wrap">
+            <span>Ordenar</span>
+            <select id="saleSort" aria-label="Ordenar ventas">
+              <option value="date-desc">Fecha · más recientes</option>
+              <option value="date-asc">Fecha · más antiguas</option>
+              <option value="total-desc">Total cobrado · mayor a menor</option>
+              <option value="total-asc">Total cobrado · menor a mayor</option>
+            </select>
+          </label>
         </div>
       </div>
       <div class="grid deliv-grid" id="saleGrid" aria-live="polite"></div>
@@ -3092,6 +3110,7 @@
     let sales = [];
     let saleCalendarMonth = new Date().getMonth();
     let saleShowAllHistory = true;
+    let saleSortMode = "date-desc";
     let saleYear = new Date().getFullYear();
     let delivItems = [];
     let saleFormItems = [];
@@ -4422,6 +4441,7 @@
       customTotal: document.getElementById("saleCustomTotal"),
       grid: document.getElementById("saleGrid"),
       search: document.getElementById("saleSearch"),
+      sort: document.getElementById("saleSort"),
       status: document.getElementById("saleStatus"),
       avg: document.getElementById("saleAvg"),
       year: document.getElementById("saleYear"),
@@ -4511,7 +4531,7 @@
         cells += `<div class="${cls}"${col} title="${escapeHtml(title)}"><span class="day-number">${d}</span>${hasSale ? `<span class="day-total">${escapeHtml(amount)}</span>` : ""}</div>`;
       }
 
-      // Resumen de los 12 meses del año: total vendido y número de días con ventas.
+      // Resumen de los 12 meses del año: total cobrado y número de días con ventas.
       const yearMonthSummary = monthNames.map((name, idx) => {
         const key = String(idx + 1).padStart(2, "0");
         const byDay = {};
@@ -4640,6 +4660,21 @@
         if (!q) return true;
         return row.customer.toLowerCase().includes(q) || row.date.includes(q) || row.items.some((it) => (it.name||"").toLowerCase().includes(q)) || (row.source === "delivery" && "entrega".includes(q));
       });
+      const mode = (saleEls.sort && saleEls.sort.value) || saleSortMode || "date-desc";
+      saleSortMode = mode;
+      list.sort((a, b) => {
+        if (mode.startsWith("total")) {
+          const d = (Number(a.total) || 0) - (Number(b.total) || 0);
+          return mode === "total-asc" ? d : -d;
+        }
+        const da = String(a.date || "");
+        const db = String(b.date || "");
+        if (da !== db) return mode === "date-asc" ? da.localeCompare(db) : db.localeCompare(da);
+        // mismo día: más recientes por updatedAt/createdAt
+        const ta = String(a.updatedAt || a.createdAt || "");
+        const tb = String(b.updatedAt || b.createdAt || "");
+        return mode === "date-asc" ? ta.localeCompare(tb) : tb.localeCompare(ta);
+      });
       if (!saleEls.grid) return;
       if (!list.length) {
         saleEls.grid.innerHTML = `<div class="empty"><strong>${sales.length === 0 ? "Sin ventas aún" : "Sin resultados"}</strong>${sales.length === 0 ? "Registra una venta manual o marca una entrega como realizada." : "Prueba con otro término de búsqueda."}</div>`;
@@ -4653,7 +4688,7 @@
         return `<article class="card deliv-card" data-sale-id="${escapeHtml(row.id)}">
           <div class="deliv-avatar">${ICON_DOLLAR}</div>
           <div class="card-body">
-            <div class="deliv-top"><h3>${escapeHtml(money(row.total))}</h3>${badge}</div>
+            <div class="deliv-top"><div><span class="sale-total-label">Total cobrado</span><h3>${escapeHtml(money(row.total))}</h3></div>${badge}</div>
             <div class="deliv-line">Fecha: <strong style="color:var(--text)">${escapeHtml(formatDate(row.date) || row.date)}</strong></div>
             ${row.customTotal ? `<div class="deliv-saved" style="color:var(--muted)">Total ajustado · artículos ${escapeHtml(money(saleTotalOf(row.items)))}</div>` : ""}
             ${row.customer ? `<div class="deliv-line">${escapeHtml(row.customer)}</div>` : ""}
@@ -4691,6 +4726,10 @@
     document.getElementById("btnSaleCancel") && document.getElementById("btnSaleCancel").addEventListener("click", closeSaleForm);
     if (saleEls.overlay) saleEls.overlay.addEventListener("click", (e) => { if (e.target === saleEls.overlay) closeSaleForm(); });
     if (saleEls.search) saleEls.search.addEventListener("input", renderSales);
+    if (saleEls.sort) {
+      saleEls.sort.value = saleSortMode || "date-desc";
+      saleEls.sort.addEventListener("change", () => { saleSortMode = saleEls.sort.value; renderSales(); });
+    }
     if (saleEls.year) saleEls.year.addEventListener("change", () => {
       saleYear = Number(saleEls.year.value) || new Date().getFullYear();
       const now = new Date();
@@ -4947,7 +4986,7 @@
       const keys = Object.keys(grouped).sort();
 
       const subtitle = document.getElementById("salesChartSubtitle");
-      if (subtitle) subtitle.textContent = keys.length ? "Total vendido por " + ({day:"día",week:"semana",month:"mes",year:"año"}[salesChartPeriod]) : "Aún no hay ventas registradas";
+      if (subtitle) subtitle.textContent = keys.length ? "Total cobrado por " + ({day:"día",week:"semana",month:"mes",year:"año"}[salesChartPeriod]) : "Aún no hay ventas registradas";
 
       if (!keys.length) {
         root.innerHTML = '<div class="sales-chart-empty">Sin ventas para mostrar</div>';
