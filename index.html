@@ -2128,6 +2128,20 @@
             <h3>${escapeHtml(a.name)}</h3>
             <div class="price">${money(a.price)}</div>
             <div class="meta">Existencia: <strong style="color:var(--text)">${Number(a.stock) || 0}</strong></div>
+            ${(() => {
+              const qtySold = (sales || []).reduce((n, s) => n + (s.items || []).reduce((q, it) => String(it.id) === String(a.id) ? q + Math.max(0, Number(it.qty) || 0) : q, 0), 0);
+              const maxSold = Math.max(0, ...(articles || []).map((art) => (sales || []).reduce((n, s) => n + (s.items || []).reduce((q, it) => String(it.id) === String(art.id) ? q + Math.max(0, Number(it.qty) || 0) : q, 0), 0)));
+              const score = maxSold > 0 ? Math.min(10, Math.round((qtySold / maxSold) * 10 * 10) / 10) : 0;
+              const pct = Math.max(0, Math.min(100, score * 10));
+              const icon = score >= 7 ? "🚀" : score <= 3 ? "🐢" : "⚡";
+              const cls = score >= 7 ? "hot" : score <= 3 ? "cold" : "";
+              const label = score >= 7 ? "Alta venta" : score <= 3 ? "Baja venta" : "Venta media";
+              return `<div class="sales-score">
+                <div class="sales-score-head"><span class="sales-score-title">Puntuación de ventas</span><span class="sales-score-value">${icon} ${score.toFixed(1)} / 10</span></div>
+                <div class="sales-score-track" aria-label="Puntuación de ventas ${score.toFixed(1)} de 10"><div class="sales-score-fill" style="width:${pct}%"></div></div>
+                <div class="sales-score-foot"><span>🐢 Baja</span><span class="sales-demand ${cls}">${label} · ${qtySold} vendido${qtySold === 1 ? "" : "s"}</span><span>🚀 Alta</span></div>
+              </div>`;
+            })()}
             ${isUnlocked ? (() => {
               const hasPurchaseCost = a.purchase_price !== null && a.purchase_price !== undefined && String(a.purchase_price).trim() !== "" && Number(a.purchase_price) > 0;
               const purchase = hasPurchaseCost ? Number(a.purchase_price) : 0;
@@ -2147,6 +2161,39 @@
                 });
                 return acc;
               }, { qty: 0, revenue: 0, profit: 0 });
+
+              // Puntuación relativa de ventas: 0 a 10.
+              // El artículo con más unidades vendidas obtiene 10; los demás
+              // se escalan proporcionalmente al máximo del catálogo.
+              const maxProductSales = Math.max(0, ...(articles || []).map((art) => {
+                return (sales || []).reduce((n, s) => {
+                  return n + (s.items || []).reduce((q, it) => {
+                    return String(it.id) === String(art.id) ? q + Math.max(0, Number(it.qty) || 0) : q;
+                  }, 0);
+                }, 0);
+              }));
+              const salesScore = maxProductSales > 0
+                ? Math.min(10, Math.round((productSales.qty / maxProductSales) * 10 * 10) / 10)
+                : 0;
+              const salesPercent = Math.max(0, Math.min(100, salesScore * 10));
+              const demandIcon = salesScore >= 7 ? "🚀" : salesScore <= 3 ? "🐢" : "⚡";
+              const demandClass = salesScore >= 7 ? "hot" : salesScore <= 3 ? "cold" : "";
+              const demandText = salesScore >= 7 ? "Alta venta" : salesScore <= 3 ? "Baja venta" : "Venta media";
+
+              const salesScoreHtml = `<div class="sales-score">
+                <div class="sales-score-head">
+                  <span class="sales-score-title">Puntuación de ventas</span>
+                  <span class="sales-score-value">${demandIcon} ${salesScore.toFixed(1)} / 10</span>
+                </div>
+                <div class="sales-score-track" aria-label="Puntuación de ventas ${salesScore.toFixed(1)} de 10">
+                  <div class="sales-score-fill" style="width:${salesPercent}%"></div>
+                </div>
+                <div class="sales-score-foot">
+                  <span>🐢 Baja</span>
+                  <span class="sales-demand ${demandClass}">${demandText} · ${productSales.qty} vendido${productSales.qty === 1 ? "" : "s"}</span>
+                  <span>🚀 Alta</span>
+                </div>
+              </div>`;
 
               // Se estima la inversión total de compra a partir de las unidades
               // vendidas + las que aún quedan en existencia.
