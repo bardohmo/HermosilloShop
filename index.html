@@ -1192,59 +1192,16 @@
 @keyframes hsMenuIn{from{opacity:0;transform:translateY(5px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .hs-image-menu-backdrop{position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.08)}
 
-/* === HermosilloShop: menú moderno de acciones para imágenes === */
-.hs-img-menu {
-  position: fixed;
-  z-index: 99999;
-  width: min(300px, calc(100vw - 28px));
-  padding: 10px;
-  border: 1px solid rgba(0,245,255,.28);
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(255,43,214,.13), transparent 42%),
-    linear-gradient(145deg, rgba(6,9,20,.98), rgba(15,12,34,.98));
-  box-shadow: 0 22px 60px rgba(0,0,0,.62), 0 0 30px rgba(0,245,255,.12);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  animation: hsImgMenuIn .16s cubic-bezier(.2,.8,.2,1);
-}
-.hs-img-menu .hs-menu-title {
-  display:flex; align-items:center; gap:10px;
-  padding: 7px 9px 10px;
-  color:#fff; font:700 12px/1.2 system-ui,sans-serif;
-  letter-spacing:.06em; text-transform:uppercase;
-  opacity:.9;
-}
-.hs-img-menu .hs-menu-title .hs-title-icon {
-  width:32px;height:32px;border-radius:11px;display:grid;place-items:center;
-  color:#00f5ff; background:rgba(0,245,255,.08);
-  border:1px solid rgba(0,245,255,.18);
-}
-.hs-img-menu button {
-  appearance:none; width:100%; border:0; border-radius:14px;
-  display:flex; align-items:center; gap:12px; padding:11px 12px;
-  margin:3px 0; cursor:pointer; color:#eefbff;
-  background:transparent; text-align:left;
-  font:600 14px/1 system-ui,sans-serif;
-  transition:transform .12s, background .15s, box-shadow .15s;
-}
-.hs-img-menu button:hover, .hs-img-menu button:focus-visible {
-  outline:none; transform:translateX(2px);
-  background:linear-gradient(90deg,rgba(0,245,255,.13),rgba(255,43,214,.09));
-  box-shadow:inset 0 0 0 1px rgba(0,245,255,.14);
-}
-.hs-img-menu .hs-menu-icon {
-  width:38px;height:38px;flex:0 0 38px;border-radius:12px;
-  display:grid;place-items:center;
-  color:#00f5ff; background:rgba(0,245,255,.08);
-  border:1px solid rgba(0,245,255,.16);
-}
-.hs-img-menu button:nth-of-type(2) .hs-menu-icon { color:#8ffcff; }
-.hs-img-menu button:nth-of-type(3) .hs-menu-icon { color:#ff65df; }
-.hs-img-menu button:nth-of-type(4) .hs-menu-icon { color:#c79cff; }
-.hs-img-menu svg { width:20px;height:20px; stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
-@keyframes hsImgMenuIn { from {opacity:0; transform:scale(.96) translateY(5px)} to {opacity:1; transform:scale(1) translateY(0)} }
-
+/* === HermosilloShop: menú de imagen v2 === */
+.hs-img-menu{position:fixed;z-index:99999;width:268px;box-sizing:border-box;padding:7px;border:1px solid rgba(0,245,255,.22);border-radius:16px;background:rgba(7,10,22,.97);box-shadow:0 16px 42px rgba(0,0,0,.58),0 0 20px rgba(0,245,255,.08);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);animation:hsMenuIn .14s ease-out}
+.hs-img-menu .hs-menu-title{display:flex;align-items:center;gap:9px;height:38px;padding:0 8px 5px;box-sizing:border-box;color:#eafcff;font:700 11px/1 system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hs-img-menu .hs-title-icon{width:30px;height:30px;min-width:30px;border-radius:9px;display:grid;place-items:center;color:#00f5ff;background:rgba(0,245,255,.07);border:1px solid rgba(0,245,255,.15)}
+.hs-img-menu button{width:100%;height:48px;margin:2px 0;padding:5px 8px;display:flex;align-items:center;gap:11px;border:0;border-radius:12px;background:transparent;color:#edfaff;text-align:left;cursor:pointer;font:600 13px/1 system-ui,sans-serif;transition:background .14s}
+.hs-img-menu button:hover,.hs-img-menu button:focus-visible{outline:none;background:rgba(0,245,255,.08)}
+.hs-img-menu .hs-menu-icon{width:34px;height:34px;min-width:34px;border-radius:10px;display:grid;place-items:center;color:#00f5ff;background:rgba(0,245,255,.07);border:1px solid rgba(0,245,255,.13)}
+.hs-img-menu button:nth-of-type(2) .hs-menu-icon{color:#7dfaff}.hs-img-menu button:nth-of-type(3) .hs-menu-icon{color:#ff67dc}.hs-img-menu button:nth-of-type(4) .hs-menu-icon{color:#b895ff}
+.hs-img-menu svg{width:18px;height:18px;display:block;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@keyframes hsMenuIn{from{opacity:0;transform:translateY(4px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
 </style>
 <style>.delivery-payment-card .delivery-payment-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.delivery-payment-card select,.delivery-payment-card input{min-height:46px}.delivery-payment-card input[readonly]{opacity:.88;cursor:default}</style><style id="transfer-hide-change">#delivChangeField.transfer-hidden{display:none!important}
     /* CALENDARIO VENTAS - ESTRUCTURA LIMPIA */
@@ -4373,12 +4330,12 @@
 /* HermosilloShop — acciones de imagen (mantener presionado / clic derecho) */
 (function(){
   const ICONS = {
-    image:`<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="8.5" cy="9" r="1.4"></circle><path d="m4 17 5-5 3.5 3.5 2.5-2.5 5 5"></path></svg>`,
-    copy:`<svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2.5"></rect><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path></svg>`,
-    download:`<svg viewBox="0 0 24 24"><path d="M12 3v11"></path><path d="m8 10 4 4 4-4"></path><path d="M5 19h14"></path></svg>`,
-    share:`<svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="m8.2 10.8 7.5-4.5M8.2 13.2l7.5 4.5"></path></svg>`,
-    browser:`<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M3 8h18"></path><circle cx="7" cy="6" r=".7" fill="currentColor" stroke="none"></circle><circle cx="10" cy="6" r=".7" fill="currentColor" stroke="none"></circle></svg>`
-  };
+    image:`<svg viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="3"></rect><circle cx="8.5" cy="9" r="1.4"></circle><path d="m4.5 17 4.2-4.2 3.1 3.1 2.2-2.2 5.5 5.2"></path></svg>`,
+    copy:`<svg viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"></rect><path d="M15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"></path></svg>`,
+    download:`<svg viewBox="0 0 24 24"><path d="M12 3.5v10"></path><path d="m8 10 4 4 4-4"></path><path d="M4.5 19.5h15"></path></svg>`,
+    share:`<svg viewBox="0 0 24 24"><circle cx="18" cy="5.5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="18.5" r="2.5"></circle><path d="m8.3 10.8 7.3-4.1M8.3 13.2l7.3 4.1"></path></svg>`,
+    browser:`<svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="3"></rect><path d="M3.5 8.5h17"></path><circle cx="7" cy="6.3" r=".65" fill="currentColor" stroke="none"></circle><circle cx="10" cy="6.3" r=".65" fill="currentColor" stroke="none"></circle></svg>`
+  }
   let menu, timer, startX, startY, longPressed=false, activeImg=null;
 
   function removeMenu(){ if(menu){menu.remove();menu=null;} }
