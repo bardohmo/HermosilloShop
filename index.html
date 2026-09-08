@@ -2043,15 +2043,6 @@
       if (error) throw error;
       const { data } = supabaseClient.storage.from(CONFIG.BUCKET).getPublicUrl(path);
       return data.publicUrl;
-    }(dataUrl, articleId) {
-      const blob = dataUrlToBlob(dataUrl);
-      const path = articleId + "/" + Date.now() + ".jpg";
-      const { error } = await supabaseClient.storage.from(CONFIG.BUCKET).upload(path, blob, {
-        contentType: "image/jpeg", upsert: true,
-      });
-      if (error) throw error;
-      const { data } = supabaseClient.storage.from(CONFIG.BUCKET).getPublicUrl(path);
-      return data.publicUrl;
     }
 
     function openModal(article) {
