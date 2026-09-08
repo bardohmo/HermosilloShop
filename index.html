@@ -3387,9 +3387,12 @@
       if (wrap) wrap.classList.toggle("over-stock", invalid);
       if (warning) {
         warning.hidden = !invalid;
-        warning.textContent = invalid
-          ? ("No puedes vender " + entered + " unidad" + (entered === 1 ? "" : "es") + ". Solo hay " + available + " disponible" + (available === 1 ? "" : "s") + ".")
-          : "";
+        if (invalid) {
+          const faltan = entered - available;
+          warning.textContent = "No hay existencia suficiente. Faltan " + faltan + " unidad" + (faltan === 1 ? "" : "es") + " (pediste " + entered + ", hay " + available + ").";
+        } else {
+          warning.textContent = "";
+        }
       }
       return invalid;
     }
@@ -3404,7 +3407,8 @@
       if (firstInvalid) {
         const available = stockAvailableFor(firstInvalid.getAttribute("data-item-qty"));
         const entered = Math.max(1, Math.floor(Number(firstInvalid.value) || 1));
-        toast((toastPrefix || "Revisa la cantidad") + ": pediste " + entered + " y solo hay " + available + " disponible" + (available === 1 ? "" : "s") + ".");
+        const faltan = Math.max(0, entered - available);
+        toast((toastPrefix || "Revisa la cantidad") + ": faltan " + faltan + " unidad" + (faltan === 1 ? "" : "es") + " (pediste " + entered + ", hay " + available + ").");
         firstInvalid.focus();
         return false;
       }
