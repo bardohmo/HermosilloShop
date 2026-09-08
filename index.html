@@ -2028,34 +2028,23 @@
     }
 
     function compressImage(file) {
-      // Archivo original: sin FileReader, canvas, resize ni recompresión.
-      return Promise.resolve(file);
+      return new Promise((resolve, reject) => {
+        if (!file.type.startsWith("image/")) { reject(new Error("El archivo debe ser una imagen.")); return; }
+        if (file.size > 4 * 1024 * 1024) { reject(new Error("La imagen debe pesar menos de 4 MB.")); return; }
+        const reader = new FileReader();
+        reader.onload = () => resolve({dataUrl: reader.result, mime: file.type, ext: (file.name.split(".").pop() || "jpg").toLowerCase()});
+        reader.onerror = () => reject(new Error("No se pudo leer el archivo."));
+        reader.readAsDataURL(file);
+      });
     }
 
-    async function uploadPhoto(file, articleId) {
-      const originalName = file.name || "imagen";
-      const ext = (originalName.split(".").pop() || "jpg").toLowerCase();
-      const allowed = ["jpeg","jpg","png","webp","gif","avif"];
-      const safeExt = allowed.includes(ext) ? ext : "jpg";
-      const path = articleId + "/" + Date.now() + "_" +
-        Math.random().toString(36).slice(2, 8) + "." + safeExt;
-
-      const { error } = await supabaseClient.storage
-        .from(CONFIG.BUCKET)
-        .upload(path, file, {
-          contentType: file.type || "application/octet-stream",
-          upsert: true,
-          cacheControl: "31536000"
-        });
-
-      if (error) throw error;
-
-      const { data } = supabaseClient.storage
-        .from(CONFIG.BUCKET)
-        .getPublicUrl(path);
-
-      return data.publicUrl;
-    });
+    async function uploadPhoto(photo, articleId) {
+      const blob = dataUrlToBlob(photo.dataUrl);
+      const ext = ["jpeg","jpg","png","webp","gif","avif"].includes(photo.ext) ? photo.ext : "jpg";
+      const path = articleId + "/" + Date.now() + "." + ext;
+      const { error } = await supabaseClient.storage.from(CONFIG.BUCKET).upload(path, blob, {
+        contentType: photo.mime, upsert: true,
+      });
       if (error) throw error;
       const { data } = supabaseClient.storage.from(CONFIG.BUCKET).getPublicUrl(path);
       return data.publicUrl;
@@ -2094,16 +2083,9 @@
     }
 
     function renderPhotoPreview() {
-      if (!pendingPhotoDataUrl) {
-        els.photoPreview.innerHTML = '<span>Selecciona una imagen</span>';
-        return;
-      }
-      const previewSrc = pendingPhotoDataUrl instanceof File
-        ? URL.createObjectURL(pendingPhotoDataUrl)
-        : (pendingPhotoDataUrl.dataUrl || pendingPhotoDataUrl);
-      els.photoPreview.innerHTML =
-        '<img src="' + previewSrc + '" alt="Vista previa" />';
-    } else if (existingPhotoUrl && !removePhoto) {
+      if (pendingPhotoDataUrl) {
+        els.photoPreview.innerHTML = '<img src="' + (pendingPhotoDataUrl.dataUrl || pendingPhotoDataUrl) + '" alt="Vista previa" />';
+      } else if (existingPhotoUrl && !removePhoto) {
         els.photoPreview.innerHTML = '<img src="' + existingPhotoUrl + '" alt="Vista previa" />';
       } else {
         els.photoPreview.textContent = "Sin foto";
