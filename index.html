@@ -1216,6 +1216,12 @@
 .hs-img-menu button:nth-of-type(3) .hs-menu-icon{color:#ff67dc}.hs-img-menu button:nth-of-type(4) .hs-menu-icon{color:#b895ff}
 .hs-img-menu svg{width:18px;height:18px;display:block;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 @keyframes hsMenuIn{from{opacity:0;transform:translateY(4px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* Acciones de imagen: alineación izquierda */
+.hs-img-menu button{justify-content:flex-start!important;text-align:left!important}
+.hs-img-menu button .hs-menu-icon{flex:0 0 34px}
+.hs-img-menu button span:last-child{display:block;text-align:left}
+
 </style>
 <style>.delivery-payment-card .delivery-payment-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.delivery-payment-card select,.delivery-payment-card input{min-height:46px}.delivery-payment-card input[readonly]{opacity:.88;cursor:default}</style><style id="transfer-hide-change">#delivChangeField.transfer-hidden{display:none!important}
     /* CALENDARIO VENTAS - ESTRUCTURA LIMPIA */
@@ -2021,30 +2027,23 @@
         if (!file.type.startsWith("image/")) { reject(new Error("El archivo debe ser una imagen.")); return; }
         if (file.size > 4 * 1024 * 1024) { reject(new Error("La imagen debe pesar menos de 4 MB.")); return; }
         const reader = new FileReader();
-        reader.onload = () => {
-          const img = new Image();
-          img.onload = () => {
-            const max = 320;
-            let { width, height } = img;
-            if (width > max || height > max) {
-              const scale = Math.min(max / width, max / height);
-              width = Math.round(width * scale);
-              height = Math.round(height * scale);
-            }
-            const canvas = document.createElement("canvas");
-            canvas.width = width; canvas.height = height;
-            canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL("image/jpeg", 0.68));
-          };
-          img.onerror = () => reject(new Error("No se pudo leer la imagen."));
-          img.src = String(reader.result);
-        };
+        reader.onload = () => resolve({dataUrl: reader.result, mime: file.type, ext: (file.name.split(".").pop() || "jpg").toLowerCase()});
         reader.onerror = () => reject(new Error("No se pudo leer el archivo."));
         reader.readAsDataURL(file);
       });
     }
 
-    async function uploadPhoto(dataUrl, articleId) {
+    async function uploadPhoto(photo, articleId) {
+      const blob = dataUrlToBlob(photo.dataUrl);
+      const ext = ["jpeg","jpg","png","webp","gif","avif"].includes(photo.ext) ? photo.ext : "jpg";
+      const path = articleId + "/" + Date.now() + "." + ext;
+      const { error } = await supabaseClient.storage.from(CONFIG.BUCKET).upload(path, blob, {
+        contentType: photo.mime, upsert: true,
+      });
+      if (error) throw error;
+      const { data } = supabaseClient.storage.from(CONFIG.BUCKET).getPublicUrl(path);
+      return data.publicUrl;
+    }(dataUrl, articleId) {
       const blob = dataUrlToBlob(dataUrl);
       const path = articleId + "/" + Date.now() + ".jpg";
       const { error } = await supabaseClient.storage.from(CONFIG.BUCKET).upload(path, blob, {
@@ -2089,7 +2088,7 @@
 
     function renderPhotoPreview() {
       if (pendingPhotoDataUrl) {
-        els.photoPreview.innerHTML = '<img src="' + pendingPhotoDataUrl + '" alt="Vista previa" />';
+        els.photoPreview.innerHTML = '<img src="' + (pendingPhotoDataUrl.dataUrl || pendingPhotoDataUrl) + '" alt="Vista previa" />';
       } else if (existingPhotoUrl && !removePhoto) {
         els.photoPreview.innerHTML = '<img src="' + existingPhotoUrl + '" alt="Vista previa" />';
       } else {
