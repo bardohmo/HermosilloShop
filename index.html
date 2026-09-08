@@ -1670,7 +1670,15 @@
   <div class="toast" id="toast" role="status"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
+  
+  <div id="photoContextMenu" class="photo-context-menu" role="menu" aria-hidden="true">
+    <div id="photoContextTitle" class="menu-title">Imagen del artículo</div>
+    <button type="button" data-photo-menu="copy">📋 Copiar imagen</button>
+    <button type="button" data-photo-menu="download">⬇️ Descargar imagen</button>
+    <button type="button" data-photo-menu="share">↗️ Compartir imagen</button>
+    <button type="button" data-photo-menu="browser">🌐 Abrir en el navegador</button>
+  </div>
+<script>
     /* =========================================================
        CONFIG — pega aquí tus datos de Supabase (gratis)
        Project Settings → API → Project URL + anon public key
@@ -2011,7 +2019,9 @@
       document.addEventListener("click", (e) => { if (!e.target.closest("#photoContextMenu")) closePhotoMenu(); });
       document.addEventListener("scroll", closePhotoMenu, true);
       window.addEventListener("resize", closePhotoMenu);
-      getPhotoMenu().addEventListener("click", async (e) => {
+      const photoMenu = getPhotoMenu();
+      if (!photoMenu) return;
+      photoMenu.addEventListener("click", async (e) => {
         const btn = e.target.closest("button[data-photo-menu]"); if (!btn || !activePhotoMenu) return;
         const {url,name} = activePhotoMenu; closePhotoMenu();
         const action = btn.dataset.photoMenu;
@@ -4343,14 +4353,6 @@
       });
     }
   </script>
-
-  <div id="photoContextMenu" class="photo-context-menu" role="menu" aria-hidden="true">
-    <div id="photoContextTitle" class="menu-title">Imagen del artículo</div>
-    <button type="button" data-photo-menu="copy">📋 Copiar imagen</button>
-    <button type="button" data-photo-menu="download">⬇️ Descargar imagen</button>
-    <button type="button" data-photo-menu="share">↗️ Compartir imagen</button>
-    <button type="button" data-photo-menu="browser">🌐 Abrir en el navegador</button>
-  </div>
 
 </body>
 </html>
