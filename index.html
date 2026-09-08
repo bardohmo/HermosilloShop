@@ -1352,6 +1352,18 @@
     .sales-chart{width:100%;height:220px;display:block}
     .sales-chart-empty{height:220px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.72rem}
 
+
+    .deliv-pick.out-of-stock{
+      opacity:.48;
+      filter:grayscale(1);
+      background:rgba(148,163,184,.08)!important;
+      border-color:rgba(148,163,184,.18)!important;
+      color:var(--muted)!important;
+      cursor:not-allowed!important;
+    }
+    .deliv-pick.out-of-stock:active{transform:none!important}
+    .deliv-pick.out-of-stock small{display:block;font-size:.58rem;color:var(--muted)}
+
 </style>
 <style>.delivery-payment-card .delivery-payment-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.delivery-payment-card select,.delivery-payment-card input{min-height:46px}.delivery-payment-card input[readonly]{opacity:.88;cursor:default}</style><style id="transfer-hide-change">#delivChangeField.transfer-hidden{display:none!important}
     /* CALENDARIO VENTAS - ESTRUCTURA LIMPIA */
@@ -3254,15 +3266,30 @@
       const ids = Object.keys(map).filter((id) => map[id]);
       if (!ids.length) return true;
       if (!supabaseClient) { toast("Sin conexión a catálogo: no se actualizó el stock"); return false; }
+      const changes = [];
+      // Primero validar TODO antes de modificar el catálogo. Así nunca se
+      // permite registrar una venta superior a la existencia disponible.
       for (const id of ids) {
         const art = articles.find((a) => a.id === id);
         let current = art ? Number(art.stock) || 0 : null;
         if (current == null) {
-          const { data, error } = await supabaseClient.from("articles").select("id,stock").eq("id", id).maybeSingle();
+          const { data, error } = await supabaseClient.from("articles").select("id,stock,name").eq("id", id).maybeSingle();
           if (error || !data) { toast("No se encontró un artículo del catálogo"); return false; }
           current = Number(data.stock) || 0;
         }
-        const next = Math.max(0, current + map[id]);
+        const delta = Number(map[id]) || 0;
+        const next = current + delta;
+        if (next < 0) {
+          const name = art?.name || id;
+          const faltantes = Math.abs(next);
+          toast(`No hay existencia suficiente de "${name}". Faltan ${faltantes} unidad${faltantes === 1 ? "" : "es"}.`);
+          return false;
+        }
+        changes.push({ id, art, current, next });
+      }
+
+      // Si todas las cantidades son válidas, ahora sí actualizar el catálogo.
+      for (const { id, art, next } of changes) {
         const { error } = await supabaseClient.from("articles").update({ stock: next, updated_at: new Date().toISOString() }).eq("id", id);
         if (error) { toast("Error al actualizar stock: " + error.message); return false; }
         if (art) art.stock = next;
@@ -3326,7 +3353,11 @@
       }
       picker.innerHTML = articles.map((a) => {
         const added = ids.has(a.id) ? " added" : "";
-        return `<button type="button" class="deliv-pick${added}" data-add-item="${escapeHtml(a.id)}">${itemThumb(a.photo_url, a.name)}<span>${escapeHtml(a.name)}</span></button>`;
+        const exhausted = (Number(a.stock) || 0) <= 0 && !ids.has(a.id);
+        const disabled = exhausted ? " disabled" : "";
+        const cls = exhausted ? " out-of-stock" : "";
+        const stockText = exhausted ? '<small>Agotado</small>' : "";
+        return `<button type="button" class="deliv-pick${added}${cls}" data-add-item="${escapeHtml(a.id)}"${disabled}>${itemThumb(a.photo_url, a.name)}<span>${escapeHtml(a.name)}${stockText}</span></button>`;
       }).join("");
     }
     function renderItemSelected(host, list, withPrice) {
@@ -4595,6 +4626,7 @@
         if (saleFormItems.some((x) => x.id === id)) return;
         const art = articles.find((a) => a.id === id);
         if (!art) return;
+        if ((Number(art.stock) || 0) <= 0) return;
         saleFormItems.push({ id: art.id, name: art.name, photo_url: art.photo_url || null, qty: 1, price: Number(art.price) || 0 });
         renderSaleItemsUI();
       });
