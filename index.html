@@ -406,10 +406,21 @@
     .form-grid { display: grid; gap: 14px; }
     label { display: grid; gap: 6px; font-size: 0.85rem; color: var(--muted); }
     label span { font-weight: 600; color: var(--text); }
-    input[type="text"], input[type="number"], textarea {
+    input[type="text"], input[type="number"], input[type="date"], input[type="search"], select, textarea {
       width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
       background: rgba(0,0,0,0.35); color: var(--text); font: inherit; outline: none;
     }
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, rgba(148,163,184,.95) 50%), linear-gradient(135deg, rgba(148,163,184,.95) 50%, transparent 50%);
+      background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 12px) calc(50% - 3px);
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      padding-right: 34px;
+      cursor: pointer;
+    }
+    select option { background: #111; color: var(--text); }
     .deliv-phone-field.phone-disabled,
     #delivPhone.phone-disabled {
       background: rgba(100,116,139,.12) !important;
@@ -1748,17 +1759,16 @@
             <input type="date" id="saleDate" required />
           </label>
           <label>
-            <span>Cliente (opcional)</span>
-            <input type="text" id="saleCustomer" maxlength="80" placeholder="Nombre o nota" />
+            <span>Tipo de venta</span>
+            <select id="saleSource" aria-label="Tipo de venta">
+              <option value="manual">Manual</option>
+              <option value="delivery">Entrega</option>
+            </select>
           </label>
         </div>
         <label>
-          <span>Cómo se registró</span>
-          <select id="saleSource" aria-label="Tipo de venta">
-            <option value="manual">Manual</option>
-            <option value="delivery">Entrega</option>
-          </select>
-          <small style="color:var(--muted);font-size:.68rem;font-weight:500">Puedes cambiar una venta de entrega a manual (o al revés) al editarla.</small>
+          <span>Cliente (opcional)</span>
+          <input type="text" id="saleCustomer" maxlength="80" placeholder="Nombre o nota" />
         </label>
         <div class="deliv-items-block">
           <span>Artículos vendidos</span>
