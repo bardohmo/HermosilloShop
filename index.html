@@ -1365,9 +1365,12 @@
     .deliv-pick.out-of-stock small{display:block;font-size:.58rem;color:var(--muted)}
 
 
+    .deliv-qty-label-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;width:100%}
+    .deliv-qty-label-row > span:first-child{flex:0 0 auto}
+    .deliv-stock-note{font-size:.58rem;color:var(--muted);line-height:1.15;font-weight:500;text-align:right}
     .deliv-sel-qty-wrap{display:flex;flex-direction:column;gap:3px}
-    .deliv-stock-note{font-size:.58rem;color:var(--muted);line-height:1.15}
     .deliv-stock-warning{font-size:.62rem;color:#ff8f8f;font-weight:700;line-height:1.15}
+    .deliv-stock-warning[hidden]{display:none!important}
     .deliv-sel-qty-wrap.over-stock input{border-color:#ff8f8f!important;box-shadow:0 0 0 1px rgba(255,143,143,.22)}
 
 </style>
@@ -3366,6 +3369,48 @@
         return `<button type="button" class="deliv-pick${added}${cls}" data-add-item="${escapeHtml(a.id)}"${disabled}>${itemThumb(a.photo_url, a.name)}<span>${escapeHtml(a.name)}${stockText}</span></button>`;
       }).join("");
     }
+
+    function stockAvailableFor(id) {
+      const art = articles.find((a) => String(a.id) === String(id));
+      return Math.max(0, Number(art && art.stock) || 0);
+    }
+    function applyQtyStockWarning(inp) {
+      if (!inp) return false;
+      const id = inp.getAttribute("data-item-qty");
+      const available = stockAvailableFor(id);
+      const entered = Math.max(1, Math.floor(Number(inp.value) || 1));
+      const wrap = inp.closest(".deliv-sel-qty-wrap");
+      const warning = wrap && wrap.querySelector(".deliv-stock-warning");
+      const note = inp.closest("label") && inp.closest("label").querySelector(".deliv-stock-note");
+      if (note) note.textContent = "Unidades disponibles: " + available;
+      const invalid = entered > available;
+      if (wrap) wrap.classList.toggle("over-stock", invalid);
+      if (warning) {
+        warning.hidden = !invalid;
+        warning.textContent = invalid
+          ? ("No puedes vender " + entered + " unidad" + (entered === 1 ? "" : "es") + ". Solo hay " + available + " disponible" + (available === 1 ? "" : "s") + ".")
+          : "";
+      }
+      return invalid;
+    }
+    function validateSelectedQtys(host, list, toastPrefix) {
+      if (!host) return true;
+      let firstInvalid = null;
+      host.querySelectorAll("[data-item-qty]").forEach((inp) => {
+        const it = (list || []).find((x) => String(x.id) === String(inp.getAttribute("data-item-qty")));
+        if (it) inp.value = String(Math.max(1, Math.floor(Number(it.qty) || Number(inp.value) || 1)));
+        if (applyQtyStockWarning(inp) && !firstInvalid) firstInvalid = inp;
+      });
+      if (firstInvalid) {
+        const available = stockAvailableFor(firstInvalid.getAttribute("data-item-qty"));
+        const entered = Math.max(1, Math.floor(Number(firstInvalid.value) || 1));
+        toast((toastPrefix || "Revisa la cantidad") + ": pediste " + entered + " y solo hay " + available + " disponible" + (available === 1 ? "" : "s") + ".");
+        firstInvalid.focus();
+        return false;
+      }
+      return true;
+    }
+
     function renderItemSelected(host, list, withPrice) {
       if (!host) return;
       if (!list.length) {
@@ -3375,19 +3420,23 @@
       host.innerHTML = list.map((it) => {
         const fields = withPrice
           ? `<div class="deliv-sel-fields">
-              <label><span>Cantidad</span><div class="deliv-sel-qty-wrap">
-                <input type="number" min="1" step="1" value="${it.qty}" data-item-qty="${escapeHtml(it.id)}" />
-                <small class="deliv-stock-note">Unidades disponibles: ${Math.max(0, Number((articles.find(a => String(a.id) === String(it.id)) || {}).stock) || 0)}</small>
-                <small class="deliv-stock-warning" hidden></small>
-              </div></label>
+              <label>
+                <span class="deliv-qty-label-row"><span>Cantidad</span><small class="deliv-stock-note">Unidades disponibles: ${Math.max(0, Number((articles.find(a => String(a.id) === String(it.id)) || {}).stock) || 0)}</small></span>
+                <div class="deliv-sel-qty-wrap">
+                  <input type="number" min="1" step="1" value="${it.qty}" data-item-qty="${escapeHtml(it.id)}" />
+                  <small class="deliv-stock-warning" hidden></small>
+                </div>
+              </label>
               <label><span>Precio unitario</span><input type="number" min="0" step="0.01" value="${it.price}" data-item-price="${escapeHtml(it.id)}" /></label>
             </div>`
           : `<div class="deliv-sel-fields">
-              <label><span>Cantidad</span><div class="deliv-sel-qty-wrap">
-                <input type="number" min="1" step="1" value="${it.qty}" data-item-qty="${escapeHtml(it.id)}" />
-                <small class="deliv-stock-note">Unidades disponibles: ${Math.max(0, Number((articles.find(a => String(a.id) === String(it.id)) || {}).stock) || 0)}</small>
-                <small class="deliv-stock-warning" hidden></small>
-              </div></label>
+              <label>
+                <span class="deliv-qty-label-row"><span>Cantidad</span><small class="deliv-stock-note">Unidades disponibles: ${Math.max(0, Number((articles.find(a => String(a.id) === String(it.id)) || {}).stock) || 0)}</small></span>
+                <div class="deliv-sel-qty-wrap">
+                  <input type="number" min="1" step="1" value="${it.qty}" data-item-qty="${escapeHtml(it.id)}" />
+                  <small class="deliv-stock-warning" hidden></small>
+                </div>
+              </label>
             </div>`;
         return `<div class="deliv-sel-row" data-item-id="${escapeHtml(it.id)}">
           <div class="deliv-sel-main">
@@ -3402,6 +3451,7 @@
     function renderDelivItemsUI() {
       renderItemPicker(del.itemsPicker, null, delivItems);
       renderItemSelected(del.itemsSelected, delivItems, false);
+      if (del.itemsSelected) del.itemsSelected.querySelectorAll("[data-item-qty]").forEach(applyQtyStockWarning);
       updateDeliveryPaymentUI();
     }
     function initials(name) {
@@ -4093,6 +4143,13 @@
     del.form.addEventListener("submit", (e) => {
       e.preventDefault();
       if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
+      if (del.itemsSelected) {
+        del.itemsSelected.querySelectorAll("[data-item-qty]").forEach((inp) => {
+          const it = delivItems.find((x) => x.id === inp.getAttribute("data-item-qty"));
+          if (it) it.qty = Math.max(1, Math.floor(Number(inp.value) || 1));
+        });
+      }
+      if (!validateSelectedQtys(del.itemsSelected, delivItems, "No se puede guardar")) return;
       const name = del.name.value.trim();
       const phone = del.phone.value.trim();
       const address = del.address.value.trim();
@@ -4330,14 +4387,18 @@
         renderDelivItemsUI();
         updateDeliveryPaymentUI();
       });
-      del.itemsSelected.addEventListener("change", (e) => {
-        const inp = e.target.closest("[data-item-qty]");
+      const syncDelivQty = (inp) => {
         if (!inp) return;
         const it = delivItems.find((x) => x.id === inp.getAttribute("data-item-qty"));
-        if (it) {
-          it.qty = Math.max(1, Math.floor(Number(inp.value) || 1));
-          updateDeliveryPaymentUI();
-        }
+        if (it) it.qty = Math.max(1, Math.floor(Number(inp.value) || 1));
+        applyQtyStockWarning(inp);
+        updateDeliveryPaymentUI();
+      };
+      del.itemsSelected.addEventListener("input", (e) => {
+        syncDelivQty(e.target.closest("[data-item-qty]"));
+      });
+      del.itemsSelected.addEventListener("change", (e) => {
+        syncDelivQty(e.target.closest("[data-item-qty]"));
       });
     }
 
@@ -4552,6 +4613,7 @@
     function renderSaleItemsUI() {
       renderItemPicker(saleEls.picker, null, saleFormItems);
       renderItemSelected(saleEls.selected, saleFormItems, true);
+      if (saleEls.selected) saleEls.selected.querySelectorAll("[data-item-qty]").forEach(applyQtyStockWarning);
       const sum = saleTotalOf(saleFormItems);
       if (saleEls.itemsSum) saleEls.itemsSum.textContent = "Suma de artículos: " + money(sum);
       if (saleEls.customField) saleEls.customField.hidden = !(saleEls.customOn && saleEls.customOn.checked);
@@ -4652,31 +4714,26 @@
         saleFormItems = saleFormItems.filter((x) => x.id !== btn.getAttribute("data-remove-item"));
         renderSaleItemsUI();
       });
+      saleEls.selected.addEventListener("input", (e) => {
+        const qty = e.target.closest("[data-item-qty]");
+        if (!qty) return;
+        const it = saleFormItems.find((x) => x.id === qty.getAttribute("data-item-qty"));
+        if (it) it.qty = Math.max(1, Math.floor(Number(qty.value) || 1));
+        applyQtyStockWarning(qty);
+      });
       saleEls.selected.addEventListener("change", (e) => {
         const qty = e.target.closest("[data-item-qty]");
         const price = e.target.closest("[data-item-price]");
         if (qty) {
           const it = saleFormItems.find((x) => x.id === qty.getAttribute("data-item-qty"));
-          if (it) {
-            const art = articles.find((a) => String(a.id) === String(id));
-            const available = Math.max(0, Number(art?.stock) || 0);
-            const entered = Math.max(1, Math.floor(Number(qty.value) || 1));
-            it.qty = entered;
-            const wrap = qty.closest(".deliv-sel-qty-wrap");
-            const warning = wrap?.querySelector(".deliv-stock-warning");
-            const invalid = entered > available;
-            wrap?.classList.toggle("over-stock", invalid);
-            if (warning) {
-              warning.hidden = !invalid;
-              warning.textContent = invalid ? `No puedes vender ${entered} unidades. Solo hay ${available} disponibles.` : "";
-            }
-          }
+          if (it) it.qty = Math.max(1, Math.floor(Number(qty.value) || 1));
+          applyQtyStockWarning(qty);
         }
         if (price) {
           const it = saleFormItems.find((x) => x.id === price.getAttribute("data-item-price"));
           if (it) it.price = Math.max(0, Number(price.value) || 0);
+          renderSaleItemsUI();
         }
-        renderSaleItemsUI();
       });
     }
     if (saleEls.customOn) {
@@ -4694,6 +4751,13 @@
         e.preventDefault();
         if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
         if (!saleFormItems.length) { toast("Elige al menos un artículo"); return; }
+        if (saleEls.selected) {
+          saleEls.selected.querySelectorAll("[data-item-qty]").forEach((inp) => {
+            const it = saleFormItems.find((x) => x.id === inp.getAttribute("data-item-qty"));
+            if (it) it.qty = Math.max(1, Math.floor(Number(inp.value) || 1));
+          });
+        }
+        if (!validateSelectedQtys(saleEls.selected, saleFormItems, "No se puede guardar")) return;
         if (saleEls.customOn && saleEls.customOn.checked) {
           const raw = saleEls.customTotal ? String(saleEls.customTotal.value).trim() : "";
           const n = Number(raw);
