@@ -1752,6 +1752,14 @@
             <input type="text" id="saleCustomer" maxlength="80" placeholder="Nombre o nota" />
           </label>
         </div>
+        <label>
+          <span>Cómo se registró</span>
+          <select id="saleSource" aria-label="Tipo de venta">
+            <option value="manual">Manual</option>
+            <option value="delivery">Entrega</option>
+          </select>
+          <small style="color:var(--muted);font-size:.68rem;font-weight:500">Puedes cambiar una venta de entrega a manual (o al revés) al editarla.</small>
+        </label>
         <div class="deliv-items-block">
           <span>Artículos vendidos</span>
           <div id="saleItemsPicker" class="deliv-items-picker"></div>
@@ -4432,6 +4440,7 @@
       editId: document.getElementById("saleEditId"),
       date: document.getElementById("saleDate"),
       customer: document.getElementById("saleCustomer"),
+      source: document.getElementById("saleSource"),
       picker: document.getElementById("saleItemsPicker"),
       selected: document.getElementById("saleItemsSelected"),
       total: document.getElementById("saleFormTotal"),
@@ -4708,6 +4717,10 @@
       saleEls.title.textContent = row ? "Editar venta" : "Nueva venta";
       saleEls.date.value = row ? row.date : todayIso();
       saleEls.customer.value = row ? row.customer : "";
+      if (saleEls.source) {
+        const src = row && row.source === "delivery" ? "delivery" : "manual";
+        saleEls.source.value = src;
+      }
       const computed = saleTotalOf(saleFormItems);
       const isCustom = Boolean(row && row.customTotal);
       if (saleEls.customOn) saleEls.customOn.checked = isCustom;
@@ -4814,8 +4827,10 @@
           const rec = {
             id: prev ? prev.id : uid(),
             date: normalizeDate(saleEls.date.value) || todayIso(),
-            source: prev && prev.source === "delivery" ? "delivery" : "manual",
-            deliveryId: prev ? prev.deliveryId : null,
+            source: (saleEls.source && saleEls.source.value === "delivery") ? "delivery" : "manual",
+            deliveryId: (saleEls.source && saleEls.source.value === "delivery")
+              ? (prev && prev.deliveryId ? prev.deliveryId : null)
+              : null,
             customer: (saleEls.customer.value || "").trim().slice(0, 80),
             items: normalizeLineItems(saleFormItems, true),
             total: 0,
@@ -4829,7 +4844,9 @@
           saveSalesStore();
           closeSaleForm();
           renderSales();
-          toast(prev ? "Venta actualizada" : "Venta registrada");
+          toast(prev
+            ? ("Venta actualizada · " + (rec.source === "delivery" ? "Entrega" : "Manual"))
+            : ("Venta registrada · " + (rec.source === "delivery" ? "Entrega" : "Manual")));
         })();
       });
     }
@@ -4841,7 +4858,10 @@
         const id = card && card.getAttribute("data-sale-id");
         const row = sales.find((s) => s.id === id);
         if (!row) return;
-        if (btn.getAttribute("data-sale") === "edit") openSaleForm(row);
+        if (btn.getAttribute("data-sale") === "edit") {
+          if (!requireEdit()) return;
+          openSaleForm(row);
+        }
         if (btn.getAttribute("data-sale") === "delete") {
           pendingSaleDelete = row;
           saleEls.deleteText.textContent = "Se eliminará la venta de " + money(row.total) + " y se devolverá el stock al catálogo.";
