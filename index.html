@@ -1183,13 +1183,69 @@
       #viewCotizar{padding:16px;border-radius:18px}
     }
 
-    .photo-context-menu { position: fixed; z-index: 99999; display:none; min-width:220px; padding:8px; border:1px solid rgba(0,245,255,.28); border-radius:16px; background:rgba(12,16,24,.97); box-shadow:0 18px 50px rgba(0,0,0,.55); backdrop-filter:blur(14px); }
-    .photo-context-menu.open { display:block; }
-    .photo-context-menu button { width:100%; border:0; background:transparent; color:var(--text); text-align:left; padding:12px 13px; border-radius:10px; font:inherit; cursor:pointer; }
-    .photo-context-menu button:hover, .photo-context-menu button:focus { background:rgba(0,245,255,.10); outline:none; }
-    .photo-context-menu .menu-title { padding:8px 12px 7px; color:var(--muted); font-size:.72rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Menú de acciones de imagen — estilo HermosilloShop */
+.hs-image-menu{position:fixed;z-index:99999;min-width:250px;max-width:calc(100vw - 28px);padding:10px;border:1px solid rgba(0,245,255,.42);border-radius:18px;background:linear-gradient(145deg,rgba(9,13,30,.98),rgba(17,10,32,.98));box-shadow:0 0 0 1px rgba(255,43,214,.12),0 12px 40px rgba(0,0,0,.55),0 0 24px rgba(0,245,255,.16);backdrop-filter:blur(16px);animation:hsMenuIn .14s ease-out;font-family:inherit}
+.hs-image-menu .hs-menu-title{padding:7px 10px 9px;color:#8dfaff;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hs-image-menu button{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;border:0;border-radius:12px;background:transparent;color:#eef7ff;font:600 14px inherit;text-align:left;cursor:pointer;transition:.15s}
+.hs-image-menu button:hover,.hs-image-menu button:focus{background:linear-gradient(90deg,rgba(0,245,255,.14),rgba(255,43,214,.12));box-shadow:inset 0 0 0 1px rgba(0,245,255,.18);outline:0}
+.hs-image-menu .hs-menu-icon{width:24px;height:24px;display:grid;place-items:center;border-radius:8px;background:rgba(0,245,255,.08);color:#00f5ff;font-size:16px;flex:none}
+@keyframes hsMenuIn{from{opacity:0;transform:translateY(5px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.hs-image-menu-backdrop{position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.08)}
 
-  </style>
+/* === HermosilloShop: menú moderno de acciones para imágenes === */
+.hs-img-menu {
+  position: fixed;
+  z-index: 99999;
+  width: min(300px, calc(100vw - 28px));
+  padding: 10px;
+  border: 1px solid rgba(0,245,255,.28);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255,43,214,.13), transparent 42%),
+    linear-gradient(145deg, rgba(6,9,20,.98), rgba(15,12,34,.98));
+  box-shadow: 0 22px 60px rgba(0,0,0,.62), 0 0 30px rgba(0,245,255,.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: hsImgMenuIn .16s cubic-bezier(.2,.8,.2,1);
+}
+.hs-img-menu .hs-menu-title {
+  display:flex; align-items:center; gap:10px;
+  padding: 7px 9px 10px;
+  color:#fff; font:700 12px/1.2 system-ui,sans-serif;
+  letter-spacing:.06em; text-transform:uppercase;
+  opacity:.9;
+}
+.hs-img-menu .hs-menu-title .hs-title-icon {
+  width:32px;height:32px;border-radius:11px;display:grid;place-items:center;
+  color:#00f5ff; background:rgba(0,245,255,.08);
+  border:1px solid rgba(0,245,255,.18);
+}
+.hs-img-menu button {
+  appearance:none; width:100%; border:0; border-radius:14px;
+  display:flex; align-items:center; gap:12px; padding:11px 12px;
+  margin:3px 0; cursor:pointer; color:#eefbff;
+  background:transparent; text-align:left;
+  font:600 14px/1 system-ui,sans-serif;
+  transition:transform .12s, background .15s, box-shadow .15s;
+}
+.hs-img-menu button:hover, .hs-img-menu button:focus-visible {
+  outline:none; transform:translateX(2px);
+  background:linear-gradient(90deg,rgba(0,245,255,.13),rgba(255,43,214,.09));
+  box-shadow:inset 0 0 0 1px rgba(0,245,255,.14);
+}
+.hs-img-menu .hs-menu-icon {
+  width:38px;height:38px;flex:0 0 38px;border-radius:12px;
+  display:grid;place-items:center;
+  color:#00f5ff; background:rgba(0,245,255,.08);
+  border:1px solid rgba(0,245,255,.16);
+}
+.hs-img-menu button:nth-of-type(2) .hs-menu-icon { color:#8ffcff; }
+.hs-img-menu button:nth-of-type(3) .hs-menu-icon { color:#ff65df; }
+.hs-img-menu button:nth-of-type(4) .hs-menu-icon { color:#c79cff; }
+.hs-img-menu svg { width:20px;height:20px; stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+@keyframes hsImgMenuIn { from {opacity:0; transform:scale(.96) translateY(5px)} to {opacity:1; transform:scale(1) translateY(0)} }
+
+</style>
 <style>.delivery-payment-card .delivery-payment-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.delivery-payment-card select,.delivery-payment-card input{min-height:46px}.delivery-payment-card input[readonly]{opacity:.88;cursor:default}</style><style id="transfer-hide-change">#delivChangeField.transfer-hidden{display:none!important}
     /* CALENDARIO VENTAS - ESTRUCTURA LIMPIA */
     #saleChart.sale-chart-body {
@@ -1670,15 +1726,7 @@
   <div class="toast" id="toast" role="status"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  
-  <div id="photoContextMenu" class="photo-context-menu" role="menu" aria-hidden="true">
-    <div id="photoContextTitle" class="menu-title">Imagen del artículo</div>
-    <button type="button" data-photo-menu="copy">📋 Copiar imagen</button>
-    <button type="button" data-photo-menu="download">⬇️ Descargar imagen</button>
-    <button type="button" data-photo-menu="share">↗️ Compartir imagen</button>
-    <button type="button" data-photo-menu="browser">🌐 Abrir en el navegador</button>
-  </div>
-<script>
+  <script>
     /* =========================================================
        CONFIG — pega aquí tus datos de Supabase (gratis)
        Project Settings → API → Project URL + anon public key
@@ -1933,105 +1981,36 @@
       }).join("");
     }
 
-    let activePhotoMenu = null;
-    let activePhotoTimer = null;
-    let activePhotoTouch = false;
-
-    function getPhotoMenu() { return document.getElementById("photoContextMenu"); }
-    function closePhotoMenu() {
-      const menu = getPhotoMenu();
-      if (!menu) return;
-      menu.classList.remove("open");
-      menu.setAttribute("aria-hidden", "true");
-      activePhotoMenu = null;
-    }
-    function openPhotoMenu(img, x, y) {
-      const menu = getPhotoMenu();
-      if (!menu || !img) return;
-      activePhotoMenu = { url: img.dataset.photoUrl || img.currentSrc || img.src, name: img.dataset.photoName || img.alt || "artículo" };
-      document.getElementById("photoContextTitle").textContent = activePhotoMenu.name;
-      menu.classList.add("open");
-      menu.setAttribute("aria-hidden", "false");
-      const pad = 10, rect = menu.getBoundingClientRect();
-      menu.style.left = Math.max(pad, Math.min(x, window.innerWidth - rect.width - pad)) + "px";
-      menu.style.top = Math.max(pad, Math.min(y, window.innerHeight - rect.height - pad)) + "px";
-    }
-    async function getPhotoBlob(url) {
-      const response = await fetch(url, { mode: "cors", cache: "no-store" });
-      if (!response.ok) throw new Error("No se pudo obtener la imagen");
-      return await response.blob();
-    }
-    function photoFilename(name, blob) {
-      const clean = String(name || "articulo").replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ _-]/g, "").trim().replace(/\s+/g, "-").slice(0,80) || "articulo";
-      const ext = (blob && blob.type && blob.type.includes("png")) ? "png" : (blob && blob.type && blob.type.includes("webp")) ? "webp" : "jpg";
-      return clean + "." + ext;
-    }
-    async function downloadPhoto(url, name) {
+    async function saveArticlePhoto(url, name) {
+      if (!url) return;
+      const cleanName = String(name || "articulo").replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ _-]/g, "").trim().replace(/\s+/g, "-").slice(0, 80) || "articulo";
+      const confirmed = window.confirm(`¿Quieres guardar la foto de \"${name || "este artículo"}\" en tu dispositivo?`);
+      if (!confirmed) return;
       try {
-        const blob = await getPhotoBlob(url);
+        const response = await fetch(url, { mode: "cors" });
+        if (!response.ok) throw new Error("No se pudo obtener la imagen");
+        const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a"); a.href = blobUrl; a.download = photoFilename(name, blob);
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
-        toast("Imagen descargada en la mejor calidad disponible");
-      } catch (_) {
-        window.open(url, "_blank", "noopener");
-        toast("Abriendo la imagen para guardarla");
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = cleanName + ".jpg";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+        toast("Foto guardada: " + (name || "artículo"));
+      } catch (err) {
+        console.warn("No se pudo descargar la foto directamente:", err);
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        toast("Abriendo la foto para guardarla");
       }
     }
-    async function copyPhoto(url) {
-      try {
-        const blob = await getPhotoBlob(url);
-        if (navigator.clipboard && window.ClipboardItem) {
-          await navigator.clipboard.write([new ClipboardItem({ [blob.type || "image/jpeg"]: blob })]);
-          toast("Imagen copiada"); return;
-        }
-        throw new Error("Clipboard no disponible");
-      } catch (_) {
-        try { await navigator.clipboard.writeText(url); toast("Enlace de la imagen copiado"); }
-        catch (_) { toast("No se pudo copiar la imagen en este navegador"); }
-      }
-    }
-    async function sharePhoto(url, name) {
-      try {
-        const blob = await getPhotoBlob(url);
-        const file = new File([blob], photoFilename(name, blob), { type: blob.type || "image/jpeg" });
-        if (navigator.share && (!navigator.canShare || navigator.canShare({ files:[file] }))) {
-          await navigator.share({ title: name || "Imagen", files:[file] });
-        } else if (navigator.share) {
-          await navigator.share({ title: name || "Imagen", url });
-        } else { throw new Error("share no disponible"); }
-      } catch (err) { if (err && err.name !== "AbortError") toast("Compartir no está disponible en este navegador"); }
-    }
-    function bindPhotoLongPress() {
-      els.grid.addEventListener("contextmenu", (e) => {
-        const img = e.target.closest("img[data-save-photo]"); if (!img) return;
-        e.preventDefault(); openPhotoMenu(img, e.clientX, e.clientY);
-      });
-      els.grid.addEventListener("touchstart", (e) => {
-        const img = e.target.closest("img[data-save-photo]"); if (!img) return;
-        activePhotoTouch = true; const t = e.touches[0];
-        clearTimeout(activePhotoTimer);
-        activePhotoTimer = setTimeout(() => { openPhotoMenu(img, t.clientX, t.clientY); }, 550);
-      }, { passive:true });
-      els.grid.addEventListener("touchend", () => { clearTimeout(activePhotoTimer); activePhotoTouch = false; }, { passive:true });
-      els.grid.addEventListener("touchmove", () => clearTimeout(activePhotoTimer), { passive:true });
-      document.addEventListener("click", (e) => { if (!e.target.closest("#photoContextMenu")) closePhotoMenu(); });
-      document.addEventListener("scroll", closePhotoMenu, true);
-      window.addEventListener("resize", closePhotoMenu);
-      const photoMenu = getPhotoMenu();
-      if (!photoMenu) return;
-      photoMenu.addEventListener("click", async (e) => {
-        const btn = e.target.closest("button[data-photo-menu]"); if (!btn || !activePhotoMenu) return;
-        const {url,name} = activePhotoMenu; closePhotoMenu();
-        const action = btn.dataset.photoMenu;
-        if (action === "copy") await copyPhoto(url);
-        else if (action === "download") await downloadPhoto(url,name);
-        else if (action === "share") await sharePhoto(url,name);
-        else if (action === "browser") window.open(url,"_blank","noopener");
-      });
-    }
-
 
     async function loadArticles() {
       if (!supabaseClient) {
@@ -2071,7 +2050,24 @@
         if (!file.type.startsWith("image/")) { reject(new Error("El archivo debe ser una imagen.")); return; }
         if (file.size > 4 * 1024 * 1024) { reject(new Error("La imagen debe pesar menos de 4 MB.")); return; }
         const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const max = 320;
+            let { width, height } = img;
+            if (width > max || height > max) {
+              const scale = Math.min(max / width, max / height);
+              width = Math.round(width * scale);
+              height = Math.round(height * scale);
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = width; canvas.height = height;
+            canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", 0.68));
+          };
+          img.onerror = () => reject(new Error("No se pudo leer la imagen."));
+          img.src = String(reader.result);
+        };
         reader.onerror = () => reject(new Error("No se pudo leer el archivo."));
         reader.readAsDataURL(file);
       });
@@ -2268,9 +2264,10 @@
     els.grid.addEventListener("click", (e) => {
       const img = e.target.closest("img[data-save-photo]");
       if (!img) return;
-      // El menú de acciones aparece con pulsación prolongada / clic derecho.
+      e.preventDefault();
+      e.stopPropagation();
+      saveArticlePhoto(img.dataset.photoUrl, img.dataset.photoName);
     });
-    bindPhotoLongPress();
     els.btnRefresh.addEventListener("click", () => {
       const viewBeforeRefresh = currentView || sessionStorage.getItem(VIEW_KEY) || "catalog";
       try { sessionStorage.setItem(VIEW_KEY, viewBeforeRefresh); } catch (_) {}
@@ -4353,6 +4350,109 @@
       });
     }
   </script>
+
+<script>
+(function(){
+  let hsMenu=null, hsBackdrop=null, hsTimer=null, hsTarget=null;
+  function closeHsMenu(){ if(hsTimer)clearTimeout(hsTimer); hsTimer=null; if(hsMenu)hsMenu.remove(); if(hsBackdrop)hsBackdrop.remove(); hsMenu=null; hsBackdrop=null; hsTarget=null; }
+  function getImg(el){return el && el.tagName==='IMG'?el:el?.querySelector?.('img');}
+  async function copyImg(img){try{const r=await fetch(img.currentSrc||img.src);const b=await r.blob();if(navigator.clipboard&&window.ClipboardItem){await navigator.clipboard.write([new ClipboardItem({[b.type]:b})]); alert('Imagen copiada');}else alert('Tu navegador no permite copiar esta imagen directamente.');}catch(e){alert('No se pudo copiar la imagen.');}}
+  function downloadImg(img){const a=document.createElement('a');a.href=img.currentSrc||img.src;a.download=(img.alt||'imagen-articulo').replace(/[^\w\- áéíóúñ]/gi,'').trim().replace(/\s+/g,'-')+'.jpg';document.body.appendChild(a);a.click();a.remove();}
+  async function shareImg(img){try{const r=await fetch(img.currentSrc||img.src);const b=await r.blob();const f=new File([b],'imagen-articulo.'+(b.type.split('/')[1]||'jpg'),{type:b.type});if(navigator.share&&navigator.canShare&&navigator.canShare({files:[f]})) await navigator.share({title:img.alt||'Imagen del artículo',files:[f]}); else if(navigator.share) await navigator.share({title:img.alt||'Imagen del artículo',url:img.currentSrc||img.src}); else alert('Tu navegador no permite compartir imágenes.');}catch(e){if(e.name!=='AbortError') alert('No se pudo compartir la imagen.');}}
+  function openImg(img){window.open(img.currentSrc||img.src,'_blank','noopener,noreferrer');}
+  function showMenu(img,x,y){closeHsMenu();hsTarget=img;hsBackdrop=document.createElement('div');hsBackdrop.className='hs-image-menu-backdrop';hsBackdrop.onclick=closeHsMenu;document.body.appendChild(hsBackdrop);hsMenu=document.createElement('div');hsMenu.className='hs-image-menu';hsMenu.innerHTML='<div class="hs-menu-title">Acciones de imagen</div>' + [['📋','Copiar imagen',()=>copyImg(img)],['⬇️','Descargar imagen',()=>downloadImg(img)],['↗️','Compartir imagen',()=>shareImg(img)],['🌐','Abrir en el navegador',()=>openImg(img)]].map((a,i)=>'<button type="button" data-i="'+i+'"><span class="hs-menu-icon">'+a[0]+'</span>'+a[1]+'</button>').join('');hsMenu.querySelectorAll('button').forEach((b,i)=>b.onclick=()=>{const fn=[copyImg,downloadImg,shareImg,openImg][i];closeHsMenu();fn(img)});document.body.appendChild(hsMenu);const r=hsMenu.getBoundingClientRect();hsMenu.style.left=Math.max(10,Math.min(x,innerWidth-r.width-10))+'px';hsMenu.style.top=Math.max(10,Math.min(y,innerHeight-r.height-10))+'px';}
+  document.addEventListener('contextmenu',e=>{const img=getImg(e.target);if(!img)return;e.preventDefault();showMenu(img,e.clientX,e.clientY);});
+  document.addEventListener('touchstart',e=>{const img=getImg(e.target);if(!img)return;hsTarget=img;hsTimer=setTimeout(()=>{const t=e.touches[0];showMenu(img,t.clientX,t.clientY);},550);},{passive:true});
+  document.addEventListener('touchend',()=>{if(hsTimer)clearTimeout(hsTimer);hsTimer=null;},{passive:true});
+  document.addEventListener('touchmove',()=>{if(hsTimer)clearTimeout(hsTimer);hsTimer=null;},{passive:true});
+  window.addEventListener('scroll',closeHsMenu,{passive:true}); window.addEventListener('resize',closeHsMenu);
+})();
+</script>
+
+<script>
+/* HermosilloShop — acciones de imagen (mantener presionado / clic derecho) */
+(function(){
+  const ICONS = {
+    image:`<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="8.5" cy="9" r="1.4"></circle><path d="m4 17 5-5 3.5 3.5 2.5-2.5 5 5"></path></svg>`,
+    copy:`<svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2.5"></rect><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path></svg>`,
+    download:`<svg viewBox="0 0 24 24"><path d="M12 3v11"></path><path d="m8 10 4 4 4-4"></path><path d="M5 19h14"></path></svg>`,
+    share:`<svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="m8.2 10.8 7.5-4.5M8.2 13.2l7.5 4.5"></path></svg>`,
+    browser:`<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M3 8h18"></path><circle cx="7" cy="6" r=".7" fill="currentColor" stroke="none"></circle><circle cx="10" cy="6" r=".7" fill="currentColor" stroke="none"></circle></svg>`
+  };
+  let menu, timer, startX, startY, longPressed=false, activeImg=null;
+
+  function removeMenu(){ if(menu){menu.remove();menu=null;} }
+  function titleFor(img){ return (img?.alt || img?.closest('[data-name]')?.dataset.name || "imagen").trim(); }
+
+  function downloadImage(src, name){
+    const a=document.createElement('a'); a.href=src; a.download=(name.replace(/[\\/:*?"<>|]+/g,'_')||'imagen')+'.jpg';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  async function copyImage(src){
+    try{
+      const r=await fetch(src,{mode:'cors'});
+      const b=await r.blob();
+      if(navigator.clipboard && window.ClipboardItem){
+        await navigator.clipboard.write([new ClipboardItem({[b.type||'image/png']:b})]);
+        if(typeof window.toast==='function') window.toast('Imagen copiada');
+        return;
+      }
+    }catch(e){}
+    if(typeof window.toast==='function') window.toast('No se pudo copiar; usa Descargar imagen');
+  }
+  async function shareImage(src,name){
+    try{
+      const r=await fetch(src,{mode:'cors'}), b=await r.blob();
+      const f=new File([b],(name||'imagen')+'.jpg',{type:b.type||'image/jpeg'});
+      if(navigator.share && (!navigator.canShare || navigator.canShare({files:[f]}))){
+        await navigator.share({title:name,text:name,files:[f]});
+      } else if(navigator.share) await navigator.share({title:name,url:src});
+    }catch(e){}
+  }
+  function showMenu(img,x,y){
+    removeMenu(); activeImg=img;
+    menu=document.createElement('div'); menu.className='hs-img-menu';
+    const name=titleFor(img), src=img.currentSrc||img.src;
+    menu.innerHTML=`
+      <div class="hs-menu-title"><span class="hs-title-icon">${ICONS.image}</span><span>${name.replace(/[<>&"]/g,'')}</span></div>
+      <button data-act="copy"><span class="hs-menu-icon">${ICONS.copy}</span><span>Copiar imagen</span></button>
+      <button data-act="download"><span class="hs-menu-icon">${ICONS.download}</span><span>Descargar imagen</span></button>
+      <button data-act="share"><span class="hs-menu-icon">${ICONS.share}</span><span>Compartir imagen</span></button>
+      <button data-act="browser"><span class="hs-menu-icon">${ICONS.browser}</span><span>Abrir en el navegador</span></button>`;
+    document.body.appendChild(menu);
+    const r=menu.getBoundingClientRect();
+    menu.style.left=Math.max(10,Math.min(x,innerWidth-r.width-10))+'px';
+    menu.style.top=Math.max(10,Math.min(y,innerHeight-r.height-10))+'px';
+    menu.querySelector('[data-act="copy"]').onclick=()=>{copyImage(src);removeMenu()};
+    menu.querySelector('[data-act="download"]').onclick=()=>{downloadImage(src,name);removeMenu()};
+    menu.querySelector('[data-act="share"]').onclick=()=>{shareImage(src,name);removeMenu()};
+    menu.querySelector('[data-act="browser"]').onclick=()=>{window.open(src,'_blank','noopener,noreferrer');removeMenu()};
+    setTimeout(()=>document.addEventListener('pointerdown', outside, {once:true}),0);
+  }
+  function outside(e){ if(menu && !menu.contains(e.target)) removeMenu(); }
+  function isImage(t){ return t && t.tagName==='IMG' && t.src; }
+
+  document.addEventListener('contextmenu',e=>{
+    if(isImage(e.target)){ e.preventDefault(); showMenu(e.target,e.clientX,e.clientY); }
+  },{passive:false});
+
+  document.addEventListener('pointerdown',e=>{
+    if(!isImage(e.target)) return;
+    activeImg=e.target; longPressed=false; startX=e.clientX; startY=e.clientY;
+    clearTimeout(timer);
+    timer=setTimeout(()=>{
+      longPressed=true; showMenu(activeImg,startX,startY);
+      if(navigator.vibrate) navigator.vibrate(18);
+    },550);
+  },{passive:true});
+  document.addEventListener('pointermove',e=>{
+    if(Math.hypot(e.clientX-startX,e.clientY-startY)>12) clearTimeout(timer);
+  },{passive:true});
+  document.addEventListener('pointerup',()=>clearTimeout(timer),{passive:true});
+  document.addEventListener('pointercancel',()=>clearTimeout(timer),{passive:true});
+  window.addEventListener('scroll',removeMenu,{passive:true});
+})();
+</script>
 
 </body>
 </html>
