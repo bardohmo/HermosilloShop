@@ -4335,8 +4335,8 @@
     share:'<svg viewBox="0 0 24 24"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="m8.3 10.8 7.3-4.1M8.3 13.2l7.3 4.1"/></svg>',
     browser:'<svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="3"/><path d="M3.5 8.5h17"/></svg>'
   };
-  let menu=null,timer=null,sx=0,sy=0;
-  const close=()=>{if(timer)clearTimeout(timer);timer=null;if(menu)menu.remove();menu=null};
+  let menu=null,timer=null,sx=0,sy=0,longPressed=false;
+  const close=()=>{if(timer)clearTimeout(timer);timer=null;if(menu)menu.remove();menu=null;longPressed=false};
   const src=img=>img.dataset.originalUrl||img.dataset.photoUrl||img.currentSrc||img.src;
   const safe=s=>String(s||'imagen-articulo').replace(/[\\/:*?"<>|]+/g,'_').trim().slice(0,90)||'imagen-articulo';
 
@@ -4387,10 +4387,10 @@
   document.addEventListener('pointerdown',e=>{
     const img=e.target.closest&&e.target.closest('img[data-photo-url],img[data-save-photo]');
     if(!img)return; sx=e.clientX;sy=e.clientY;
-    timer=setTimeout(()=>{show(img,sx,sy);if(navigator.vibrate)navigator.vibrate(15)},520);
+    longPressed=false; timer=setTimeout(()=>{longPressed=true;show(img,sx,sy);if(navigator.vibrate)navigator.vibrate(15)},520);
   },{passive:true});
-  document.addEventListener('pointermove',e=>{if(Math.hypot(e.clientX-sx,e.clientY-sy)>14)close()},{passive:true});
-  document.addEventListener('pointerup',close,{passive:true});
+  document.addEventListener('pointermove',e=>{if(Math.hypot(e.clientX-sx,e.clientY-sy)>14){if(timer)clearTimeout(timer);timer=null;}},{passive:true});
+  document.addEventListener('pointerup',()=>{if(!longPressed){if(timer)clearTimeout(timer);timer=null;}},{passive:true});
   document.addEventListener('pointercancel',close,{passive:true});
   window.addEventListener('scroll',close,{passive:true});
   window.addEventListener('resize',close);
