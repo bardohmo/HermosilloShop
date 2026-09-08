@@ -1222,6 +1222,11 @@
 .hs-img-menu button .hs-menu-icon{flex:0 0 34px}
 .hs-img-menu button span:last-child{display:block;text-align:left}
 
+
+/* Menú de imágenes: alineación izquierda */
+.hs-img-menu button{justify-content:flex-start!important;text-align:left!important}
+.hs-img-menu button .hs-menu-icon{flex:0 0 34px}
+.hs-img-menu button span:last-child{display:block;text-align:left}
 </style>
 <style>.delivery-payment-card .delivery-payment-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.delivery-payment-card select,.delivery-payment-card input{min-height:46px}.delivery-payment-card input[readonly]{opacity:.88;cursor:default}</style><style id="transfer-hide-change">#delivChangeField.transfer-hidden{display:none!important}
     /* CALENDARIO VENTAS - ESTRUCTURA LIMPIA */
@@ -2024,28 +2029,22 @@
 
     function compressImage(file) {
       return new Promise((resolve, reject) => {
-        if (!file.type.startsWith("image/")) {
-          reject(new Error("El archivo debe ser una imagen."));
-          return;
-        }
-        // Se conserva el archivo ORIGINAL. No canvas, no resize, no JPEG conversion.
-        resolve(file);
+        if (!file.type.startsWith("image/")) { reject(new Error("El archivo debe ser una imagen.")); return; }
+        if (file.size > 4 * 1024 * 1024) { reject(new Error("La imagen debe pesar menos de 4 MB.")); return; }
+        const reader = new FileReader();
+        reader.onload = () => resolve({dataUrl: reader.result, mime: file.type, ext: (file.name.split(".").pop() || "jpg").toLowerCase()});
+        reader.onerror = () => reject(new Error("No se pudo leer el archivo."));
+        reader.readAsDataURL(file);
       });
     }
 
-    async function uploadPhoto(file, articleId) {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const safeExt = ["jpeg","jpg","png","webp","gif","avif"].includes(ext) ? ext : "jpg";
-      const path = articleId + "/" + Date.now() + "_" + Math.random().toString(36).slice(2,8) + "." + safeExt;
-      const { error } = await supabaseClient.storage.from(CONFIG.BUCKET).upload(path, file, {
-        contentType: file.type || "application/octet-stream",
-        upsert: true,
-        cacheControl: "31536000"
+    async function uploadPhoto(photo, articleId) {
+      const blob = dataUrlToBlob(photo.dataUrl);
+      const ext = ["jpeg","jpg","png","webp","gif","avif"].includes(photo.ext) ? photo.ext : "jpg";
+      const path = articleId + "/" + Date.now() + "." + ext;
+      const { error } = await supabaseClient.storage.from(CONFIG.BUCKET).upload(path, blob, {
+        contentType: photo.mime, upsert: true,
       });
-      if (error) throw error;
-      const { data } = supabaseClient.storage.from(CONFIG.BUCKET).getPublicUrl(path);
-      return data.publicUrl;
-    });
       if (error) throw error;
       const { data } = supabaseClient.storage.from(CONFIG.BUCKET).getPublicUrl(path);
       return data.publicUrl;
@@ -2085,10 +2084,7 @@
 
     function renderPhotoPreview() {
       if (pendingPhotoDataUrl) {
-        const previewUrl = pendingPhotoDataUrl instanceof File
-          ? URL.createObjectURL(pendingPhotoDataUrl)
-          : (pendingPhotoDataUrl.dataUrl || pendingPhotoDataUrl);
-        els.photoPreview.innerHTML = '<img src="' + previewUrl + '" alt="Vista previa" />';
+        els.photoPreview.innerHTML = '<img src="' + (pendingPhotoDataUrl.dataUrl || pendingPhotoDataUrl) + '" alt="Vista previa" />';
       } else if (existingPhotoUrl && !removePhoto) {
         els.photoPreview.innerHTML = '<img src="' + existingPhotoUrl + '" alt="Vista previa" />';
       } else {
@@ -4345,16 +4341,14 @@
       const r=await fetch(url,{cache:"no-store",credentials:"omit"});
       if(!r.ok) throw new Error("HTTP "+r.status);
       const b=await r.blob();
-      const ext=(b.type&&b.type.split("/")[1])||((url.match(/\.([a-z0-9]+)(?:[?#]|$)/i)||[])[1])||"jpg";
-      const u=URL.createObjectURL(b);
-      const a=document.createElement("a");
+      const ext=(b.type&&b.type.split("/")[1])||((url.match(/\\.([a-z0-9]+)(?:[?#]|$)/i)||[])[1])||"jpg";
+      const u=URL.createObjectURL(b), a=document.createElement("a");
       a.href=u; a.download=name+"."+ext; a.style.display="none";
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(()=>URL.revokeObjectURL(u),3000);
     }catch(e){
-      // Last resort: direct original public URL. No image processing occurs.
       const a=document.createElement("a");
-      a.href=url; a.download=name; a.target="_blank"; a.rel="noopener";
+      a.href=url; a.download=name; a.style.display="none";
       document.body.appendChild(a); a.click(); a.remove();
     }
   }
