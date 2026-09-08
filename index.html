@@ -406,143 +406,11 @@
     .form-grid { display: grid; gap: 14px; }
     label { display: grid; gap: 6px; font-size: 0.85rem; color: var(--muted); }
     label span { font-weight: 600; color: var(--text); }
-    input[type="text"], input[type="number"], input[type="date"], input[type="search"], select, textarea {
+    input[type="text"], input[type="number"], textarea {
       width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
       background: rgba(0,0,0,0.35); color: var(--text); font: inherit; outline: none;
     }
-    select {
-      appearance: none;
-      -webkit-appearance: none;
-      background-image: linear-gradient(45deg, transparent 50%, rgba(148,163,184,.95) 50%), linear-gradient(135deg, rgba(148,163,184,.95) 50%, transparent 50%);
-      background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 12px) calc(50% - 3px);
-      background-size: 6px 6px, 6px 6px;
-      background-repeat: no-repeat;
-      padding-right: 34px;
-      cursor: pointer;
-    }
-    select option { background: #111; color: var(--text); }
-    .deliv-phone-field.phone-disabled,
-    #delivPhone.phone-disabled {
-      background: rgba(100,116,139,.12) !important;
-      color: rgba(148,163,184,.58) !important;
-      border-color: rgba(148,163,184,.20) !important;
-      box-shadow: none !important;
-      cursor: not-allowed;
-      opacity: .72;
-    }
-
-    .phone-title-switch {
-      display:inline-flex;
-      vertical-align:middle;
-      margin-left:7px;
-      align-items:center;
-      cursor:pointer;
-    }
-    .phone-title-switch input {
-      position:absolute;
-      opacity:0;
-      width:1px;
-      height:1px;
-      pointer-events:none;
-    }
-    .phone-title-switch .no-phone-switch {
-      display:inline-block;
-      position:relative;
-      width:30px;
-      height:18px;
-      border-radius:999px;
-      background:rgba(100,116,139,.34);
-      border:1px solid rgba(148,163,184,.28);
-      transition:.2s ease;
-    }
-    .phone-title-switch .no-phone-switch > span {
-      position:absolute;
-      top:2px;
-      left:2px;
-      width:12px;
-      height:12px;
-      border-radius:50%;
-      background:#cbd5e1;
-      transition:.2s ease;
-      box-shadow:0 1px 4px rgba(0,0,0,.45);
-    }
-    .phone-title-switch:has(input:checked) .no-phone-switch {
-      background:rgba(0,245,255,.30);
-      border-color:rgba(0,245,255,.68);
-    }
-    .phone-title-switch:has(input:checked) .no-phone-switch > span {
-      transform:translateX(12px);
-      background:var(--cyan);
-      box-shadow:0 0 8px rgba(0,245,255,.60);
-    }
-    .phone-title-switch:not(:has(input:checked)) .no-phone-switch {
-      background:rgba(255,55,75,.18);
-      border-color:rgba(255,55,75,.50);
-    }
-
-    .phone-title-row {
-      display:block !important;
-      width:100%;
-      line-height:1.2;
-    }
-    .phone-title-row > span:first-child {
-      display:inline !important;
-      width:auto !important;
-    }
-    .phone-title-row > .phone-title-switch {
-      display:inline-flex !important;
-      align-items:center !important;
-      flex:0 0 auto !important;
-      vertical-align:middle;
-      margin:0 !important;
-      padding:0 !important;
-      position:relative;
-    }
-    .phone-title-row > .phone-title-switch input {
-      position:absolute;
-      opacity:0;
-      width:1px;
-      height:1px;
-      pointer-events:none;
-    }
-    
-    #delivPhone {
-      display:block !important;
-      width:100% !important;
-      box-sizing:border-box;
-      margin-top:6px;
-    }
-
-    .net-gain-label {
-      color: var(--text) !important;
-    }
-    .net-gain-row.net-negative .net-gain-label,
-    .net-gain-row.net-positive .net-gain-label {
-      color: var(--text) !important;
-    }
-    .net-gain-row small {
-      color: rgba(148,163,184,.62) !important;
-    }
     input:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.12); }
-    /* Error visual para campos obligatorios vacíos */
-    input.required-field-error,
-    input.required-field-error:focus,
-    input[type="date"].required-field-error,
-    input[type="tel"].required-field-error,
-    input[type="number"].required-field-error,
-    input[type="password"].required-field-error,
-    textarea.required-field-error,
-    textarea.required-field-error:focus,
-    select.required-field-error,
-    select.required-field-error:focus {
-      background: rgba(255, 55, 75, 0.16) !important;
-      border-color: rgba(255, 55, 75, 0.90) !important;
-      box-shadow: 0 0 0 3px rgba(255, 55, 75, 0.14), 0 0 14px rgba(255, 55, 75, 0.16) !important;
-    }
-    input.required-field-error::placeholder,
-    textarea.required-field-error::placeholder {
-      color: rgba(255, 190, 195, 0.78);
-    }
     textarea { min-height: 72px; resize: vertical; }
     .photo-preview {
       width: 100%; aspect-ratio: 16 / 10; border-radius: 12px; border: 1px dashed var(--line);
@@ -1025,20 +893,12 @@
     .sale-calendar-summary-title { margin:14px 0 8px; font-size:.88rem; font-weight:800; color:var(--text); }
     .sale-calendar-summary-title small { color:var(--muted); font-weight:600; }
     .sale-month-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; }
-    .sale-month-card {
-      min-width:0; width:100%; box-sizing:border-box;
-      min-height:72px; padding:9px 6px;
-      border-radius:10px; border:1px solid rgba(0,245,255,.12);
-      background:rgba(5,12,23,.68); color:var(--text);
-      text-align:center; cursor:pointer; box-shadow:none;
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      gap:0; overflow:hidden;
-    }
+    .sale-month-card { min-width:0; padding:9px 5px; border-radius:10px; border:1px solid rgba(0,245,255,.12); background:rgba(5,12,23,.68); color:var(--text); text-align:center; cursor:pointer; box-shadow:none; }
     .sale-month-card:hover { transform:none; border-color:rgba(0,245,255,.34); }
     .sale-month-card.active { border-color:rgba(0,245,255,.72); box-shadow:0 0 0 1px rgba(0,245,255,.12); }
-    .sale-month-card strong { display:block; width:100%; font-size:.78rem; line-height:1.1; }
-    .sale-month-card span { display:block; width:100%; margin-top:4px; color:var(--muted); font-size:.61rem; line-height:1.1; }
-    .sale-month-card b { display:block; width:100%; margin-top:4px; font-size:.70rem; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sale-month-card strong { display:block; font-size:.78rem; }
+    .sale-month-card span { display:block; margin-top:3px; color:var(--muted); font-size:.61rem; }
+    .sale-month-card b { display:block; margin-top:4px; font-size:.70rem; white-space:nowrap; }
     .sale-month-card b.positive { color:var(--ok); }
     .sale-month-card b.negative { color:#ff526e; }
     .sale-month-card b.zero { color:#8290a4; }
@@ -1051,11 +911,7 @@
       .sale-calendar-metrics { grid-template-columns:1fr; }
       .sale-calendar-metrics > div { border-right:0; border-bottom:1px solid rgba(255,255,255,.06); }
       .sale-calendar-metrics > div:last-child { border-bottom:0; }
-      .sale-month-summary { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
-      .sale-month-card { min-height:68px; padding:8px 5px; }
-      .sale-month-card strong { font-size:.76rem; }
-      .sale-month-card span { font-size:.59rem; }
-      .sale-month-card b { font-size:.67rem; }
+      .sale-month-summary { grid-template-columns:repeat(3,minmax(0,1fr)); }
     }
     .io-group {
       display: inline-flex;
@@ -1228,25 +1084,6 @@
 
 /* Tonos distintos pero visualmente cercanos */
 .purchase-row{border-color:rgba(90,190,255,.30)}
-.net-gain-row{border-color:rgba(148,163,184,.18)
-      margin-top:8px;
-      padding-top:8px;
-      border-top:1px solid rgba(148,163,184,.16);
-    
-      opacity:1 !important;
-      filter:none !important;}
-    .net-gain-row.net-positive{border-color:rgba(87,240,194,.30)}
-    .net-gain-row.net-positive strong{color:#57f0c2 !important}
-    .net-gain-row.net-negative strong{color:#ff8f8f !important}
-    .net-gain-row small{
-      display:block;
-      margin-top:2px;
-      font-size:.50rem;
-      line-height:1;
-      font-weight:500;
-      color:rgba(148,163,184,.62);
-    }
-    
 .purchase-row span,.purchase-row strong{color:#72caff}
 
 .gain-row{border-color:rgba(105,210,190,.28)}
@@ -1344,53 +1181,6 @@
     @media(max-width:700px){
       #viewCotizar{padding:16px;border-radius:18px}
     }
-
-    .maps-resolve-progress { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid rgba(0, 220, 255, .28); border-radius: 12px; background: rgba(7, 18, 35, .72); box-shadow: 0 0 18px rgba(0, 210, 255, .08); }
-    .maps-resolve-progress-top { display:flex; justify-content:space-between; gap:12px; font-size:12px; font-weight:700; margin-bottom:7px; opacity:.95; }
-    .maps-resolve-progress-track { height:7px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.10); }
-    .maps-resolve-progress-bar { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, #00d9ff, #5cf2ff); box-shadow:0 0 12px rgba(0,217,255,.55); transition:width .25s ease; }
-    .maps-resolve-done { width:24px; height:24px; margin:7px 0 0 auto; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; color:#07121f; background:#57f0c2; box-shadow:0 0 14px rgba(87,240,194,.55); }
-    .maps-resolve-progress.is-done .maps-resolve-progress-track, .maps-resolve-progress.is-done .maps-resolve-progress-pct { opacity:.55; }
-    .maps-resolve-progress.is-done .maps-resolve-progress-top { margin-bottom:0; }
-
-    .sales-chart-wrap{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.025)}
-    .sales-chart-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-    .sales-chart-title{font-size:.72rem;font-weight:700}
-    .sales-chart-subtitle{font-size:.62rem;color:var(--muted);margin-top:2px;font-weight:500;line-height:1.15}
-    .sales-periods{display:flex;gap:5px;flex-wrap:wrap}
-    .sales-period-btn{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:5px 9px;font-size:.62rem;font-weight:700;cursor:pointer}
-    .sales-period-btn.active{background:rgba(87,240,194,.12);border-color:rgba(87,240,194,.45);color:#57f0c2}
-    .sales-chart{width:100%;height:220px;display:block}
-    .sales-chart-empty{height:220px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.72rem}
-
-
-    .deliv-pick.out-of-stock{
-      opacity:.48;
-      filter:grayscale(1);
-      background:rgba(148,163,184,.08)!important;
-      border-color:rgba(148,163,184,.18)!important;
-      color:var(--muted)!important;
-      cursor:not-allowed!important;
-    }
-    .deliv-pick.out-of-stock:active{transform:none!important}
-    .deliv-pick.out-of-stock small{display:block;font-size:.58rem;color:var(--muted)}
-
-
-    .deliv-qty-label-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;width:100%}
-    .sale-toolbar-row{display:flex;flex-wrap:wrap;gap:10px;align-items:end;width:100%}
-    .sale-toolbar-row .search{flex:1 1 220px}
-    .sale-sort-wrap{display:grid;gap:4px;min-width:210px}
-    .sale-sort-wrap span{font-size:.72rem;color:var(--muted);font-weight:600}
-    .sale-sort-wrap select{min-height:42px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text);padding:8px 10px}
-    .sale-total-label{display:block;font-size:.68rem;color:var(--muted);font-weight:600;margin-bottom:2px}
-
-    .deliv-qty-label-row > span:first-child{flex:0 0 auto}
-    .deliv-stock-note{font-size:.58rem;color:var(--muted);line-height:1.15;font-weight:500;text-align:right}
-    .deliv-sel-qty-wrap{display:flex;flex-direction:column;gap:3px}
-    .deliv-stock-warning{font-size:.62rem;color:#ff8f8f;font-weight:700;line-height:1.15}
-    .deliv-stock-warning[hidden]{display:none!important}
-    .deliv-sel-qty-wrap.over-stock input{border-color:#ff8f8f!important;box-shadow:0 0 0 1px rgba(255,143,143,.22)}
-
 </style>
 <style>.delivery-payment-card .delivery-payment-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.delivery-payment-card select,.delivery-payment-card input{min-height:46px}.delivery-payment-card input[readonly]{opacity:.88;cursor:default}</style><style id="transfer-hide-change">#delivChangeField.transfer-hidden{display:none!important}
     /* CALENDARIO VENTAS - ESTRUCTURA LIMPIA */
@@ -1446,6 +1236,35 @@
       #saleChart .sale-calendar-grid { gap: 3px !important; grid-auto-rows: 48px !important; }
       #saleChart .sale-calendar-day { height:48px !important; min-height:48px !important; }
     }
+
+<style id="product-image-download-styles">
+  .card-media img { cursor: zoom-in; }
+  .image-viewer-modal {
+    width:min(92vw,720px); max-height:90vh; padding:14px;
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .image-viewer-content {
+    display:flex; align-items:center; justify-content:center;
+    min-height:220px; max-height:68vh; border-radius:14px;
+    overflow:hidden; background:rgba(0,0,0,.35);
+  }
+  .image-viewer-content img {
+    display:block; max-width:100%; max-height:68vh; width:auto; height:auto;
+    object-fit:contain; border-radius:10px;
+  }
+  .image-viewer-title {
+    font-size:1rem; font-weight:800; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap;
+  }
+  .image-viewer-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+  .image-viewer-actions button, .image-viewer-actions a { min-height:42px; }
+  @media(max-width:520px){
+    .image-viewer-modal{width:94vw;padding:10px}
+    .image-viewer-content{max-height:64vh}
+    .image-viewer-content img{max-height:64vh}
+  }
+</style>
+
 </style></head>
 <body>
   <div class="app">
@@ -1533,12 +1352,10 @@
         <input type="hidden" id="delivEditId" />
         <label>
           <span>Nombre de la persona</span>
-          <input type="text" id="delivName" required maxlength="80" placeholder="Ej. Juan Pérez" autocomplete="name" /></label>
-        <label class="phone-title-row">
-          <span>Celular</span> <span class="phone-title-switch">
-              <input type="checkbox" id="delivNoPhone" checked>
-              <span class="no-phone-switch"><span></span></span>
-            </span>
+          <input type="text" id="delivName" required maxlength="80" placeholder="Ej. Juan Pérez" autocomplete="name" />
+        </label>
+        <label>
+          <span>Celular</span>
           <input type="tel" id="delivPhone" required maxlength="24" placeholder="Ej. 662 123 4567" autocomplete="tel" />
         </label>
         <label>
@@ -1557,14 +1374,10 @@
         </div>
         <label>
           <span>Link de Google Maps (opcional)</span>
-          <input type="text" id="delivMapsPaste" placeholder="Pega aquí el link de Maps para guardar el punto exacto" autocomplete="off" />
+          <input type="text" id="delivMapsPaste" placeholder="Pega aquí el link de Maps para guardar el punto exacto" />
         </label>
-        <div id="mapsResolveProgress" class="maps-resolve-progress" hidden aria-live="polite">
-          <div class="maps-resolve-progress-top"><span id="mapsResolveProgressText">Detectando ubicación…</span></div>
-          <div class="maps-resolve-progress-track"><div id="mapsResolveProgressBar" class="maps-resolve-progress-bar"></div></div>
-          <div id="mapsResolveDone" class="maps-resolve-done" hidden aria-label="Ubicación lista">✓</div>
-        </div>
         <div class="photo-actions">
+          <button type="button" id="btnLoadMap">Cargar en Google Maps</button>
           <button type="button" class="ghost" id="btnMyLoc">Usar mi ubicación</button>
           <a class="btn ghost" id="btnOpenMaps" hidden target="_blank" rel="noreferrer">Abrir en Google Maps</a>
         </div>
@@ -1702,22 +1515,6 @@
         <div class="sale-chart-head">
           <div>
             <h2>Ventas del año</h2>
-        <div class="sales-chart-wrap">
-          <div class="sales-chart-head">
-            <div>
-              <div class="sales-chart-title">Ventas por periodo</div>
-              <div class="sales-chart-subtitle" id="salesChartSubtitle">Total cobrado</div>
-            </div>
-            <div class="sales-periods" role="tablist" aria-label="Periodo de ventas">
-              <button type="button" class="sales-period-btn active" data-sales-period="day">Día</button>
-              <button type="button" class="sales-period-btn" data-sales-period="week">Semana</button>
-              <button type="button" class="sales-period-btn" data-sales-period="month">Mes</button>
-              <button type="button" class="sales-period-btn" data-sales-period="year">Año</button>
-            </div>
-          </div>
-          <div id="salesLineChart"></div>
-        </div>
-
             <p id="saleAvg">Días con ventas: 0</p>
           </div>
           <div class="sale-chart-controls">
@@ -1730,19 +1527,8 @@
         <div class="sale-chart-body" id="saleChart"></div>
       </section>
       <div class="toolbar">
-        <div class="sale-toolbar-row">
-          <div class="search">
-            <input type="search" id="saleSearch" placeholder="Buscar por artículo, cliente o fecha..." autocomplete="off" />
-          </div>
-          <label class="sale-sort-wrap">
-            <span>Ordenar</span>
-            <select id="saleSort" aria-label="Ordenar ventas">
-              <option value="date-desc">Fecha · más recientes</option>
-              <option value="date-asc">Fecha · más antiguas</option>
-              <option value="total-desc">Total cobrado · mayor a menor</option>
-              <option value="total-asc">Total cobrado · menor a mayor</option>
-            </select>
-          </label>
+        <div class="search">
+          <input type="search" id="saleSearch" placeholder="Buscar por artículo, cliente o fecha..." autocomplete="off" />
         </div>
       </div>
       <div class="grid deliv-grid" id="saleGrid" aria-live="polite"></div>
@@ -1759,17 +1545,10 @@
             <input type="date" id="saleDate" required />
           </label>
           <label>
-            <span>Tipo de venta</span>
-            <select id="saleSource" aria-label="Tipo de venta">
-              <option value="manual">Manual</option>
-              <option value="delivery">Entrega</option>
-            </select>
+            <span>Cliente (opcional)</span>
+            <input type="text" id="saleCustomer" maxlength="80" placeholder="Nombre o nota" />
           </label>
         </div>
-        <label>
-          <span>Cliente (opcional)</span>
-          <input type="text" id="saleCustomer" maxlength="80" placeholder="Nombre o nota" />
-        </label>
         <div class="deliv-items-block">
           <span>Artículos vendidos</span>
           <div id="saleItemsPicker" class="deliv-items-picker"></div>
@@ -1871,6 +1650,20 @@
           <button type="submit" class="primary" id="btnSave">Guardar</button>
         </div>
       </form>
+    </div>
+  </div>
+
+
+  <div class="overlay" id="imageViewerOverlay" role="dialog" aria-modal="true" aria-labelledby="imageViewerTitle">
+    <div class="modal image-viewer-modal">
+      <h2 class="image-viewer-title" id="imageViewerTitle">Imagen del artículo</h2>
+      <div class="image-viewer-content">
+        <img id="imageViewerImg" alt="Imagen del artículo" />
+      </div>
+      <div class="image-viewer-actions">
+        <button type="button" class="ghost" id="btnImageViewerClose">Cerrar</button>
+        <button type="button" class="primary" id="btnImageViewerDownload">Descargar imagen</button>
+      </div>
     </div>
   </div>
 
@@ -1982,7 +1775,7 @@
     let existingPhotoUrl = null;
     let removePhoto = false;
     let toastTimer = 0;
-    let isUnlocked = localStorage.getItem("hs_edit_unlocked") === "1";
+    let isUnlocked = sessionStorage.getItem("hs_edit_unlocked") === "1";
 
     function applyAuthMode() {
       document.body.classList.toggle("view-only", !isUnlocked);
@@ -2128,37 +1921,12 @@
             <h3>${escapeHtml(a.name)}</h3>
             <div class="price">${money(a.price)}</div>
             <div class="meta">Existencia: <strong style="color:var(--text)">${Number(a.stock) || 0}</strong></div>
-            ${isUnlocked ? (() => {
-              const hasPurchaseCost = a.purchase_price !== null && a.purchase_price !== undefined && String(a.purchase_price).trim() !== "" && Number(a.purchase_price) > 0;
-              const purchase = hasPurchaseCost ? Number(a.purchase_price) : 0;
+            ${isUnlocked && a.purchase_price !== null && a.purchase_price !== undefined && String(a.purchase_price).trim() !== "" && Number(a.purchase_price) > 0 ? (() => {
+              const purchase = Number(a.purchase_price);
               const sale = Number(a.price) || 0;
-              const stock = Number(a.stock) || 0;
-
-              // Ventas realizadas de este artículo.
-              const productSales = (sales || []).reduce((acc, s) => {
-                (s.items || []).forEach((it) => {
-                  if (String(it.id) !== String(a.id)) return;
-                  const qty = Math.max(0, Number(it.qty) || 0);
-                  const itemSalePrice = Number(it.price);
-                  const realizedUnitPrice = Number.isFinite(itemSalePrice) ? itemSalePrice : sale;
-                  acc.qty += qty;
-                  acc.revenue += qty * realizedUnitPrice;
-                  acc.profit += hasPurchaseCost ? qty * (realizedUnitPrice - purchase) : 0;
-                });
-                return acc;
-              }, { qty: 0, revenue: 0, profit: 0 });
-
-              // Se estima la inversión total de compra a partir de las unidades
-              // vendidas + las que aún quedan en existencia.
-              
-              const realizedGain = productSales.profit;
-
-              // Resultado acumulado después de descontar la inversión de compra.
-              const netGain = productSales.profit - (hasPurchaseCost ? (purchase * stock) : 0);
-
-              const roi = hasPurchaseCost ? ((sale - purchase) / purchase) * 100 : 0;
-              const potential = (sale - purchase) * stock;
-
+              const gain = sale - purchase;
+              const roi = (gain / purchase) * 100;
+              const potential = gain * (Number(a.stock) || 0);
               return `<details class="investment-details">
   <summary class="investment-summary">
     <span class="investment-title"><span class="investment-icon">$</span> Inversión</span>
@@ -2166,37 +1934,29 @@
     <span class="investment-arrow">⌄</span>
   </summary>
   <div class="investment-content">
-    ${hasPurchaseCost ? `<div class="investment-row purchase-row">
-      <span>Compra por unidad</span>
+    <div class="investment-row purchase-row">
+      <span>Compra</span>
       <strong>${money(purchase)} MXN</strong>
     </div>
     <div class="investment-row gain-row">
-      <span>Ganancia por unidad</span>
-      <strong>${money(sale - purchase)} MXN</strong>
+      <span>Ganancia</span>
+      <strong>${money(gain)} MXN</strong>
     </div>
     <div class="investment-row roi-row">
-      <span>Rentabilidad por unidad</span>
+      <span>Rentabilidad</span>
       <strong>${roi.toFixed(1)}%</strong>
-    </div>` : ""}
-    ${stock > 0 ? `<div class="investment-row potential-row">
-      <span>Ganancia potencial · ${stock} uds.</span>
-      <strong>${money(hasPurchaseCost ? potential : (sale * stock))} MXN</strong>
-    </div>` : ""}
-    ${hasPurchaseCost ? `<div class="investment-row net-gain-row ${netGain >= 0 ? "net-positive" : "net-negative"}">
-      <span>
-        <span class="net-gain-label">Ganancia neta</span>
-        <small>(ganancias después de inversión)</small>
-      </span>
-      <strong>${netGain > 0 ? "+ " : netGain < 0 ? "- " : ""}${money(Math.abs(netGain))} MXN</strong>
-    </div>` : ""}
+    </div>
+    <div class="investment-row potential-row">
+      <span>Ganancia potencial · ${Number(a.stock) || 0} uds.</span>
+      <strong>${money(potential)} MXN</strong>
+    </div>
   </div>
 </details>`;
-            })() : ""}
+            })() : (isUnlocked ? `<div class="purchase-missing-card">Precio de compra pendiente</div>` : "")}
             ${a.description ? `<div class="meta">${escapeHtml(a.description)}</div>` : ""}
             ${actions}
           </div>
         </article>`;
-
       }).join("");
     }
 
@@ -2377,28 +2137,8 @@
     }
     [els.purchasePrice, els.price, els.stock].forEach((el) => el.addEventListener("input", updateProfitPreview));
 
-    // Validación visual: marca inmediatamente en rojo translúcido los campos
-    // obligatorios que estén vacíos al intentar guardar cualquier formulario.
-    function markRequiredFields(form) {
-      let hasEmpty = false;
-      form.querySelectorAll("input[required], select[required], textarea[required]").forEach((field) => {
-        const empty = !String(field.value ?? "").trim();
-        field.classList.toggle("required-field-error", empty);
-        if (empty) hasEmpty = true;
-      });
-      return hasEmpty;
-    }
-
-    document.addEventListener("input", (e) => {
-      const field = e.target;
-      if (field && field.matches && field.matches("input[required], select[required], textarea[required]") && String(field.value ?? "").trim()) {
-        field.classList.remove("required-field-error");
-      }
-    }, true);
-
     els.form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
       if (!requireEdit()) return;
       if (!supabaseClient) return;
       const name = els.name.value.trim();
@@ -2482,9 +2222,88 @@
       els.btnLogin.addEventListener("click", () => {
         if (isUnlocked) {
           isUnlocked = false;
-          localStorage.removeItem("hs_edit_unlocked");
+          sessionStorage.removeItem("hs_edit_unlocked");
           closeModal();
       
+    // Visor de imágenes del catálogo: al tocar una foto se puede descargar esa imagen.
+    const imageViewerOverlay = document.getElementById("imageViewerOverlay");
+    const imageViewerImg = document.getElementById("imageViewerImg");
+    const imageViewerTitle = document.getElementById("imageViewerTitle");
+    const btnImageViewerClose = document.getElementById("btnImageViewerClose");
+    const btnImageViewerDownload = document.getElementById("btnImageViewerDownload");
+    let imageViewerUrl = "";
+    let imageViewerName = "imagen-articulo";
+
+    function openImageViewer(article) {
+      if (!article || !article.photo_url || !imageViewerOverlay) return;
+      imageViewerUrl = article.photo_url;
+      imageViewerName = (String(article.name || "imagen-articulo")
+        .replace(/[^a-z0-9áéíóúüñ _-]/gi, "")
+        .trim().replace(/\s+/g, "-").slice(0, 80)) || "imagen-articulo";
+      imageViewerTitle.textContent = article.name || "Imagen del artículo";
+      imageViewerImg.src = article.photo_url;
+      imageViewerImg.alt = article.name || "Imagen del artículo";
+      imageViewerOverlay.classList.add("open");
+    }
+
+    function closeImageViewer() {
+      if (!imageViewerOverlay) return;
+      imageViewerOverlay.classList.remove("open");
+      imageViewerImg.removeAttribute("src");
+      imageViewerUrl = "";
+    }
+
+    async function downloadArticleImage() {
+      if (!imageViewerUrl) return;
+      btnImageViewerDownload.disabled = true;
+      try {
+        const response = await fetch(imageViewerUrl, { mode: "cors" });
+        if (!response.ok) throw new Error("No se pudo descargar la imagen");
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = imageViewerName + ".jpg";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+        toast("Imagen descargada");
+      } catch (err) {
+        // Si el navegador bloquea la descarga directa por CORS, abre la imagen para guardarla.
+        const a = document.createElement("a");
+        a.href = imageViewerUrl;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        toast("Abriendo imagen para guardarla");
+      } finally {
+        btnImageViewerDownload.disabled = false;
+      }
+    }
+
+    if (els.grid) {
+      els.grid.addEventListener("click", (e) => {
+        const img = e.target.closest(".card-media img");
+        if (!img) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const card = img.closest(".card[data-id]");
+        if (!card) return;
+        const article = articles.find((a) => a.id === card.getAttribute("data-id"));
+        if (article) openImageViewer(article);
+      });
+    }
+    if (btnImageViewerClose) btnImageViewerClose.addEventListener("click", closeImageViewer);
+    if (btnImageViewerDownload) btnImageViewerDownload.addEventListener("click", downloadArticleImage);
+    if (imageViewerOverlay) {
+      imageViewerOverlay.addEventListener("click", (e) => {
+        if (e.target === imageViewerOverlay) closeImageViewer();
+      });
+    }
+
     applyAuthMode();
           toast("Sesión de edición cerrada");
           return;
@@ -2503,11 +2322,10 @@
     if (els.loginForm) {
       els.loginForm.addEventListener("submit", (e) => {
         e.preventDefault();
-        if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
         const key = (els.loginKey.value || "").trim();
         if (key === CONFIG.EDIT_KEY) {
           isUnlocked = true;
-          localStorage.setItem("hs_edit_unlocked", "1");
+          sessionStorage.setItem("hs_edit_unlocked", "1");
           closeLogin();
           applyAuthMode();
           toast("Modo edición activado");
@@ -2867,36 +2685,21 @@
       trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>',
     };
 
-    function validCoords(lat, lng) {
-      const a = Number(lat), b = Number(lng);
-      // 0,0 is Null Island and must never be treated as a valid delivery point.
-      return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180 && !(a === 0 && b === 0);
-    }
-    function mapsSearchUrl(address, lat, lng, originalMapsUrl) {
-      const original = String(originalMapsUrl || "").trim();
-      if (/^(https?:\/\/)?(?:maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(original)) return original;
-      if (validCoords(lat, lng)) {
-        return "https://www.google.com/maps/search/?api=1&query=" + Number(lat) + "," + Number(lng);
+    function mapsSearchUrl(address, lat, lng) {
+      if (lat != null && lng != null && isFinite(lat) && isFinite(lng)) {
+        return "https://www.google.com/maps/search/?api=1&query=" + lat + "," + lng;
       }
       return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent((address || "").trim());
     }
-    function mapsDirUrl(address, lat, lng, originalMapsUrl) {
-      const original = String(originalMapsUrl || "").trim();
-      if (/^(https?:\/\/)?(?:maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(original)) return original;
-      const dest = validCoords(lat, lng)
-        ? Number(lat) + "," + Number(lng)
+    function mapsDirUrl(address, lat, lng) {
+      const dest = lat != null && lng != null && isFinite(lat) && isFinite(lng)
+        ? lat + "," + lng
         : encodeURIComponent((address || "").trim());
       return "https://www.google.com/maps/dir/?api=1&destination=" + dest + "&travelmode=driving";
     }
     function parseMapsUrl(raw) {
       const url = String(raw || "").trim();
       if (!url) return null;
-      // Los enlaces cortos de Google Maps (maps.app.goo.gl) no exponen
-      // necesariamente las coordenadas en el texto del enlace. En ese caso
-      // conservamos el enlace original y nunca inventamos 0,0.
-      if (/^(https?:\/\/)?maps\.app\.goo\.gl\//i.test(url) || /^(https?:\/\/)?goo\.gl\/maps\//i.test(url)) {
-        return { shortUrl: /^https?:\/\//i.test(url) ? url : "https://" + url };
-      }
       const patterns = [
         /@(-?\d+\.\d+),(-?\d+\.\d+)/,
         /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,
@@ -2909,7 +2712,7 @@
         if (m) {
           const lat = Number(m[1]);
           const lng = Number(m[2]);
-          if (validCoords(lat, lng)) return { lat, lng };
+          if (isFinite(lat) && isFinite(lng)) return { lat, lng };
         }
       }
       return null;
@@ -2948,51 +2751,6 @@
       } catch (_) {
         return null;
       }
-    }
-
-    function isGoogleMapsLink(value) {
-      const v = String(value || "").trim();
-      return /^(?:https?:\/\/)?(?:www\.)?(?:google\.com\/maps|maps\.google\.com|maps\.app\.goo\.gl|goo\.gl\/maps)(?:[/?#]|$)/i.test(v);
-    }
-
-    async function resolveGoogleMapsShortUrl(shortUrl) {
-      const original = String(shortUrl || "").trim();
-      if (!isGoogleMapsLink(original)) return null;
-
-      // Primero intentamos resolverlo directamente. En algunos navegadores
-      // esto funciona; si CORS lo bloquea, pasamos al resolvedor auxiliar.
-      const candidates = [
-        original,
-        "https://r.jina.ai/" + (/^https?:\/\//i.test(original) ? original : "https://" + original),
-        "https://api.allorigins.win/raw?url=" + encodeURIComponent(/^https?:\/\//i.test(original) ? original : "https://" + original)
-      ];
-
-      for (const target of candidates) {
-        try {
-          const res = await fetch(target, { redirect: "follow", headers: { Accept: "text/html,text/plain,*/*" } });
-          if (!res.ok) continue;
-          const text = await res.text();
-          const finalUrl = res.url && !/^(?:https?:\/\/)?(?:r\.jina\.ai|api\.allorigins\.win)/i.test(res.url) ? res.url : "";
-          const possible = [finalUrl, text].filter(Boolean).join("\n");
-
-          const parsed = parseMapsUrl(possible);
-          if (parsed && validCoords(parsed.lat, parsed.lng)) return parsed;
-
-          // Google Maps también deja coordenadas en fragmentos JSON/texto.
-          const coordPatterns = [
-            /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
-            /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/,
-            /[?&](?:q|query|ll)=(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/
-          ];
-          for (const re of coordPatterns) {
-            const m = possible.match(re);
-            if (m && validCoords(Number(m[1]), Number(m[2]))) {
-              return { lat: Number(m[1]), lng: Number(m[2]), resolvedUrl: finalUrl || original };
-            }
-          }
-        } catch (_) {}
-      }
-      return null;
     }
     function loadDelivStore() {
       // La memoria local solo mantiene la vista actual; la fuente persistente es Supabase.
@@ -3127,8 +2885,6 @@
     const SALES_KEY = "hs_sales_v1";
     let sales = [];
     let saleCalendarMonth = new Date().getMonth();
-    let saleShowAllHistory = true;
-    let saleSortMode = "date-desc";
     let saleYear = new Date().getFullYear();
     let delivItems = [];
     let saleFormItems = [];
@@ -3251,8 +3007,6 @@
       });
       try { sessionStorage.setItem(SALES_KEY, JSON.stringify(sales)); } catch (_) {}
       renderSales();
-      renderSalesLineChart();
-      render();
     }
 
     async function saveSalesStore() {
@@ -3312,30 +3066,15 @@
       const ids = Object.keys(map).filter((id) => map[id]);
       if (!ids.length) return true;
       if (!supabaseClient) { toast("Sin conexión a catálogo: no se actualizó el stock"); return false; }
-      const changes = [];
-      // Primero validar TODO antes de modificar el catálogo. Así nunca se
-      // permite registrar una venta superior a la existencia disponible.
       for (const id of ids) {
         const art = articles.find((a) => a.id === id);
         let current = art ? Number(art.stock) || 0 : null;
         if (current == null) {
-          const { data, error } = await supabaseClient.from("articles").select("id,stock,name").eq("id", id).maybeSingle();
+          const { data, error } = await supabaseClient.from("articles").select("id,stock").eq("id", id).maybeSingle();
           if (error || !data) { toast("No se encontró un artículo del catálogo"); return false; }
           current = Number(data.stock) || 0;
         }
-        const delta = Number(map[id]) || 0;
-        const next = current + delta;
-        if (next < 0) {
-          const name = art?.name || id;
-          const faltantes = Math.abs(next);
-          toast(`No hay existencia suficiente de "${name}". Faltan ${faltantes} unidad${faltantes === 1 ? "" : "es"}.`);
-          return false;
-        }
-        changes.push({ id, art, current, next });
-      }
-
-      // Si todas las cantidades son válidas, ahora sí actualizar el catálogo.
-      for (const { id, art, next } of changes) {
+        const next = Math.max(0, current + map[id]);
         const { error } = await supabaseClient.from("articles").update({ stock: next, updated_at: new Date().toISOString() }).eq("id", id);
         if (error) { toast("Error al actualizar stock: " + error.message); return false; }
         if (art) art.stock = next;
@@ -3399,59 +3138,9 @@
       }
       picker.innerHTML = articles.map((a) => {
         const added = ids.has(a.id) ? " added" : "";
-        const exhausted = (Number(a.stock) || 0) <= 0 && !ids.has(a.id);
-        const disabled = exhausted ? " disabled" : "";
-        const cls = exhausted ? " out-of-stock" : "";
-        const stockText = exhausted ? '<small>Agotado</small>' : "";
-        return `<button type="button" class="deliv-pick${added}${cls}" data-add-item="${escapeHtml(a.id)}"${disabled}>${itemThumb(a.photo_url, a.name)}<span>${escapeHtml(a.name)}${stockText}</span></button>`;
+        return `<button type="button" class="deliv-pick${added}" data-add-item="${escapeHtml(a.id)}">${itemThumb(a.photo_url, a.name)}<span>${escapeHtml(a.name)}</span></button>`;
       }).join("");
     }
-
-    function stockAvailableFor(id) {
-      const art = articles.find((a) => String(a.id) === String(id));
-      return Math.max(0, Number(art && art.stock) || 0);
-    }
-    function applyQtyStockWarning(inp) {
-      if (!inp) return false;
-      const id = inp.getAttribute("data-item-qty");
-      const available = stockAvailableFor(id);
-      const entered = Math.max(1, Math.floor(Number(inp.value) || 1));
-      const wrap = inp.closest(".deliv-sel-qty-wrap");
-      const warning = wrap && wrap.querySelector(".deliv-stock-warning");
-      const note = inp.closest("label") && inp.closest("label").querySelector(".deliv-stock-note");
-      if (note) note.textContent = "Unidades disponibles: " + available;
-      const invalid = entered > available;
-      if (wrap) wrap.classList.toggle("over-stock", invalid);
-      if (warning) {
-        warning.hidden = !invalid;
-        if (invalid) {
-          const faltan = entered - available;
-          warning.textContent = "No hay existencia suficiente. Faltan " + faltan + " unidad" + (faltan === 1 ? "" : "es") + " (pediste " + entered + ", hay " + available + ").";
-        } else {
-          warning.textContent = "";
-        }
-      }
-      return invalid;
-    }
-    function validateSelectedQtys(host, list, toastPrefix) {
-      if (!host) return true;
-      let firstInvalid = null;
-      host.querySelectorAll("[data-item-qty]").forEach((inp) => {
-        const it = (list || []).find((x) => String(x.id) === String(inp.getAttribute("data-item-qty")));
-        if (it) inp.value = String(Math.max(1, Math.floor(Number(it.qty) || Number(inp.value) || 1)));
-        if (applyQtyStockWarning(inp) && !firstInvalid) firstInvalid = inp;
-      });
-      if (firstInvalid) {
-        const available = stockAvailableFor(firstInvalid.getAttribute("data-item-qty"));
-        const entered = Math.max(1, Math.floor(Number(firstInvalid.value) || 1));
-        const faltan = Math.max(0, entered - available);
-        toast((toastPrefix || "Revisa la cantidad") + ": faltan " + faltan + " unidad" + (faltan === 1 ? "" : "es") + " (pediste " + entered + ", hay " + available + ").");
-        firstInvalid.focus();
-        return false;
-      }
-      return true;
-    }
-
     function renderItemSelected(host, list, withPrice) {
       if (!host) return;
       if (!list.length) {
@@ -3461,28 +3150,16 @@
       host.innerHTML = list.map((it) => {
         const fields = withPrice
           ? `<div class="deliv-sel-fields">
-              <label>
-                <span class="deliv-qty-label-row"><span>Cantidad</span><small class="deliv-stock-note">Unidades disponibles: ${Math.max(0, Number((articles.find(a => String(a.id) === String(it.id)) || {}).stock) || 0)}</small></span>
-                <div class="deliv-sel-qty-wrap">
-                  <input type="number" min="1" step="1" value="${it.qty}" data-item-qty="${escapeHtml(it.id)}" />
-                  <small class="deliv-stock-warning" hidden></small>
-                </div>
-              </label>
+              <label><span>Cantidad</span><input type="number" min="1" step="1" value="${it.qty}" data-item-qty="${escapeHtml(it.id)}" /></label>
               <label><span>Precio unitario</span><input type="number" min="0" step="0.01" value="${it.price}" data-item-price="${escapeHtml(it.id)}" /></label>
             </div>`
           : `<div class="deliv-sel-fields">
-              <label>
-                <span class="deliv-qty-label-row"><span>Cantidad</span><small class="deliv-stock-note">Unidades disponibles: ${Math.max(0, Number((articles.find(a => String(a.id) === String(it.id)) || {}).stock) || 0)}</small></span>
-                <div class="deliv-sel-qty-wrap">
-                  <input type="number" min="1" step="1" value="${it.qty}" data-item-qty="${escapeHtml(it.id)}" />
-                  <small class="deliv-stock-warning" hidden></small>
-                </div>
-              </label>
+              <label><span>Cantidad</span><input type="number" min="1" step="1" value="${it.qty}" data-item-qty="${escapeHtml(it.id)}" /></label>
             </div>`;
         return `<div class="deliv-sel-row" data-item-id="${escapeHtml(it.id)}">
           <div class="deliv-sel-main">
             ${itemThumb(it.photo_url, it.name)}
-            <div class="meta"><strong>${escapeHtml(it.name)}</strong><small>${withPrice ? money(it.price) + " c/u" : ""}</small></div>
+            <div class="meta"><strong>${escapeHtml(it.name)}</strong><small>${withPrice ? money(it.price) + " c/u · línea " + money(it.qty * it.price) : ""}</small></div>
             <button type="button" class="ghost" data-remove-item="${escapeHtml(it.id)}">Quitar</button>
           </div>
           ${fields}
@@ -3492,7 +3169,6 @@
     function renderDelivItemsUI() {
       renderItemPicker(del.itemsPicker, null, delivItems);
       renderItemSelected(del.itemsSelected, delivItems, false);
-      if (del.itemsSelected) del.itemsSelected.querySelectorAll("[data-item-qty]").forEach(applyQtyStockWarning);
       updateDeliveryPaymentUI();
     }
     function initials(name) {
@@ -3565,8 +3241,8 @@
       del.grid.innerHTML = list.map((row) => {
         const call = phoneHref(row.phone);
         const wa = whatsappHref(row.phone);
-        const maps = mapsSearchUrl(row.address, row.lat, row.lng, row.mapsOriginalUrl || row.mapsUrl || "");
-        const dir = mapsDirUrl(row.address, row.lat, row.lng, row.mapsOriginalUrl || row.mapsUrl || "");
+        const maps = mapsSearchUrl(row.address, row.lat, row.lng);
+        const dir = mapsDirUrl(row.address, row.lat, row.lng);
         const pinned = row.lat != null && row.lng != null;
         const when = formatWhen(row);
         const items = normalizeDeliveryItems(row.items);
@@ -3664,27 +3340,12 @@
       setTimeout(() => delivMap.invalidateSize(), 280);
     }
 
-    function setTodayDeliveryDate() {
-      if (!del.date || (del.date.value || "").trim()) return;
-      const now = new Date();
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, "0");
-      const d = String(now.getDate()).padStart(2, "0");
-      del.date.value = `${y}-${m}-${d}`;
-    }
-
     function openDelivForm(row) {
-      del._mapsOriginalUrl = row ? String(
-        row.mapsOriginalUrl ||
-        (row.mapsUrl && /(?:maps\.app\.goo\.gl|goo\.gl\/maps|google\.com\/maps)/i.test(row.mapsUrl) ? row.mapsUrl : "") ||
-        ""
-      ) : "";
       delivStatus = "pending";
       delivLat = null;
       delivLng = null;
       delivItems = [];
       del.form.reset();
-      if (!row) setTodayDeliveryDate();
       if (del.paymentMethod) del.paymentMethod.value = "none";
       if (del.transferStatus) del.transferStatus.value = "pending";
       if (del.deliveryFee) del.deliveryFee.value = "0";
@@ -3707,9 +3368,6 @@
         del.name.value = row.name;
         del.phone.value = row.phone;
         del.address.value = row.address || "";
-        // Recuperar el último enlace de Google Maps que se guardó.
-        // Así permanece visible al volver a abrir "Editar".
-        if (del.mapsPaste) del.mapsPaste.value = del._mapsOriginalUrl || "";
         if (del.time) del.time.value = normalizeTime(row.time) || "";
         if (del.date) del.date.value = normalizeDate(row.date) || "";
         delivItems = normalizeDeliveryItems(row.items);
@@ -4046,123 +3704,27 @@
         renderDeliveries();
       });
     });
-    const mapsProgress = {
-      box: document.getElementById("mapsResolveProgress"),
-      bar: document.getElementById("mapsResolveProgressBar"),
-      text: document.getElementById("mapsResolveProgressText"),
-      pct: document.getElementById("mapsResolveProgressPct"),
-      done: document.getElementById("mapsResolveDone")
-    };
-    let mapsAutoTimer = null;
-    let mapsResolveSeq = 0;
-
-    function setMapsProgress(percent, text, show = true) {
-      if (!mapsProgress.box) return;
-      mapsProgress.box.hidden = !show;
-      mapsProgress.box.classList.remove("is-done");
-      if (mapsProgress.done) mapsProgress.done.hidden = true;
-      const n = Math.max(0, Math.min(100, Number(percent) || 0));
-      if (mapsProgress.bar) mapsProgress.bar.style.width = n + "%";
-            if (mapsProgress.text) mapsProgress.text.textContent = text || "Procesando ubicación…";
-    }
-    function finishMapsProgress(text) {
-      setMapsProgress(100, text || "Ubicación lista", true);
-      mapsProgress.box && mapsProgress.box.classList.add("is-done");
-      if (mapsProgress.done) mapsProgress.done.hidden = false;
-      // La palomita permanece visible para que el usuario sepa que la ubicación quedó lista.
-    }
-
-    async function loadGoogleMapsFromInput() {
-      const seq = ++mapsResolveSeq;
-      const pasteInput = document.getElementById("delivMapsPaste");
-      const pastedRaw = String(pasteInput ? pasteInput.value : (del.mapsPaste && del.mapsPaste.value) || "").trim();
-      if (!pastedRaw) return false;
-
-      setMapsProgress(8, "Detectando enlace de Google Maps…");
-      const pasted = parseMapsUrl(pastedRaw);
-
-      if (pasted && validCoords(pasted.lat, pasted.lng)) {
-        if (seq !== mapsResolveSeq) return false;
-        setMapsProgress(35, "Coordenadas encontradas…");
+    document.getElementById("btnLoadMap").addEventListener("click", async () => {
+      const pasted = parseMapsUrl(del.mapsPaste.value);
+      if (pasted) {
         const label = await reverseLabel(pasted.lat, pasted.lng);
-        if (seq !== mapsResolveSeq) return false;
-        setMapsProgress(75, "Cargando ubicación exacta…");
         setDelivPin(pasted.lat, pasted.lng, label);
-        del._mapsOriginalUrl = pastedRaw;
-        if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
-        if (label) del.address.value = label;
-        finishMapsProgress("Ubicación exacta cargada");
-        toast("Ubicación exacta cargada desde Google Maps");
-        return true;
+        toast("Ubicación cargada desde Google Maps");
+        return;
       }
-
-      if (isGoogleMapsLink(pastedRaw)) {
-        setMapsProgress(25, "Resolviendo ubicación…");
-        const resolved = await resolveGoogleMapsShortUrl(pastedRaw);
-        if (seq !== mapsResolveSeq) return false;
-        if (resolved && validCoords(resolved.lat, resolved.lng)) {
-          setMapsProgress(62, "Obteniendo dirección exacta…");
-          const label = await reverseLabel(resolved.lat, resolved.lng);
-          if (seq !== mapsResolveSeq) return false;
-          setMapsProgress(84, "Marcando punto de entrega…");
-          setDelivPin(resolved.lat, resolved.lng, label);
-          del._mapsOriginalUrl = pastedRaw;
-          if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
-          if (label) del.address.value = label;
-          finishMapsProgress("Ubicación exacta cargada");
-          toast("Ubicación exacta cargada desde Google Maps");
-          return true;
-        }
-
-        del._mapsOriginalUrl = pastedRaw;
-        if (del.openMaps) { del.openMaps.hidden = false; del.openMaps.href = pastedRaw; }
-        if (!(del.address.value || "").trim()) del.address.value = "Ubicación compartida de Google Maps";
-        if (del.hint) del.hint.textContent = "Enlace reconocido. Se conservará el punto compartido de Google Maps.";
-        finishMapsProgress("Enlace de Google Maps reconocido");
-        toast("Link de Google Maps reconocido y guardado");
-        return true;
+      if (!(del.address.value || "").trim()) {
+        toast("Escribe una dirección o pega un link de Google Maps");
+        return;
       }
-      return false;
-    }
-
-    async function loadMapAutomatically() {
-      const ok = await loadGoogleMapsFromInput();
-      if (ok) return true;
-
-      const address = String(del.address.value || "").trim();
-      if (!address) return false;
-
-      setMapsProgress(20, "Buscando dirección…");
-      const hit = await geocodeQuery(address);
-      if (!hit || !validCoords(hit.lat, hit.lng)) {
-        if (mapsProgress.box) mapsProgress.box.hidden = true;
-        return false;
+      const hit = await geocodeQuery(del.address.value.trim());
+      if (!hit || !isFinite(hit.lat)) {
+        toast("No se encontró esa dirección");
+        return;
       }
-      setMapsProgress(75, "Marcando punto de entrega…");
       setDelivPin(hit.lat, hit.lng, hit.label);
       if (hit.label) del.address.value = hit.label;
-      finishMapsProgress("Ubicación lista");
-      return true;
-    }
-
-    if (del.mapsPaste) {
-      const scheduleMapsAutoLoad = () => {
-        clearTimeout(mapsAutoTimer);
-        const value = String(del.mapsPaste.value || "").trim();
-        if (!value) {
-          mapsResolveSeq++;
-          if (mapsProgress.box) mapsProgress.box.hidden = true;
-          return;
-        }
-        if (!isGoogleMapsLink(value)) return;
-        mapsAutoTimer = setTimeout(() => loadGoogleMapsFromInput(), 300);
-      };
-
-      del.mapsPaste.addEventListener("paste", () => setTimeout(scheduleMapsAutoLoad, 0));
-      del.mapsPaste.addEventListener("input", scheduleMapsAutoLoad);
-      del.mapsPaste.addEventListener("change", scheduleMapsAutoLoad);
-    }
-
+      toast("Ubicación cargada en el mapa");
+    });
     document.getElementById("btnMyLoc").addEventListener("click", () => {
       if (!navigator.geolocation) { toast("Tu dispositivo no comparte ubicación"); return; }
       navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -4183,14 +3745,6 @@
     
     del.form.addEventListener("submit", (e) => {
       e.preventDefault();
-      if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
-      if (del.itemsSelected) {
-        del.itemsSelected.querySelectorAll("[data-item-qty]").forEach((inp) => {
-          const it = delivItems.find((x) => x.id === inp.getAttribute("data-item-qty"));
-          if (it) it.qty = Math.max(1, Math.floor(Number(inp.value) || 1));
-        });
-      }
-      if (!validateSelectedQtys(del.itemsSelected, delivItems, "No se puede guardar")) return;
       const name = del.name.value.trim();
       const phone = del.phone.value.trim();
       const address = del.address.value.trim();
@@ -4205,10 +3759,7 @@
       loadDelivStore();
       loadSalesStore();
       const now = new Date().toISOString();
-      // Si el usuario pegó un enlace de Google Maps, conservamos ese enlace exacto
-      // como mapsUrl para que al volver a editar la entrega siga apareciendo.
-      const originalMapsUrl = String(del._mapsOriginalUrl || "").trim();
-      const mapsUrl = originalMapsUrl || mapsSearchUrl(address, delivLat, delivLng, "");
+      const mapsUrl = mapsSearchUrl(address, delivLat, delivLng);
       if (del.itemsSelected) {
         del.itemsSelected.querySelectorAll("[data-item-qty]").forEach((inp) => {
           const id = inp.getAttribute("data-item-qty");
@@ -4229,32 +3780,23 @@
       const payment = { method: paymentMethod, transferStatus, deliveryFee, amountToReceive, amountPaid: amountToReceive, totalToCharge, changeToReturn };
       const prev = del.editId.value ? deliveries.find((r) => r.id === del.editId.value) : null;
       (async () => {
-        // El stock se descuenta solo cuando la entrega está/queda realizada.
-        // En pendiente solo se agenda; no se toca el catálogo.
+        // El stock se reserva desde que la entrega queda pendiente.
+        // Al marcarla como realizada no se vuelve a descontar.
         if (prev) {
           const prevItems = normalizeDeliveryItems(prev.items);
-          const prevDone = prev.status === "done";
-          const nextDone = delivStatus === "done";
-          if (prevDone && nextDone) {
-            // Editar una realizada: ajustar delta de stock y recrear venta.
+          if (prev.status === "pending") {
             const ok = await applyStockChanges(prevItems, items);
             if (!ok) return;
-            await removeDeliverySale(prev.id);
-          } else if (prevDone && !nextDone) {
-            // Pasar de realizada a pendiente: devolver stock y quitar venta.
+          } else {
             const restored = await applyStockChanges(prevItems, []);
             if (!restored) return;
             await removeDeliverySale(prev.id);
-          } else if (!prevDone && nextDone) {
-            // Pasar de pendiente a realizada (desde el formulario): descontar.
             if (items.length) {
               const ok = await applyStockChanges([], items);
               if (!ok) return;
             }
           }
-          // pendiente -> pendiente: sin cambio de stock
-        } else if (delivStatus === "done" && items.length) {
-          // Nueva entrega ya marcada como realizada.
+        } else if (items.length) {
           const ok = await applyStockChanges([], items);
           if (!ok) return;
         }
@@ -4263,14 +3805,14 @@
         if (id) {
           deliveries = deliveries.map((row) => row.id === id ? {
             ...row, name: name.slice(0, 80), phone: phone.slice(0, 24), address: address.slice(0, 240),
-            lat: delivLat, lng: delivLng, mapsUrl, mapsOriginalUrl: del._mapsOriginalUrl || "", status: delivStatus, date, time, items, payment, updatedAt: now,
+            lat: delivLat, lng: delivLng, mapsUrl, status: delivStatus, date, time, items, payment, updatedAt: now,
           } : row);
           toast("Contacto actualizado");
         } else {
           id = uid();
           deliveries.unshift({
             id, name: name.slice(0, 80), phone: phone.slice(0, 24), address: address.slice(0, 240),
-            lat: delivLat, lng: delivLng, mapsUrl, mapsOriginalUrl: del._mapsOriginalUrl || "", status: delivStatus, date, time, items, payment, createdAt: now, updatedAt: now,
+            lat: delivLat, lng: delivLng, mapsUrl, status: delivStatus, date, time, items, payment, createdAt: now, updatedAt: now,
           });
           toast("Contacto agregado");
         }
@@ -4307,11 +3849,7 @@
           const goingDone = row.status === "pending";
           const items = normalizeDeliveryItems(row.items);
           if (goingDone) {
-            // Descontar stock al marcar realizada.
-            if (items.length) {
-              const ok = await applyStockChanges([], items);
-              if (!ok) return;
-            }
+            // Ya estaba reservado el stock mientras estaba pendiente.
             row.status = "done";
             row.updatedAt = new Date().toISOString();
             saveDelivStore();
@@ -4322,28 +3860,22 @@
             }
             renderDeliveries();
             renderSales();
-            toast("Entrega realizada · stock descontado");
+            toast("Entrega realizada · venta registrada");
             return;
           } else {
-            // Volver a pendiente: devolver stock y quitar venta.
-            if (items.length) {
-              const ok = await applyStockChanges(items, []);
-              if (!ok) return;
-            }
+            // Sigue siendo una reserva: no devolvemos el stock.
             await removeDeliverySale(row.id);
             row.status = "pending";
           }
           row.updatedAt = new Date().toISOString();
           saveDelivStore();
           renderDeliveries();
-          toast(row.status === "done" ? "Entrega realizada" : "Entrega pendiente · stock restaurado");
+          toast(row.status === "done" ? "Entrega realizada" : "Entrega pendiente · venta revertida");
         })();
       }
       if (action === "delete") {
         pendingDelivDelete = row;
-        del.deleteText.textContent = row.status === "done"
-          ? "Se quitará a " + row.name + " de la lista de entregas. La venta histórica y el inventario se conservarán porque la entrega ya fue realizada."
-          : "Se quitará a " + row.name + " de la lista de entregas. Como aún está pendiente, el stock del catálogo no se modifica.";
+        del.deleteText.textContent = "Se quitará a " + row.name + " de la lista de entregas. Esta acción no se puede deshacer.";
         del.deleteOverlay.classList.add("open");
       }
     });
@@ -4354,33 +3886,18 @@
     document.getElementById("btnDelivDeleteOk").addEventListener("click", async () => {
       if (pendingDelivDelete) {
         loadSalesStore();
-
-        const rowToDelete = pendingDelivDelete;
-        const deletedDeliveryId = rowToDelete.id;
-        const wasDone = rowToDelete.status === "done";
-        const items = normalizeLineItems(rowToDelete.items, false);
-
-        if (!wasDone) {
-          // Entrega pendiente: el stock aún no se descontó (solo se descuenta al realizar).
-          // Al eliminarla, no hay inventario que devolver; solo se limpia venta huérfana si existiera.
-          await removeDeliverySale(deletedDeliveryId);
-        } else {
-          // Entrega realizada: es una operación cerrada.
-          // Al eliminar SOLO la entrega, se conserva la venta histórica
-          // y el stock NO se regresa al catálogo.
+        const items = normalizeLineItems(pendingDelivDelete.items, false);
+        // El stock estaba reservado/descontado; al eliminar la entrega se devuelve.
+        if (items.length) {
+          await applyStockChanges(items, []);
         }
-
+        await removeDeliverySale(pendingDelivDelete.id);
+        const deletedDeliveryId = pendingDelivDelete.id;
         deliveries = deliveries.filter((r) => r.id !== deletedDeliveryId);
-        const deleted = await deleteDeliveryFromSupabase(deletedDeliveryId);
-        if (!deleted) return;
-
+        await deleteDeliveryFromSupabase(deletedDeliveryId);
         await saveDelivStore();
-        renderSales();
-        toast(wasDone
-          ? "Entrega eliminada · venta e inventario conservados"
-          : "Entrega eliminada");
+        toast("Contacto eliminado");
       }
-
       pendingDelivDelete = null;
       del.deleteOverlay.classList.remove("open");
       renderDeliveries();
@@ -4428,18 +3945,14 @@
         renderDelivItemsUI();
         updateDeliveryPaymentUI();
       });
-      const syncDelivQty = (inp) => {
+      del.itemsSelected.addEventListener("change", (e) => {
+        const inp = e.target.closest("[data-item-qty]");
         if (!inp) return;
         const it = delivItems.find((x) => x.id === inp.getAttribute("data-item-qty"));
-        if (it) it.qty = Math.max(1, Math.floor(Number(inp.value) || 1));
-        applyQtyStockWarning(inp);
-        updateDeliveryPaymentUI();
-      };
-      del.itemsSelected.addEventListener("input", (e) => {
-        syncDelivQty(e.target.closest("[data-item-qty]"));
-      });
-      del.itemsSelected.addEventListener("change", (e) => {
-        syncDelivQty(e.target.closest("[data-item-qty]"));
+        if (it) {
+          it.qty = Math.max(1, Math.floor(Number(inp.value) || 1));
+          updateDeliveryPaymentUI();
+        }
       });
     }
 
@@ -4450,7 +3963,6 @@
       editId: document.getElementById("saleEditId"),
       date: document.getElementById("saleDate"),
       customer: document.getElementById("saleCustomer"),
-      source: document.getElementById("saleSource"),
       picker: document.getElementById("saleItemsPicker"),
       selected: document.getElementById("saleItemsSelected"),
       total: document.getElementById("saleFormTotal"),
@@ -4460,7 +3972,6 @@
       customTotal: document.getElementById("saleCustomTotal"),
       grid: document.getElementById("saleGrid"),
       search: document.getElementById("saleSearch"),
-      sort: document.getElementById("saleSort"),
       status: document.getElementById("saleStatus"),
       avg: document.getElementById("saleAvg"),
       year: document.getElementById("saleYear"),
@@ -4550,7 +4061,7 @@
         cells += `<div class="${cls}"${col} title="${escapeHtml(title)}"><span class="day-number">${d}</span>${hasSale ? `<span class="day-total">${escapeHtml(amount)}</span>` : ""}</div>`;
       }
 
-      // Resumen de los 12 meses del año: total cobrado y número de días con ventas.
+      // Resumen de los 12 meses del año: total vendido y número de días con ventas.
       const yearMonthSummary = monthNames.map((name, idx) => {
         const key = String(idx + 1).padStart(2, "0");
         const byDay = {};
@@ -4593,21 +4104,18 @@
       const prev = host.querySelector("[data-cal-prev]");
       const next = host.querySelector("[data-cal-next]");
       if (prev) prev.addEventListener("click", () => {
-        saleShowAllHistory = false;
         saleCalendarMonth--;
         if (saleCalendarMonth < 0) { saleCalendarMonth = 11; saleYear--; }
         fillSaleYears();
         renderSales();
       });
       if (next) next.addEventListener("click", () => {
-        saleShowAllHistory = false;
         saleCalendarMonth++;
         if (saleCalendarMonth > 11) { saleCalendarMonth = 0; saleYear++; }
         fillSaleYears();
         renderSales();
       });
       host.querySelectorAll("[data-summary-month]").forEach((btn) => btn.addEventListener("click", () => {
-        saleShowAllHistory = false;
         saleCalendarMonth = Number(btn.getAttribute("data-summary-month")) || 0;
         renderSales();
       }));
@@ -4656,7 +4164,6 @@
     function renderSaleItemsUI() {
       renderItemPicker(saleEls.picker, null, saleFormItems);
       renderItemSelected(saleEls.selected, saleFormItems, true);
-      if (saleEls.selected) saleEls.selected.querySelectorAll("[data-item-qty]").forEach(applyQtyStockWarning);
       const sum = saleTotalOf(saleFormItems);
       if (saleEls.itemsSum) saleEls.itemsSum.textContent = "Suma de artículos: " + money(sum);
       if (saleEls.customField) saleEls.customField.hidden = !(saleEls.customOn && saleEls.customOn.checked);
@@ -4670,29 +4177,10 @@
       if (saleEls.avg) { const dayKeys = new Set(inYear.map((r) => r.date)); saleEls.avg.textContent = "Días con ventas en " + saleYear + ": " + dayKeys.size; }
       fillSaleYears();
       drawSaleCalendar(saleYear);
-      // Al entrar a Ventas se muestra todo el historial. Después de
-      // seleccionar/navegar a un mes, la lista queda limitada a ese mes.
-      const selectedMonthPrefix = String(saleYear) + "-" + String(saleCalendarMonth + 1).padStart(2, "0");
       const q = (saleEls.search && saleEls.search.value || "").trim().toLowerCase();
       const list = sales.filter((row) => {
-        if (!saleShowAllHistory && !String(row.date || "").startsWith(selectedMonthPrefix)) return false;
         if (!q) return true;
         return row.customer.toLowerCase().includes(q) || row.date.includes(q) || row.items.some((it) => (it.name||"").toLowerCase().includes(q)) || (row.source === "delivery" && "entrega".includes(q));
-      });
-      const mode = (saleEls.sort && saleEls.sort.value) || saleSortMode || "date-desc";
-      saleSortMode = mode;
-      list.sort((a, b) => {
-        if (mode.startsWith("total")) {
-          const d = (Number(a.total) || 0) - (Number(b.total) || 0);
-          return mode === "total-asc" ? d : -d;
-        }
-        const da = String(a.date || "");
-        const db = String(b.date || "");
-        if (da !== db) return mode === "date-asc" ? da.localeCompare(db) : db.localeCompare(da);
-        // mismo día: más recientes por updatedAt/createdAt
-        const ta = String(a.updatedAt || a.createdAt || "");
-        const tb = String(b.updatedAt || b.createdAt || "");
-        return mode === "date-asc" ? ta.localeCompare(tb) : tb.localeCompare(ta);
       });
       if (!saleEls.grid) return;
       if (!list.length) {
@@ -4707,7 +4195,7 @@
         return `<article class="card deliv-card" data-sale-id="${escapeHtml(row.id)}">
           <div class="deliv-avatar">${ICON_DOLLAR}</div>
           <div class="card-body">
-            <div class="deliv-top"><div><span class="sale-total-label">Total cobrado</span><h3>${escapeHtml(money(row.total))}</h3></div>${badge}</div>
+            <div class="deliv-top"><h3>${escapeHtml(money(row.total))}</h3>${badge}</div>
             <div class="deliv-line">Fecha: <strong style="color:var(--text)">${escapeHtml(formatDate(row.date) || row.date)}</strong></div>
             ${row.customTotal ? `<div class="deliv-saved" style="color:var(--muted)">Total ajustado · artículos ${escapeHtml(money(saleTotalOf(row.items)))}</div>` : ""}
             ${row.customer ? `<div class="deliv-line">${escapeHtml(row.customer)}</div>` : ""}
@@ -4727,10 +4215,6 @@
       saleEls.title.textContent = row ? "Editar venta" : "Nueva venta";
       saleEls.date.value = row ? row.date : todayIso();
       saleEls.customer.value = row ? row.customer : "";
-      if (saleEls.source) {
-        const src = row && row.source === "delivery" ? "delivery" : "manual";
-        saleEls.source.value = src;
-      }
       const computed = saleTotalOf(saleFormItems);
       const isCustom = Boolean(row && row.customTotal);
       if (saleEls.customOn) saleEls.customOn.checked = isCustom;
@@ -4749,14 +4233,9 @@
     document.getElementById("btnSaleCancel") && document.getElementById("btnSaleCancel").addEventListener("click", closeSaleForm);
     if (saleEls.overlay) saleEls.overlay.addEventListener("click", (e) => { if (e.target === saleEls.overlay) closeSaleForm(); });
     if (saleEls.search) saleEls.search.addEventListener("input", renderSales);
-    if (saleEls.sort) {
-      saleEls.sort.value = saleSortMode || "date-desc";
-      saleEls.sort.addEventListener("change", () => { saleSortMode = saleEls.sort.value; renderSales(); });
-    }
     if (saleEls.year) saleEls.year.addEventListener("change", () => {
       saleYear = Number(saleEls.year.value) || new Date().getFullYear();
       const now = new Date();
-      saleShowAllHistory = false;
       saleCalendarMonth = saleYear === now.getFullYear() ? now.getMonth() : 0;
       renderSales();
     });
@@ -4768,7 +4247,6 @@
         if (saleFormItems.some((x) => x.id === id)) return;
         const art = articles.find((a) => a.id === id);
         if (!art) return;
-        if ((Number(art.stock) || 0) <= 0) return;
         saleFormItems.push({ id: art.id, name: art.name, photo_url: art.photo_url || null, qty: 1, price: Number(art.price) || 0 });
         renderSaleItemsUI();
       });
@@ -4780,26 +4258,18 @@
         saleFormItems = saleFormItems.filter((x) => x.id !== btn.getAttribute("data-remove-item"));
         renderSaleItemsUI();
       });
-      saleEls.selected.addEventListener("input", (e) => {
-        const qty = e.target.closest("[data-item-qty]");
-        if (!qty) return;
-        const it = saleFormItems.find((x) => x.id === qty.getAttribute("data-item-qty"));
-        if (it) it.qty = Math.max(1, Math.floor(Number(qty.value) || 1));
-        applyQtyStockWarning(qty);
-      });
       saleEls.selected.addEventListener("change", (e) => {
         const qty = e.target.closest("[data-item-qty]");
         const price = e.target.closest("[data-item-price]");
         if (qty) {
           const it = saleFormItems.find((x) => x.id === qty.getAttribute("data-item-qty"));
           if (it) it.qty = Math.max(1, Math.floor(Number(qty.value) || 1));
-          applyQtyStockWarning(qty);
         }
         if (price) {
           const it = saleFormItems.find((x) => x.id === price.getAttribute("data-item-price"));
           if (it) it.price = Math.max(0, Number(price.value) || 0);
-          renderSaleItemsUI();
         }
+        renderSaleItemsUI();
       });
     }
     if (saleEls.customOn) {
@@ -4815,15 +4285,7 @@
     if (saleEls.form) {
       saleEls.form.addEventListener("submit", (e) => {
         e.preventDefault();
-        if (markRequiredFields(e.currentTarget)) { toast("Completa los campos obligatorios"); return; }
         if (!saleFormItems.length) { toast("Elige al menos un artículo"); return; }
-        if (saleEls.selected) {
-          saleEls.selected.querySelectorAll("[data-item-qty]").forEach((inp) => {
-            const it = saleFormItems.find((x) => x.id === inp.getAttribute("data-item-qty"));
-            if (it) it.qty = Math.max(1, Math.floor(Number(inp.value) || 1));
-          });
-        }
-        if (!validateSelectedQtys(saleEls.selected, saleFormItems, "No se puede guardar")) return;
         if (saleEls.customOn && saleEls.customOn.checked) {
           const raw = saleEls.customTotal ? String(saleEls.customTotal.value).trim() : "";
           const n = Number(raw);
@@ -4837,10 +4299,8 @@
           const rec = {
             id: prev ? prev.id : uid(),
             date: normalizeDate(saleEls.date.value) || todayIso(),
-            source: (saleEls.source && saleEls.source.value === "delivery") ? "delivery" : "manual",
-            deliveryId: (saleEls.source && saleEls.source.value === "delivery")
-              ? (prev && prev.deliveryId ? prev.deliveryId : null)
-              : null,
+            source: prev && prev.source === "delivery" ? "delivery" : "manual",
+            deliveryId: prev ? prev.deliveryId : null,
             customer: (saleEls.customer.value || "").trim().slice(0, 80),
             items: normalizeLineItems(saleFormItems, true),
             total: 0,
@@ -4854,9 +4314,7 @@
           saveSalesStore();
           closeSaleForm();
           renderSales();
-          toast(prev
-            ? ("Venta actualizada · " + (rec.source === "delivery" ? "Entrega" : "Manual"))
-            : ("Venta registrada · " + (rec.source === "delivery" ? "Entrega" : "Manual")));
+          toast(prev ? "Venta actualizada" : "Venta registrada");
         })();
       });
     }
@@ -4868,10 +4326,7 @@
         const id = card && card.getAttribute("data-sale-id");
         const row = sales.find((s) => s.id === id);
         if (!row) return;
-        if (btn.getAttribute("data-sale") === "edit") {
-          if (!requireEdit()) return;
-          openSaleForm(row);
-        }
+        if (btn.getAttribute("data-sale") === "edit") openSaleForm(row);
         if (btn.getAttribute("data-sale") === "delete") {
           pendingSaleDelete = row;
           saleEls.deleteText.textContent = "Se eliminará la venta de " + money(row.total) + " y se devolverá el stock al catálogo.";
@@ -4901,34 +4356,6 @@
     });
 
 
-    
-    // Opción de entrega sin número de celular.
-    (() => {
-      const phone = document.getElementById("delivPhone");
-      const noPhone = document.getElementById("delivNoPhone");
-      if (!phone || !noPhone) return;
-
-      const syncNoPhone = () => {
-        if (noPhone.checked) {
-          phone.disabled = false;
-          phone.setAttribute("required", "");
-          phone.placeholder = "Celular";
-          phone.classList.remove("phone-disabled");
-        } else {
-          phone.value = "";
-          phone.disabled = true;
-          phone.removeAttribute("required");
-          phone.setCustomValidity("");
-          phone.placeholder = "Celular desactivado";
-          phone.classList.remove("required-field-error");
-          phone.classList.add("phone-disabled");
-        }
-      };
-
-      noPhone.addEventListener("change", syncNoPhone);
-      syncNoPhone();
-    })(); // Sin celular — delivNoPhone
-
     applyAuthMode();
     if (currentView) showView(currentView);
     loadArticles();
@@ -4943,122 +4370,6 @@
         console.warn("Error sincronizando ventas/entregas:", err);
       });
     }
-  
-    /* Gráfica de líneas de ventas: día / semana / mes / año */
-    let salesChartPeriod = "day";
-
-    function salesDateValue(s) {
-      // Use the same calendar date used by the sales/month summary first.
-      // This prevents UTC/local timezone conversion from moving a sale
-      // to the previous month.
-      const rawDate = s?.date;
-      if (rawDate && /^\d{4}-\d{2}-\d{2}$/.test(String(rawDate))) {
-        const [y,m,d] = String(rawDate).split("-").map(Number);
-        return new Date(y, m - 1, d);
-      }
-      const raw = s?.createdAt || s?.created_at || s?.timestamp;
-      const parsed = raw ? new Date(raw) : null;
-      return parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
-    }
-
-    function salesTotalValue(s) {
-      const direct = Number(s?.total);
-      if (Number.isFinite(direct)) return direct;
-      return (s?.items || []).reduce((sum, it) => {
-        const q = Math.max(0, Number(it?.qty) || 0);
-        const p = Number(it?.price);
-        return sum + (Number.isFinite(p) ? q * p : 0);
-      }, 0);
-    }
-
-    function salesPeriodKey(d, period) {
-      if (period === "day") {
-        return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-      }
-      if (period === "month") {
-        return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
-      }
-      if (period === "year") return String(d.getFullYear());
-
-      // ISO week
-      const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-      const day = x.getUTCDay() || 7;
-      x.setUTCDate(x.getUTCDate() + 4 - day);
-      const yearStart = new Date(Date.UTC(x.getUTCFullYear(),0,1));
-      const week = Math.ceil((((x-yearStart)/86400000)+1)/7);
-      return x.getUTCFullYear()+"-W"+String(week).padStart(2,"0");
-    }
-
-    function salesPeriodLabel(key, period) {
-      if (period === "year") return key;
-      if (period === "month") {
-        const [y,m] = key.split("-").map(Number);
-        return new Intl.DateTimeFormat("es-MX",{month:"short",year:"numeric"}).format(new Date(y,m-1,1));
-      }
-      if (period === "week") {
-        const m = String(key).match(/^(\d{4})-W(\d{1,2})$/);
-        return m ? `Semana ${Number(m[2])} de ${m[1]}` : key;
-      }
-      const [y,m,d] = key.split("-").map(Number);
-      return new Intl.DateTimeFormat("es-MX",{day:"2-digit",month:"short"}).format(new Date(y,m-1,d));
-    }
-
-    function renderSalesLineChart() {
-      const root = document.getElementById("salesLineChart");
-      if (!root) return;
-      const rows = (sales || []).map(s => {
-        const d = salesDateValue(s);
-        return d ? { key:salesPeriodKey(d,salesChartPeriod), value:salesTotalValue(s) } : null;
-      }).filter(Boolean);
-
-      const grouped = {};
-      rows.forEach(r => { grouped[r.key] = (grouped[r.key] || 0) + r.value; });
-      const keys = Object.keys(grouped).sort();
-
-      const subtitle = document.getElementById("salesChartSubtitle");
-      if (subtitle) subtitle.textContent = keys.length ? "Total cobrado por " + ({day:"día",week:"semana",month:"mes",year:"año"}[salesChartPeriod]) : "Aún no hay ventas registradas";
-
-      if (!keys.length) {
-        root.innerHTML = '<div class="sales-chart-empty">Sin ventas para mostrar</div>';
-        return;
-      }
-
-      const W=900,H=220,L=48,R=12,T=12,B=34;
-      const iw=W-L-R, ih=H-T-B;
-      const vals=keys.map(k=>grouped[k]);
-      const max=Math.max(...vals,1);
-      const points=keys.map((k,i)=>{
-        const x=keys.length===1 ? L+iw/2 : L+(i/(keys.length-1))*iw;
-        const y=T+ih-(grouped[k]/max)*ih;
-        return {x,y,k,v:grouped[k]};
-      });
-      const path=points.map((p,i)=>(i?"L":"M")+p.x.toFixed(1)+" "+p.y.toFixed(1)).join(" ");
-      const grid=[0,.25,.5,.75,1].map(t=>{
-        const y=T+ih-t*ih;
-        return `<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="rgba(148,163,184,.14)"/>`;
-      }).join("");
-      const dots=points.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#57f0c2"><title>${salesPeriodLabel(p.k,salesChartPeriod)} · ${money(p.v)} MXN</title></circle>`).join("");
-      const labels=points.map((p,i)=>{
-        if (keys.length>12 && i%Math.ceil(keys.length/12)!==0 && i!==keys.length-1) return "";
-        return `<text x="${p.x}" y="${H-8}" text-anchor="middle" fill="rgba(226,232,240,.9)" font-size="14" font-weight="700">${salesPeriodLabel(p.k,salesChartPeriod)}</text>`;
-      }).join("");
-      root.innerHTML=`<svg class="sales-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Gráfica de ventas">
-        ${grid}
-        <path d="${path}" fill="none" stroke="#57f0c2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-        ${dots}${labels}
-      </svg>`;
-    }
-
-    renderSalesLineChart();
-
-    document.addEventListener("click", (e)=>{
-      const btn=e.target.closest(".sales-period-btn");
-      if(!btn) return;
-      salesChartPeriod=btn.dataset.salesPeriod;
-      document.querySelectorAll(".sales-period-btn").forEach(b=>b.classList.toggle("active",b===btn));
-      renderSalesLineChart();
-    });
-
-</script>
+  </script>
 </body>
 </html>
