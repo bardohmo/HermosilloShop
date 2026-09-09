@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b0f14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cripto Bitácora">
+<link rel="manifest" href="./manifest-bitacora.json">
 <title>Cripto Bitácora</title>
 <style>
 *{box-sizing:border-box}
@@ -40,7 +45,26 @@ input,select{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(24
 input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px rgba(245,184,63,.08)}
 .actions{display:flex;gap:9px;margin-top:15px}.actions button{flex:1}.cancel{background:#18212c;color:#fff;border-color:#2b3745}
 .note{margin-top:15px;color:#778391;font-size:10px;text-align:center}
-@media(max-width:420px){.wrap{padding-left:11px;padding-right:11px}h1{font-size:19px}.card{padding:15px}}
+
+.coin-picker{display:flex;gap:8px;align-items:center}
+.coin-select-wrap{position:relative;flex:1}
+.coin-select{padding-left:42px!important}
+.coin-preview{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;object-fit:contain;pointer-events:none;background:#0b1420}
+.coin-admin{margin-top:24px}
+.coin-admin summary{cursor:pointer;list-style:none;padding:13px 15px;border:1px solid rgba(245,184,63,.22);border-radius:14px;background:rgba(5,12,21,.84);font-weight:800;font-size:13px;color:#ffd96b}
+.coin-admin summary::-webkit-details-marker{display:none}
+.coin-admin .admin-body{margin-top:10px;padding:15px;border:1px solid rgba(245,184,63,.16);border-radius:16px;background:rgba(5,12,21,.72)}
+.coin-list{display:grid;gap:7px;margin-top:12px;max-height:310px;overflow:auto}
+.coin-row{display:flex;align-items:center;gap:9px;padding:9px;border:1px solid rgba(255,255,255,.07);border-radius:11px;background:#07101a}
+.coin-row img{width:30px;height:30px;border-radius:50%;object-fit:contain;background:#0d1824;flex:none}
+.coin-row .coin-info{min-width:0;flex:1}.coin-row .coin-info b{font-size:12px}.coin-row .coin-info small{display:block;color:#8d99a8;margin-top:2px}
+.coin-row button{padding:7px 9px;font-size:10px;background:#29333e;color:#fff}
+.coin-row .danger{background:#8e211b}
+.coin-form{display:grid;grid-template-columns:1fr 1fr;gap:8px}.coin-form .full{grid-column:1/-1}
+.coin-form input{padding:10px;font-size:12px}.coin-help{font-size:10px;color:#7f8a98;margin-top:8px;line-height:1.45}
+.coin-display{display:inline-flex;align-items:center;gap:6px}.coin-display img{width:22px;height:22px;border-radius:50%;object-fit:contain;vertical-align:middle;background:#0d1824}
+@media(max-width:420px){.wrap{padding-left:11px;padding-right:11px}h1{font-size:19px}.card{padding:15px}.coin-form{grid-template-columns:1fr}}
+
 </style>
 
 <style id="user-style">
@@ -51,6 +75,20 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .user-btn:not(.active){opacity:.55;background:#17212c!important;color:#dbe2e8!important;box-shadow:none!important}
 .user-btn.active{opacity:1;box-shadow:0 0 18px rgba(245,184,63,.18)!important}
 .active-user-name{color:#ffd96b}
+</style>
+
+<style id="bita-pwa-admin-css">
+#pwaInstallBtn{position:fixed;left:14px;bottom:14px;z-index:9997;display:none;border:0;border-radius:14px;padding:12px 15px;background:#f5b83f;color:#071018;font-weight:800;box-shadow:0 8px 28px rgba(0,0,0,.35);cursor:pointer}
+#pwaInstallBtn.show{display:block}
+#cryptoAdminBtn{position:fixed;right:14px;bottom:14px;z-index:9998;border:1px solid rgba(245,184,63,.45);border-radius:14px;padding:12px 15px;background:#101923;color:#fff;font-weight:800;box-shadow:0 8px 28px rgba(0,0,0,.35);cursor:pointer}
+.crypto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:10000;display:none;padding:18px;overflow:auto}
+.crypto-overlay.show{display:flex;align-items:center;justify-content:center}
+.crypto-panel{width:min(720px,100%);max-height:92vh;overflow:auto;background:#0a1119;border:1px solid #263544;border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
+.crypto-panel h2{margin:0 0 14px}.crypto-panel .coin-form{display:grid;grid-template-columns:1fr 1fr;gap:9px}.crypto-panel .coin-form .full{grid-column:1/-1}
+.crypto-panel input{width:100%;padding:12px;border-radius:10px;border:1px solid #334454;background:#101a24;color:#fff}
+.crypto-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.crypto-actions button{border:0;border-radius:10px;padding:10px 12px;font-weight:800;cursor:pointer}
+.crypto-list{display:grid;gap:8px;margin-top:12px}.crypto-row{display:flex;align-items:center;gap:10px;padding:9px;border:1px solid #263544;border-radius:12px;background:#0d151e}.crypto-row img{width:36px;height:36px;object-fit:contain;border-radius:50%}.crypto-info{min-width:0;flex:1}.crypto-info b,.crypto-info small{display:block}.crypto-info small{color:#8d99a8}.crypto-row button{border:0;border-radius:8px;padding:8px 9px;background:#29333e;color:#fff;font-size:11px;font-weight:800}.crypto-row .danger{background:#a92822}.coin-preview{width:36px;height:36px;object-fit:contain;border-radius:50%;background:#17212c;padding:3px;display:none}.coin-select-wrap{display:flex;align-items:center;gap:9px}.coin-select{flex:1}
+@media(max-width:560px){.crypto-panel .coin-form{grid-template-columns:1fr}.crypto-panel .coin-form .full{grid-column:auto}.crypto-row button{padding:7px}.crypto-overlay{padding:10px}}
 </style>
 </head>
 <body>
@@ -83,6 +121,28 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 
   <div class="section"><h2>Últimas actividades</h2><button onclick="clearAll()" style="background:#29333e;color:#fff;padding:8px 10px;font-size:11px">BORRAR</button></div>
   <div class="card" id="history"><div class="empty">Aún no tienes operaciones registradas.</div></div>
+<button id="cryptoAdminBtn" type="button">⚙️ Criptomonedas</button>
+<div class="crypto-overlay" id="cryptoAdminOverlay">
+ <div class="crypto-panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+   <h2>🪙 Administrar criptomonedas</h2>
+   <button type="button" id="closeCryptoAdmin" style="border:0;border-radius:10px;padding:9px 11px;background:#29333e;color:#fff">✕</button>
+  </div>
+  <div class="coin-form">
+   <input id="coinName" placeholder="Nombre (ej. Bitcoin)">
+   <input id="coinSymbol" placeholder="Símbolo (ej. BTC)" maxlength="12">
+   <input id="coinIcon" class="full" placeholder="URL del icono o emoji, ej. 🟠">
+   <input id="coinIconFile" class="full" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+  </div>
+  <div class="crypto-actions">
+   <button type="button" onclick="addCoin()">＋ AGREGAR / GUARDAR</button>
+   <button type="button" onclick="resetCoinForm()" style="background:#29333e;color:#fff">LIMPIAR</button>
+   <button type="button" onclick="restoreDefaultCoins()" style="background:#29333e;color:#fff">RESTAURAR CATÁLOGO</button>
+  </div>
+  <div style="color:#8d99a8;font-size:12px;line-height:1.45">Los cambios quedan guardados en este dispositivo. Puedes usar una URL, emoji o subir una imagen propia.</div>
+  <div id="coinList" class="crypto-list"></div>
+ </div>
+</div>
 <div class="note">Los datos se guardan en este dispositivo. No se envían a ningún servidor.</div>
 </div>
 
@@ -92,7 +152,14 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
   <div class="field"><label>Tipo</label><select id="type">
    <option>Compra</option><option>Venta</option><option>Depósito</option><option>Retiro</option><option>Conversión</option><option>Staking</option><option>Comisión</option>
   </select></div>
-  <div class="field"><label>Criptomoneda</label><input id="coin" placeholder="BTC, ETH, DOGE..."></div>
+  <div class="field"><label>Criptomoneda</label>
+   <div class="coin-picker">
+    <div class="coin-select-wrap">
+      <img id="coinPreview" class="coin-preview" alt="">
+      <select id="coin" class="coin-select"></select>
+    </div>
+   </div>
+  </div>
   <div class="field"><label>Monto en MXN</label><input id="amount" type="number" step="0.01" inputmode="decimal" placeholder="5000"></div>
   <div class="grid">
     <div class="field"><label>Fecha de operación</label><input id="date" type="date"></div>
@@ -111,6 +178,79 @@ let KEY=USER_KEYS[activeUser];
 let data=JSON.parse(localStorage.getItem(KEY)||'[]');
 let editIndex=-1;
 const money=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(n);
+const COINS_KEY='cripto_bitacora_coins_v1';
+const DEFAULT_COINS=[
+ {name:'Bitcoin',symbol:'BTC',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/btc.png'},
+ {name:'Ethereum',symbol:'ETH',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/eth.png'},
+ {name:'Tether',symbol:'USDT',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/usdt.png'},
+ {name:'BNB',symbol:'BNB',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/bnb.png'},
+ {name:'Solana',symbol:'SOL',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/sol.png'},
+ {name:'XRP',symbol:'XRP',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/xrp.png'},
+ {name:'Dogecoin',symbol:'DOGE',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/doge.png'},
+ {name:'Cardano',symbol:'ADA',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/ada.png'},
+ {name:'Shiba Inu',symbol:'SHIB',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/shib.png'},
+ {name:'Pepe',symbol:'PEPE',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/pepe.png'},
+ {name:'dogwifhat',symbol:'WIF',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/wif.png'},
+ {name:'Floki',symbol:'FLOKI',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/floki.png'},
+ {name:'Bonk',symbol:'BONK',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/bonk.png'},
+ {name:'Polkadot',symbol:'DOT',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/dot.png'},
+ {name:'Bitcoin Cash',symbol:'BCH',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/bch.png'},
+ {name:'Litecoin',symbol:'LTC',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/ltc.png'},
+ {name:'Avalanche',symbol:'AVAX',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/avax.png'},
+ {name:'Chainlink',symbol:'LINK',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/link.png'},
+ {name:'Toncoin',symbol:'TON',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/ton.png'},
+ {name:'Monero',symbol:'XMR',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/xmr.png'}
+];
+let coins=JSON.parse(localStorage.getItem(COINS_KEY)||'null')||DEFAULT_COINS;
+let editingCoinIndex=-1;
+function saveCoins(){localStorage.setItem(COINS_KEY,JSON.stringify(coins));}
+function iconValue(v){
+ const s=String(v||'').trim();
+ if(!s) return '';
+ if(/^(https?:|data:image\/)/i.test(s)) return s;
+ return 'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="32" fill="#17212c"/><text x="32" y="42" text-anchor="middle" font-size="34">${s.slice(0,2)}</text></svg>`);
+}
+function coinBySymbol(symbol){return coins.find(c=>c.symbol.toUpperCase()===String(symbol||'').toUpperCase());}
+function renderCoinSelect(selected=''){
+ const sel=document.getElementById('coin'); if(!sel) return;
+ const old=selected||sel.value;
+ sel.innerHTML=coins.map(c=>`<option value="${esc(c.symbol)}">${esc(c.name)} (${esc(c.symbol)})</option>`).join('')||'<option value="Cripto">Cripto</option>';
+ const found=coins.find(c=>c.symbol.toUpperCase()===String(old).toUpperCase());
+ sel.value=found?found.symbol:(coins[0]?.symbol||'Cripto');
+ updateCoinPreview();
+}
+function updateCoinPreview(){
+ const c=coinBySymbol(document.getElementById('coin')?.value), img=document.getElementById('coinPreview');
+ if(!img) return; img.src=iconValue(c?.icon)||''; img.style.display=c?.icon?'block':'none';
+}
+function renderCoinAdmin(){
+ const list=document.getElementById('coinList'); if(!list) return;
+ list.innerHTML=coins.map((c,i)=>`<div class="crypto-row"><img src="${esc(iconValue(c.icon))}" alt=""><div class="crypto-info"><b>${esc(c.name)}</b><small>${esc(c.symbol)}</small></div><button type="button" onclick="editCoin(${i})">EDITAR</button><button type="button" class="danger" onclick="deleteCoin(${i})">BORRAR</button></div>`).join('');
+}
+function restoreDefaultCoins(){
+ if(!confirm('¿Restaurar el catálogo predeterminado? Tus actividades no se borrarán.')) return;
+ coins=DEFAULT_COINS.map(c=>({...c})); saveCoins(); resetCoinForm(); renderCoinSelect(); renderCoinAdmin();
+}
+
+function addCoin(){
+ const name=document.getElementById('coinName').value.trim(), symbol=document.getElementById('coinSymbol').value.trim().toUpperCase(), iconInput=document.getElementById('coinIcon').value.trim();
+ const file=document.getElementById('coinIconFile')?.files?.[0];
+ if(!name||!symbol){alert('Escribe el nombre y símbolo de la criptomoneda.');return;}
+ const duplicate=coins.findIndex((c,i)=>c.symbol.toUpperCase()===symbol && i!==editingCoinIndex);
+ if(duplicate>=0){alert('Ese símbolo ya existe. Usa EDITAR para modificarlo.');return;}
+ const finish=(icon)=>{
+   const obj={name,symbol,icon:icon||'🪙'};
+   if(editingCoinIndex>=0) coins[editingCoinIndex]=obj; else coins.push(obj);
+   saveCoins(); resetCoinForm(); renderCoinSelect(symbol); renderCoinAdmin();
+ };
+ if(file){
+   const reader=new FileReader(); reader.onload=()=>finish(String(reader.result)); reader.readAsDataURL(file);
+ } else finish(iconInput);
+}
+function editCoin(i){const c=coins[i]; editingCoinIndex=i; document.getElementById('coinName').value=c.name; document.getElementById('coinSymbol').value=c.symbol; document.getElementById('coinIcon').value=c.icon||''; document.getElementById('cryptoAdminOverlay')?.classList.add('show');}
+function deleteCoin(i){if(coins.length<=1){alert('Debes conservar al menos una moneda.');return;} const c=coins[i]; if(!confirm(`¿Borrar ${c.name} (${c.symbol}) del catálogo?`)) return; coins.splice(i,1); saveCoins(); renderCoinSelect(); renderCoinAdmin();}
+function resetCoinForm(){editingCoinIndex=-1; document.getElementById('coinName').value=''; document.getElementById('coinSymbol').value=''; document.getElementById('coinIcon').value=''; if(document.getElementById('coinIconFile')) document.getElementById('coinIconFile').value='';}
+
 
 
 function switchUser(user){
@@ -135,6 +275,10 @@ function switchUser(user){
 document.querySelectorAll('.user-btn').forEach(btn=>{
   btn.addEventListener('click',()=>switchUser(btn.dataset.user));
 });
+
+document.getElementById('coin')?.addEventListener('change',updateCoinPreview);
+renderCoinSelect();
+renderCoinAdmin();
 
 function localDateTimeValue(iso){
  const d=iso?new Date(iso):new Date();
@@ -167,10 +311,13 @@ function render(){
    const d=new Date(x.date);
    const when=isNaN(d) ? 'Fecha no disponible' :
      d.toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'});
+   const cc=coinBySymbol(x.coin||'');
+   const ci=cc?.icon ? iconValue(cc.icon) : '';
    return `<div class="item">
-     <div style="min-width:0">
-       <strong>${esc(x.type)} · ${esc(x.coin||'Cripto')}</strong>
-       <small>${when}${x.note?' · '+esc(x.note):''}</small>
+     <div style="display:flex;align-items:center;gap:10px;min-width:0">
+       ${ci?`<img src="${esc(ci)}" alt="" style="width:34px;height:34px;object-fit:contain;border-radius:50%;background:#17212c;padding:3px;flex:0 0 auto">`:''}
+       <div style="min-width:0"><strong>${esc(x.type)} · ${esc(x.coin||'Cripto')}</strong>
+       <small>${when}${x.note?' · '+esc(x.note):''}</small></div>
      </div>
      <div class="amt">
        ${money(Number(x.amount))}
@@ -192,7 +339,7 @@ function openModal(index=-1){
  if(index>=0){
    const x=data[index], dt=localDateTimeValue(x.date);
    document.getElementById('type').value=x.type||'Compra';
-   document.getElementById('coin').value=x.coin||'';
+   renderCoinSelect(x.coin||'');
    document.getElementById('amount').value=x.amount??'';
    document.getElementById('date').value=dt.date;
    document.getElementById('time').value=dt.time;
@@ -200,7 +347,7 @@ function openModal(index=-1){
  } else {
    const dt=localDateTimeValue();
    document.getElementById('type').value='Compra';
-   document.getElementById('coin').value='';
+   renderCoinSelect();
    document.getElementById('amount').value='';
    document.getElementById('date').value=dt.date;
    document.getElementById('time').value=dt.time;
@@ -233,7 +380,7 @@ function save(){
  const time=document.getElementById('time').value;
  if(!amount||amount<0){alert('Escribe un monto válido.');return}
  if(!date||!time){alert('Selecciona fecha y hora.');return}
- const obj={type:document.getElementById('type').value,coin:document.getElementById('coin').value.trim()||'Cripto',
+ const obj={id:editIndex>=0?data[editIndex].id:(crypto.randomUUID ? crypto.randomUUID() : Date.now()+'-'+Math.random()),type:document.getElementById('type').value,coin:document.getElementById('coin').value.trim()||'Cripto',
  amount,note:document.getElementById('note').value.trim(),date:new Date(`${date}T${time}`).toISOString()};
  if(editIndex>=0) data[editIndex]=obj; else data.push(obj);
  localStorage.setItem(KEY,JSON.stringify(data));
@@ -260,7 +407,23 @@ document.getElementById('history').addEventListener('click', function(e){
  }
 });
 document.querySelectorAll('.user-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.user===activeUser));
+
+// PWA: usa el manifest.json y el service worker existentes del repositorio.
+let deferredPrompt=null;
+const installBtn=document.getElementById('pwaInstallBtn');
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;installBtn?.classList.add('show');});
+installBtn?.addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;installBtn.classList.remove('show');});
+window.addEventListener('appinstalled',()=>installBtn?.classList.remove('show'));
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
+ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('SW:',e)));
+}
+
+// Administrador visible.
+document.getElementById('cryptoAdminBtn')?.addEventListener('click',()=>document.getElementById('cryptoAdminOverlay')?.classList.add('show'));
+document.getElementById('closeCryptoAdmin')?.addEventListener('click',()=>document.getElementById('cryptoAdminOverlay')?.classList.remove('show'));
+document.getElementById('cryptoAdminOverlay')?.addEventListener('click',e=>{if(e.target.id==='cryptoAdminOverlay')e.currentTarget.classList.remove('show');});
 render();
 </script>
+<button id="pwaInstallBtn" type="button">📲 Instalar aplicación</button>
 </body>
 </html>
