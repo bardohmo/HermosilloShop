@@ -1,16 +1,12 @@
-/* HermosilloShop + Cripto Bitácora PWA */
-const CACHE = 'hermosillo-pwa-v5';
+/* HermosilloShop PWA */
+const CACHE = 'hermosillo-pwa-v6';
 const ASSETS = [
   './',
   './index.html',
-  './bita.html',
   './manifest.json',
   './manifest-hs.json',
-  './manifest-bitacora.json',
   './icon-192.png',
-  './icon-512.png',
-  './bitacora-192.png',
-  './bitacora-512.png'
+  './icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
