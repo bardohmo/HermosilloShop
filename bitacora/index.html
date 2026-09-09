@@ -94,8 +94,11 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .crypto-list{display:grid;gap:8px;margin-top:12px}.crypto-row{display:flex;align-items:center;gap:10px;padding:9px;border:1px solid #263544;border-radius:12px;background:#0d151e}.crypto-row img{width:36px;height:36px;object-fit:contain;border-radius:50%}.crypto-info{min-width:0;flex:1}.crypto-info b,.crypto-info small{display:block}.crypto-info small{color:#8d99a8}.crypto-row button{border:0;border-radius:8px;padding:8px 9px;background:#29333e;color:#fff;font-size:11px;font-weight:800}.crypto-row .danger{background:#a92822}.coin-preview{width:36px;height:36px;object-fit:contain;border-radius:50%;background:#17212c;padding:3px;display:none}.coin-select-wrap{display:flex;align-items:center;gap:9px}.coin-select{flex:1}
 @media(max-width:560px){.crypto-panel .coin-form{grid-template-columns:1fr}.crypto-panel .coin-form .full{grid-column:auto}.crypto-row button{padding:7px}.crypto-overlay{padding:10px}}
 </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<div id="sbSyncStatus" hidden style="position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;background:#17212c;color:#ffd96b;border:1px solid rgba(245,184,63,.35);padding:8px 12px;border-radius:999px;font:600 12px/1.2 system-ui;box-shadow:0 8px 24px rgba(0,0,0,.35)"></div>
+
 <div class="wrap">
 <div id="userSwitcher" class="user-switcher">
   <div class="user-caption">PORTAFOLIO ACTIVO</div>
@@ -214,7 +217,165 @@ const DEFAULT_COINS=[
 ];
 let coins=JSON.parse(localStorage.getItem(COINS_KEY)||'null')||DEFAULT_COINS;
 let editingCoinIndex=-1;
-function saveCoins(){localStorage.setItem(COINS_KEY,JSON.stringify(coins));}
+
+/* === Supabase sync for Cripto Bitácora === */
+const SB_URL = 'https://gaojenaelyunaqulzwxu.supabase.co';
+const SB_KEY = 'sb_publishable_U0OOtnPlkNGyCI8jHRufAA_nwR_AYlQ';
+const sb = (window.supabase && SB_URL && SB_KEY)
+  ? window.supabase.createClient(SB_URL, SB_KEY)
+  : null;
+let sbReady = false;
+let sbSyncing = false;
+
+function toastSb(msg){
+  try {
+    const el = document.getElementById('sbSyncStatus');
+    if (el) { el.textContent = msg; el.hidden = !msg; }
+    else if (msg) console.info('[Bitácora]', msg);
+  } catch (_) {}
+}
+
+function persistLocalOps(){
+  localStorage.setItem(KEY, JSON.stringify(data));
+}
+
+async function pullOpsFromCloud(){
+  if (!sb) return false;
+  const { data: rows, error } = await sb
+    .from('bitacora_ops')
+    .select('id,user_key,type,coin,amount,note,date')
+    .eq('user_key', activeUser)
+    .order('date', { ascending: true });
+  if (error) throw error;
+  return (rows || []).map(r => ({
+    id: String(r.id),
+    type: r.type,
+    coin: r.coin,
+    amount: Number(r.amount),
+    note: r.note || '',
+    date: r.date
+  }));
+}
+
+async function pushAllOpsToCloud(list){
+  if (!sb) return;
+  const rows = (list || []).map(x => ({
+    id: String(x.id),
+    user_key: activeUser,
+    type: x.type || 'Compra',
+    coin: x.coin || 'Cripto',
+    amount: Number(x.amount) || 0,
+    note: x.note || '',
+    date: x.date,
+    updated_at: new Date().toISOString()
+  }));
+  if (!rows.length) return;
+  const { error } = await sb.from('bitacora_ops').upsert(rows, { onConflict: 'id' });
+  if (error) throw error;
+}
+
+async function upsertOpCloud(op){
+  if (!sb || !op) return;
+  const { error } = await sb.from('bitacora_ops').upsert({
+    id: String(op.id),
+    user_key: activeUser,
+    type: op.type || 'Compra',
+    coin: op.coin || 'Cripto',
+    amount: Number(op.amount) || 0,
+    note: op.note || '',
+    date: op.date,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'id' });
+  if (error) throw error;
+}
+
+async function deleteOpCloud(id){
+  if (!sb || !id) return;
+  const { error } = await sb.from('bitacora_ops').delete().eq('id', String(id)).eq('user_key', activeUser);
+  if (error) throw error;
+}
+
+async function clearOpsCloud(){
+  if (!sb) return;
+  const { error } = await sb.from('bitacora_ops').delete().eq('user_key', activeUser);
+  if (error) throw error;
+}
+
+async function pullCoinsFromCloud(){
+  if (!sb) return null;
+  const { data: rows, error } = await sb
+    .from('bitacora_coins')
+    .select('symbol,name,icon,sort_order')
+    .order('sort_order', { ascending: true });
+  if (error) throw error;
+  if (!rows || !rows.length) return null;
+  return rows.map(r => ({ name: r.name, symbol: r.symbol, icon: r.icon || '' }));
+}
+
+async function pushCoinsToCloud(list){
+  if (!sb) return;
+  const rows = (list || []).map((c, i) => ({
+    symbol: String(c.symbol || '').toUpperCase(),
+    name: c.name || c.symbol || 'Coin',
+    icon: c.icon || '',
+    sort_order: i,
+    updated_at: new Date().toISOString()
+  })).filter(r => r.symbol);
+  if (!rows.length) return;
+  const { error } = await sb.from('bitacora_coins').upsert(rows, { onConflict: 'symbol' });
+  if (error) throw error;
+}
+
+async function syncFromSupabase(){
+  if (!sb || sbSyncing) return;
+  sbSyncing = true;
+  toastSb('Sincronizando…');
+  try {
+    const cloudOps = await pullOpsFromCloud();
+    const localOps = JSON.parse(localStorage.getItem(KEY) || '[]');
+    if (cloudOps && cloudOps.length) {
+      data = cloudOps;
+      persistLocalOps();
+    } else if (localOps.length) {
+      // first migration: upload local history
+      data = localOps;
+      await pushAllOpsToCloud(localOps);
+    } else {
+      data = [];
+      persistLocalOps();
+    }
+
+    const cloudCoins = await pullCoinsFromCloud();
+    if (cloudCoins && cloudCoins.length) {
+      coins = cloudCoins;
+      saveCoinsLocalOnly();
+    } else if (coins && coins.length) {
+      await pushCoinsToCloud(coins);
+    }
+
+    sbReady = true;
+    toastSb('Respaldo en la nube activo');
+    setTimeout(() => toastSb(''), 2500);
+    renderCoinSelect();
+    renderCoinAdmin();
+    render();
+  } catch (err) {
+    console.warn('Supabase sync', err);
+    toastSb('Sin nube (usando datos locales)');
+    setTimeout(() => toastSb(''), 4000);
+  } finally {
+    sbSyncing = false;
+  }
+}
+
+function saveCoinsLocalOnly(){
+  localStorage.setItem(COINS_KEY, JSON.stringify(coins));
+}
+
+function saveCoins(){
+  saveCoinsLocalOnly();
+  if (sb) pushCoinsToCloud(coins).catch(e => console.warn('coins push', e));
+}
 function iconValue(v){
  const s=String(v||'').trim();
  if(!s) return '';
@@ -267,8 +428,10 @@ function resetCoinForm(){editingCoinIndex=-1; document.getElementById('coinName'
 function switchUser(user){
   if(!USER_KEYS[user] || user===activeUser) return;
   // Guarda explícitamente el historial del usuario que estaba activo.
-  localStorage.setItem(KEY,JSON.stringify(data));
+  persistLocalOps();
+  if (sb) pushAllOpsToCloud(data).catch(e => console.warn('push before switch', e));
   activeUser=user;
+  localStorage.setItem('bita_active_user', activeUser);
   KEY=USER_KEYS[activeUser];
   data=JSON.parse(localStorage.getItem(KEY)||'[]');
   editIndex=-1;
@@ -281,6 +444,7 @@ function switchUser(user){
   const title=document.querySelector('h1');
   if(title) title.dataset.userLabel=USER_LABELS[activeUser];
   render();
+  syncFromSupabase();
 }
 
 document.querySelectorAll('.user-btn').forEach(btn=>{
@@ -290,6 +454,7 @@ document.querySelectorAll('.user-btn').forEach(btn=>{
 document.getElementById('coin')?.addEventListener('change',updateCoinPreview);
 renderCoinSelect();
 renderCoinAdmin();
+setTimeout(() => syncFromSupabase(), 0);
 
 function localDateTimeValue(iso){
  const d=iso?new Date(iso):new Date();
@@ -379,8 +544,9 @@ function deleteActivityById(id){
    money(Number(x.amount));
  if(!confirm(message)) return;
  data.splice(index,1);
- localStorage.setItem(KEY,JSON.stringify(data));
+ persistLocalOps();
  render();
+ deleteOpCloud(x.id).catch(e => console.warn('op delete', e));
 }
 
 function closeModal(){document.getElementById('modal').classList.remove('show');editIndex=-1}
@@ -393,10 +559,11 @@ function save(){
  const obj={id:editIndex>=0?data[editIndex].id:(crypto.randomUUID ? crypto.randomUUID() : Date.now()+'-'+Math.random()),type:document.getElementById('type').value,coin:document.getElementById('coin').value.trim()||'Cripto',
  amount,note:document.getElementById('note').value.trim(),date:new Date(`${date}T${time}`).toISOString()};
  if(editIndex>=0) data[editIndex]=obj; else data.push(obj);
- localStorage.setItem(KEY,JSON.stringify(data));
+ persistLocalOps();
  closeModal();render();
+ upsertOpCloud(obj).catch(e => console.warn('op upsert', e));
 }
-function clearAll(){if(data.length&&confirm('¿Borrar todo el historial?')){data=[];localStorage.removeItem(KEY);localStorage.removeItem('cripto_bitacora_v1');render()}}
+function clearAll(){if(data.length&&confirm('¿Borrar todo el historial?')){data=[];localStorage.removeItem(KEY);localStorage.removeItem('cripto_bitacora_v1');persistLocalOps();render();clearOpsCloud().catch(e=>console.warn('clear ops',e));}}
 document.querySelector('.add').onclick=()=>openModal();
 
 document.getElementById('history').addEventListener('click', function(e){
