@@ -150,7 +150,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
  <div class="sheet">
   <h2 id="modalTitle">Agregar actividad</h2>
   <div class="field"><label>Tipo</label><select id="type">
-   <option>Compra</option><option>Venta</option><option>Depósito</option><option>Retiro</option><option>Conversión</option><option>Staking</option><option>Comisión</option>
+   <option value="Compra">🛒 Compra</option><option value="Venta">💰 Venta</option><option value="Depósito">📥 Depósito</option><option value="Retiro">📤 Retiro</option><option value="Conversión">🔄 Conversión</option><option value="Staking">🔒 Staking</option><option value="Comisión">💸 Comisión</option>
   </select></div>
   <div class="field"><label>Criptomoneda</label>
    <div class="coin-picker">
@@ -178,6 +178,11 @@ let KEY=USER_KEYS[activeUser];
 let data=JSON.parse(localStorage.getItem(KEY)||'[]');
 let editIndex=-1;
 const money=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(n);
+const TYPE_SYMBOLS={
+  Compra:'🛒', Venta:'💰', Depósito:'📥', Retiro:'📤',
+  Conversión:'🔄', Staking:'🔒', Comisión:'💸'
+};
+const typeSymbol=t=>TYPE_SYMBOLS[String(t||'')]||'📌';
 const COINS_KEY='cripto_bitacora_coins_v1';
 const DEFAULT_COINS=[
  {name:'Bitcoin',symbol:'BTC',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/btc.png'},
@@ -315,8 +320,8 @@ function render(){
    const ci=cc?.icon ? iconValue(cc.icon) : '';
    return `<div class="item">
      <div style="display:flex;align-items:center;gap:10px;min-width:0">
-       ${ci?`<img src="${esc(ci)}" alt="" style="width:34px;height:34px;object-fit:contain;border-radius:50%;background:#17212c;padding:3px;flex:0 0 auto">`:''}
-       <div style="min-width:0"><strong>${esc(x.type)} · ${esc(x.coin||'Cripto')}</strong>
+       ${ci?`<img src="${esc(ci)}" alt="" style="width:20px;height:20px;object-fit:contain;border-radius:50%;background:#17212c;padding:2px;flex:0 0 auto">`:''}
+       <div style="min-width:0"><strong>${typeSymbol(x.type)} ${esc(x.type)} · ${esc(x.coin||'Cripto')}</strong>
        <small>${when}${x.note?' · '+esc(x.note):''}</small></div>
      </div>
      <div class="amt">
@@ -365,7 +370,7 @@ function deleteActivityById(id){
  if(index<0) return;
  const x=data[index];
  const message='¿Quieres borrar esta actividad?\n\n'+
-   (x.type||'Actividad')+' · '+(x.coin||'Cripto')+'\n'+
+   typeSymbol(x.type)+' '+(x.type||'Actividad')+' · '+(x.coin||'Cripto')+'\n'+
    money(Number(x.amount));
  if(!confirm(message)) return;
  data.splice(index,1);
@@ -408,7 +413,7 @@ document.getElementById('history').addEventListener('click', function(e){
 });
 document.querySelectorAll('.user-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.user===activeUser));
 
-// PWA: usa el manifest.json y el service worker existentes del repositorio.
+// PWA: Cripto Bitácora usa su manifest independiente y comparte el sw.js del sitio.
 let deferredPrompt=null;
 const installBtn=document.getElementById('pwaInstallBtn');
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;installBtn?.classList.add('show');});
