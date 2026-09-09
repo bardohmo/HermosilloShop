@@ -1,5 +1,5 @@
 /* HermosilloShop + Cripto Bitácora PWA */
-const CACHE = 'hermosillo-pwa-v4';
+const CACHE = 'hermosillo-pwa-v5';
 const ASSETS = [
   './',
   './index.html',
