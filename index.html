@@ -11,6 +11,10 @@
   <meta name="apple-mobile-web-app-title" content="HermosilloShop" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="./manifest-hs.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+  <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
@@ -5035,6 +5039,52 @@
       renderSalesLineChart();
     });
 
+</script>
+
+
+<button id="pwaInstallBtn" type="button" hidden>📲 Instalar aplicación</button>
+<style>
+  #pwaInstallBtn{
+    position:fixed;left:14px;bottom:14px;z-index:9997;display:none;
+    border:0;border-radius:14px;padding:12px 15px;font:600 0.9rem/1.1 inherit;
+    color:#041018;background:linear-gradient(135deg,#00f5ff,#8b5cff);
+    box-shadow:0 10px 28px rgba(0,245,255,.28);cursor:pointer;
+  }
+  #pwaInstallBtn.show{display:block}
+</style>
+<script>
+(() => {
+  // PWA HermosilloShop
+  let deferredPrompt = null;
+  const installBtn = document.getElementById('pwaInstallBtn');
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (installBtn) {
+      installBtn.hidden = false;
+      installBtn.classList.add('show');
+    }
+  });
+  installBtn?.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.classList.remove('show');
+    installBtn.hidden = true;
+  });
+  window.addEventListener('appinstalled', () => {
+    if (installBtn) {
+      installBtn.classList.remove('show');
+      installBtn.hidden = true;
+    }
+  });
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch((e) => console.warn('SW:', e));
+    });
+  }
+})();
 </script>
 
 </body>
