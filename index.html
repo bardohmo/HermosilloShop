@@ -6,6 +6,11 @@
   <title>HermosilloShop</title>
   <meta name="theme-color" content="#05060d" />
   <meta name="description" content="Catálogo, entregas y ventas de HermosilloShop. Página web para abrir en el navegador o subir a un hosting." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="HermosilloShop" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="./manifest.json" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
@@ -5060,5 +5065,27 @@
     });
 
 </script>
+
+<style id="hs-pwa-install-style">
+#hs-install-app{position:fixed;right:16px;bottom:16px;z-index:99999;border:1px solid rgba(0,245,255,.5);background:rgba(5,6,13,.92);color:#e8f7ff;border-radius:14px;padding:11px 15px;font:700 14px system-ui;box-shadow:0 0 22px rgba(0,245,255,.2);cursor:pointer;backdrop-filter:blur(10px)}
+#hs-install-app[hidden]{display:none}
+</style>
+<button id="hs-install-app" hidden type="button">📲 Instalar HermosilloShop</button>
+<script>
+(function(){
+  if(!('serviceWorker' in navigator)) return;
+  window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(e){console.warn('HermosilloShop SW:',e);});});
+  var deferredPrompt=null, btn=document.getElementById('hs-install-app');
+  window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredPrompt=e;btn.hidden=false;});
+  btn.addEventListener('click',async function(){
+    if(!deferredPrompt) return;
+    deferredPrompt.prompt();
+    try{await deferredPrompt.userChoice;}catch(e){}
+    deferredPrompt=null; btn.hidden=true;
+  });
+  window.addEventListener('appinstalled',function(){btn.hidden=true;deferredPrompt=null;});
+})();
+</script>
+
 </body>
 </html>
