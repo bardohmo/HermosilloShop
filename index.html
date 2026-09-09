@@ -2684,35 +2684,6 @@
     });
 
 
-    /* Página web independiente: sin instalación ni service worker */
-
-    let deferredInstall = null;
-    const btnInstall = document.getElementById("btnInstall");
-    window.addEventListener("beforeinstallprompt", (e) => {
-      e.preventDefault();
-      deferredInstall = e;
-      if (btnInstall) btnInstall.hidden = false;
-    });
-    window.addEventListener("appinstalled", () => {
-      deferredInstall = null;
-      if (btnInstall) btnInstall.hidden = true;
-      toast("App instalada en tu dispositivo");
-    });
-    if (btnInstall) {
-      btnInstall.addEventListener("click", async () => {
-        if (!deferredInstall) {
-          toast("Usa el menú de Chrome: Instalar aplicación");
-          return;
-        }
-        deferredInstall.prompt();
-        try {
-          await deferredInstall.userChoice;
-        } catch (_) {}
-        deferredInstall = null;
-        btnInstall.hidden = true;
-      });
-    }
-
     /* ===== Entregas ===== */
     const DELIV_KEY = "hs_deliveries_v1";
     const HERMOSILLO = { lat: 29.0729, lng: -110.9559 };
@@ -5064,27 +5035,6 @@
       renderSalesLineChart();
     });
 
-</script>
-
-<style id="hs-pwa-install-style">
-#hs-install-app{position:fixed;right:16px;bottom:16px;z-index:99999;border:1px solid rgba(0,245,255,.5);background:rgba(5,6,13,.92);color:#e8f7ff;border-radius:14px;padding:11px 15px;font:700 14px system-ui;box-shadow:0 0 22px rgba(0,245,255,.2);cursor:pointer;backdrop-filter:blur(10px)}
-#hs-install-app[hidden]{display:none}
-</style>
-<button id="hs-install-app" hidden type="button">📲 Instalar HermosilloShop</button>
-<script>
-(function(){
-  if(!('serviceWorker' in navigator)) return;
-  window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(e){console.warn('HermosilloShop SW:',e);});});
-  var deferredPrompt=null, btn=document.getElementById('hs-install-app');
-  window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredPrompt=e;btn.hidden=false;});
-  btn.addEventListener('click',async function(){
-    if(!deferredPrompt) return;
-    deferredPrompt.prompt();
-    try{await deferredPrompt.userChoice;}catch(e){}
-    deferredPrompt=null; btn.hidden=true;
-  });
-  window.addEventListener('appinstalled',function(){btn.hidden=true;deferredPrompt=null;});
-})();
 </script>
 
 </body>
