@@ -149,6 +149,8 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .qty-auto-clock{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;font-size:12px;font-weight:800;color:#f5b83f;font-variant-numeric:tabular-nums;white-space:nowrap;padding:0 2px}
 .qty-auto-clock.paused{color:#8b97a6}
 .qty-auto-clock[hidden]{display:none !important}
+.coin-preview,.coin-display img{background:rgba(255,255,255,.08);border-radius:7px;padding:2px;box-sizing:border-box}
+.coin-display img[src*="simpleicons.org/ledger"],#platformPreview[src*="simpleicons.org/ledger"]{background:rgba(255,255,255,.16);filter:none}
 .type-chip .type-icon{margin-right:0}
 .item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .item-head strong{display:inline-flex;align-items:center;min-width:0}
@@ -381,7 +383,7 @@ function setType(t){
 
 const PLATFORMS=[
  {id:'binance', name:'Binance', icon:'https://www.google.com/s2/favicons?domain=binance.com&sz=128'},
- {id:'ledger', name:'Ledger', icon:'https://www.google.com/s2/favicons?domain=ledger.com&sz=128'},
+ {id:'ledger', name:'Ledger', icon:'https://cdn.simpleicons.org/ledger/E8EEF6'},
  {id:'santander', name:'Banco Santander', icon:'https://www.google.com/s2/favicons?domain=santander.com.mx&sz=128'}
 ];
 function platformById(id){return PLATFORMS.find(p=>p.id===String(id||'').toLowerCase())||PLATFORMS.find(p=>p.name.toLowerCase()===String(id||'').toLowerCase())||null;}
@@ -1741,13 +1743,14 @@ function openModal(index=-1){
  document.getElementById('qtyTo')&&(document.getElementById('qtyTo').dataset.manual='0');
  document.getElementById('amount')&&(document.getElementById('amount').dataset.manual= editIndex>=0 && data[editIndex]?.amount!=null ? '1' : '0');
  const qtyEl=document.getElementById('qty');
- if(qtyEl) qtyEl.dataset.manual= (editIndex>=0 && data[editIndex]?.qty>0) ? '1' : '0';
+ // Al editar, no recalcular ni tocar la cantidad guardada
+ if(qtyEl) qtyEl.dataset.manual= editIndex>=0 ? '1' : '0';
  loadConvertFeePct();
  updateTypeFields();
  updateQtyHaveHints();
  document.getElementById('modal').classList.add('show');
  const t0=document.getElementById('type')?.value;
- if(t0==='Compra'||t0==='Depósito') estimateQtyFromAmountAuto(true);
+ if((t0==='Compra'||t0==='Depósito') && editIndex<0) estimateQtyFromAmountAuto(true);
  bindQtyFocusPause();
  startQtyAutoTimer();
 }
@@ -1772,6 +1775,17 @@ function deleteActivityById(id){
 }
 
 function closeModal(){stopQtyAutoTimer();document.getElementById('modal').classList.remove('show');editIndex=-1}
+function opQtyFingerprint(op){
+  if(!op) return '';
+  return [
+    op.type||'',
+    String(op.coin||'').toUpperCase(),
+    String(op.coinFrom||'').toUpperCase(),
+    String(op.coinTo||'').toUpperCase(),
+    Number(op.qty)||0,
+    Number(op.qtyTo)||0
+  ].join('|');
+}
 function save(){
  const amount=parseFloat(document.getElementById('amount').value);
  const date=document.getElementById('date').value;
@@ -1782,6 +1796,7 @@ function save(){
  let coin=document.getElementById('coin').value.trim()||'Cripto';
  let coinFrom='', coinTo='';
  let qty=0, qtyTo=0;
+ const prev=editIndex>=0?{...data[editIndex]}:null;
  if(type==='Conversión'){
    coinFrom=(document.getElementById('coinFrom')?.value||'').trim().toUpperCase();
    coinTo=(document.getElementById('coinTo')?.value||'').trim().toUpperCase();
@@ -1793,16 +1808,22 @@ function save(){
    if(qf!=='' || qt!==''){
      qty=parseFloat(qf); qtyTo=parseFloat(qt);
      if(!(qty>0) || !(qtyTo>0)){alert('Escribe cantidades válidas De y A.');return}
+   } else if(prev){
+     // Conservar cantidades previas si solo cambias plataforma/nota/fecha/monto
+     qty=Number(prev.qty)||0;
+     qtyTo=Number(prev.qtyTo)||0;
    }
  } else {
    const qRaw=document.getElementById('qty')?.value.trim()||'';
    if(qRaw!==''){
      qty=parseFloat(qRaw);
      if(!(qty>0)){alert('Escribe una cantidad de activo válida.');return}
+   } else if(prev && Number(prev.qty)>0){
+     // No borrar cantidad al editar (p.ej. solo cambiar plataforma)
+     qty=Number(prev.qty);
    }
  }
  const platform=(document.getElementById('platform')?.value||'').trim()||'binance';
- const prev=editIndex>=0?{...data[editIndex]}:null;
  const obj={id:editIndex>=0?data[editIndex].id:(crypto.randomUUID ? crypto.randomUUID() : Date.now()+'-'+Math.random()),type,coin,
  coinFrom: coinFrom||undefined, coinTo: coinTo||undefined,
  platform,
@@ -1810,8 +1831,15 @@ function save(){
  qty: qty>0?qty:undefined,
  qtyTo: qtyTo>0?qtyTo:undefined,
  note:document.getElementById('note').value.trim(),date:new Date(`${date}T${time}`).toISOString()};
- if(prev) applyOpQtyDelta(prev, -1);
- applyOpQtyDelta(obj, +1);
+ // Solo ajustar saldos si cambió tipo/cripto/cantidades (no por plataforma sola)
+ if(prev){
+   if(opQtyFingerprint(prev)!==opQtyFingerprint(obj)){
+     applyOpQtyDelta(prev, -1);
+     applyOpQtyDelta(obj, +1);
+   }
+ } else {
+   applyOpQtyDelta(obj, +1);
+ }
  if(editIndex>=0) data[editIndex]=obj; else data.push(obj);
  persistLocalOps();
  closeModal();render();
