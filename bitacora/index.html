@@ -1820,15 +1820,27 @@ function renderPlatformBreakdown(){
 function bindPlatMiniOnce(){
   if(bindPlatMiniOnce._done) return;
   bindPlatMiniOnce._done=true;
-  document.getElementById('platMiniClose')?.addEventListener('click', closePlatMini);
-  document.getElementById('platMini')?.addEventListener('click',e=>{
-    if(e.target && e.target.id==='platMini') closePlatMini();
+  // Delegación: el HTML del mini puede ir después del script
+  document.addEventListener('click',e=>{
+    if(e.target.closest && e.target.closest('#platMiniClose')){
+      e.preventDefault();
+      e.stopPropagation();
+      closePlatMini();
+      return;
+    }
+    if(e.target && e.target.id==='platMini'){
+      closePlatMini();
+    }
   });
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape') closePlatMini();
   });
 }
-bindPlatMiniOnce();
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded', bindPlatMiniOnce);
+} else {
+  bindPlatMiniOnce();
+}
 function currentValueMxn(sym){
   const s=String(sym||'').toUpperCase();
   const qty=qtyOf(s);
@@ -2263,7 +2275,7 @@ render();
   <div class="plat-mini-card" role="dialog" aria-modal="true" aria-labelledby="platMiniTitle">
     <div class="plat-mini-head">
       <h3 id="platMiniTitle"><img id="platMiniIcon" alt=""><span id="platMiniName">Plataforma</span></h3>
-      <button type="button" class="plat-mini-close" id="platMiniClose" aria-label="Cerrar">✕</button>
+      <button type="button" class="plat-mini-close" id="platMiniClose" aria-label="Cerrar" onclick="closePlatMini()">✕</button>
     </div>
     <div class="plat-mini-total" id="platMiniTotal"></div>
     <div id="platMiniList"></div>
