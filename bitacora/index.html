@@ -187,6 +187,8 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .plat-row .plat-left img{width:18px;height:18px;border-radius:5px;object-fit:contain;background:rgba(255,255,255,.08);padding:1px}
 .plat-row .plat-amt{color:#ffd96b;font-variant-numeric:tabular-nums;white-space:nowrap}
 #sbSyncStatus.toast-ok{color:#b6f5c5;border-color:rgba(80,200,120,.45)}
+#saveToast,.save-toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200000;background:#14301f;color:#b6f5c5;border:1px solid rgba(80,200,120,.55);padding:10px 16px;border-radius:999px;font:700 13px/1.2 system-ui;box-shadow:0 10px 28px rgba(0,0,0,.45);pointer-events:none;max-width:min(92vw,360px);text-align:center}
+#saveToast[hidden]{display:none!important}
 
 .coin-display img[src^="data:image"],#platformPreview[src^="data:image"]{background:rgba(255,255,255,.06);border-radius:8px;padding:2px;box-sizing:border-box;object-fit:contain}
 .type-chip .type-icon{margin-right:0}
@@ -206,6 +208,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 </head>
 <body>
 <div id="sbSyncStatus" hidden style="position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;background:#17212c;color:#ffd96b;border:1px solid rgba(245,184,63,.35);padding:8px 12px;border-radius:999px;font:600 12px/1.2 system-ui;box-shadow:0 8px 24px rgba(0,0,0,.35)"></div>
+<div id="saveToast" hidden role="status" aria-live="polite"></div>
 
 <div class="wrap">
 <div id="userSwitcher" class="user-switcher">
@@ -525,14 +528,21 @@ function toastSb(msg){
 }
 function showToast(msg, ok=true){
   try{
-    const el=document.getElementById('sbSyncStatus');
-    if(!el){ if(msg) console.info('[Bitácora]', msg); return; }
+    let el=document.getElementById('saveToast');
+    if(!el){
+      el=document.createElement('div');
+      el.id='saveToast';
+      el.className='save-toast';
+      el.setAttribute('role','status');
+      document.body.appendChild(el);
+    }
     el.textContent=msg||'';
     el.hidden=!msg;
-    el.classList.toggle('toast-ok', !!ok);
     clearTimeout(showToast._t);
-    if(msg) showToast._t=setTimeout(()=>{ el.hidden=true; el.classList.remove('toast-ok'); }, 2400);
-  }catch(_){}
+    if(msg){
+      showToast._t=setTimeout(()=>{ el.hidden=true; }, 2800);
+    }
+  }catch(err){ console.info('[Bitácora]', msg, err); }
 }
 
 function persistLocalOps(){
@@ -2028,7 +2038,7 @@ function renderQtyActions(){
       persistBalancesLocal();
       qtyEditing=false; qtyDraft={};
       renderInvestByCoin();
-      showToast('Guardado exitoso', true);
+      showToast('Guardado con Éxito', true);
     });
   } else {
     box.innerHTML=`<button type="button" id="qtyEditBtn">Editar</button>`;
@@ -2207,10 +2217,20 @@ function openModal(index=-1){
  updateTypeFields();
  updateQtyHaveHints();
  document.getElementById('modal').classList.add('show');
- // Al editar/abrir, subir solo el cuadro de edición (sheet), no la página
- requestAnimationFrame(()=>{
+ // Subir al formulario de edición (sheet arriba + página arriba para ver el modal)
+ const scrollEditForm=()=>{
+   try{ window.scrollTo({top:0, behavior:'smooth'}); }catch(_){ window.scrollTo(0,0); }
    const sheet=document.querySelector('#modal .sheet');
-   if(sheet) sheet.scrollTop=0;
+   if(sheet){
+     sheet.scrollTop=0;
+     const head=sheet.querySelector('.sheet-head')||sheet.querySelector('h2');
+     try{ head?.scrollIntoView({block:'start', behavior:'smooth'}); }catch(_){}
+   }
+ };
+ requestAnimationFrame(()=>{
+   scrollEditForm();
+   setTimeout(scrollEditForm, 50);
+   setTimeout(scrollEditForm, 200);
  });
  const t0=document.getElementById('type')?.value;
  if((t0==='Compra'||t0==='Depósito') && editIndex<0) estimateQtyFromAmountAuto(true);
@@ -2219,7 +2239,10 @@ function openModal(index=-1){
 }
 function editActivityById(id){
  const index=data.findIndex(x=>String(x.id)===String(id));
- if(index>=0) openModal(index);
+ if(index>=0){
+   try{ window.scrollTo({top:0, behavior:'smooth'}); }catch(_){ window.scrollTo(0,0); }
+   openModal(index);
+ }
 }
 
 function deleteActivityById(id){
@@ -2305,9 +2328,9 @@ function save(){
  }
  if(editIndex>=0) data[editIndex]=obj; else data.push(obj);
  persistLocalOps();
- const wasEdit=!!prev;
- closeModal();render();
- showToast(wasEdit ? 'Guardado exitoso' : 'Guardado exitoso', true);
+ closeModal();
+ render();
+ setTimeout(()=>showToast('Guardado con Éxito', true), 30);
  upsertOpCloud(obj).catch(e => console.warn('op upsert', e));
 }
 function clearAll(){if(data.length&&confirm('¿Borrar todo el historial?')){data=[];localStorage.removeItem(KEY);localStorage.removeItem('cripto_bitacora_v1');persistLocalOps();render();clearOpsCloud().catch(e=>console.warn('clear ops',e));}}
