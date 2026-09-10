@@ -30,12 +30,13 @@ h1{margin:0;font-size:23px;font-weight:950;letter-spacing:2px;text-transform:upp
 .label{font-size:11px;color:#9ca8b6;letter-spacing:1px;text-transform:uppercase}
 .big{font-size:30px;font-weight:950;margin-top:5px}
 .profit{font-size:16px;font-weight:850;color:var(--green);margin-top:5px}
-.invest-by-coin{display:grid;gap:8px;margin-top:8px}
-.invest-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border-radius:13px;background:rgba(2,7,13,.68);border:1px solid rgba(245,184,63,.15)}
-.invest-row .left{display:inline-flex;align-items:center;gap:8px;min-width:0;font-weight:800}
-.invest-row .left img{width:22px;height:22px;border-radius:50%;object-fit:contain;background:#0d1824;padding:2px;flex:0 0 auto}
-.invest-row .amt{font-weight:850;color:#ffd96b;white-space:nowrap}
-.invest-empty{padding:12px;text-align:center;color:var(--muted);font-size:12px}
+.invest-by-coin{display:grid;gap:4px;margin-top:6px}
+.invest-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border-radius:10px;background:rgba(2,7,13,.68);border:1px solid rgba(245,184,63,.12)}
+.invest-row .left{display:inline-flex;align-items:center;gap:6px;min-width:0;font-weight:750;font-size:12px}
+.invest-row .left img{width:16px;height:16px;border-radius:50%;object-fit:contain;background:#0d1824;padding:1px;flex:0 0 auto}
+.invest-row .amt{font-weight:800;color:#ffd96b;white-space:nowrap;font-size:12px}
+.invest-empty{padding:8px;text-align:center;color:var(--muted);font-size:11px}
+.invest-more{margin-top:2px;width:100%;border:1px solid rgba(245,184,63,.28);border-radius:10px;padding:7px 10px;background:rgba(16,25,35,.95);color:#ffd96b;font-weight:800;font-size:11px;cursor:pointer}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .mini{padding:13px;border-radius:13px;background:rgba(2,7,13,.68);border:1px solid rgba(245,184,63,.15)}
 .mini b{display:block;font-size:17px;margin-top:4px}
@@ -590,6 +591,7 @@ function localDateTimeValue(iso){
  return {date:`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,
          time:`${pad(d.getHours())}:${pad(d.getMinutes())}`};
 }
+let investExpanded=false;
 function investedByCoin(){
  const map={};
  const add=(sym, delta)=>{
@@ -610,8 +612,14 @@ function investedByCoin(){
    else if(['Venta','Retiro','Comisión'].includes(x.type)) add(coin, -amt);
  });
  return Object.entries(map)
-   .filter(([,v])=>Math.abs(v)>=0.005)
-   .sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+   .filter(([,v])=>v>0.005)
+   .sort((a,b)=>b[1]-a[1]);
+}
+function renderInvestRow([sym, amt]){
+   const cc=coinBySymbol(sym);
+   const icon=cc?.icon?iconValue(cc.icon):'';
+   const name=cc?.name?`${esc(sym)} · ${esc(cc.name)}`:esc(sym);
+   return `<div class="invest-row"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="amt">${money(amt)}</span></div>`;
 }
 function renderInvestByCoin(){
  const box=document.getElementById('investByCoin'); if(!box) return;
@@ -620,12 +628,20 @@ function renderInvestByCoin(){
    box.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
    return;
  }
- box.innerHTML=rows.map(([sym, amt])=>{
-   const cc=coinBySymbol(sym);
-   const icon=cc?.icon?iconValue(cc.icon):'';
-   const name=cc?.name?`${esc(sym)} · ${esc(cc.name)}`:esc(sym);
-   return `<div class="invest-row"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="amt">${money(amt)}</span></div>`;
- }).join('');
+ const limit=10;
+ const visible=investExpanded?rows:rows.slice(0,limit);
+ const hidden=Math.max(0, rows.length-limit);
+ let html=visible.map(renderInvestRow).join('');
+ if(hidden>0){
+   html+=investExpanded
+     ?`<button type="button" class="invest-more" id="investToggleMore">Ver menos</button>`
+     :`<button type="button" class="invest-more" id="investToggleMore">Ver ${hidden} más</button>`;
+ }
+ box.innerHTML=html;
+ document.getElementById('investToggleMore')?.addEventListener('click',()=>{
+   investExpanded=!investExpanded;
+   renderInvestByCoin();
+ });
 }
 function render(){
  let net=0;
