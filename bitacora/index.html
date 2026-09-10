@@ -100,12 +100,12 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 
 .coin-picker{display:flex;gap:8px;align-items:center}
 .coin-select-wrap,.coin-combo-wrap{position:relative;flex:1}
-.coin-select{padding-left:42px!important}
+.coin-select{padding-left:54px!important}
 .coin-select-native{position:absolute!important;opacity:0!important;pointer-events:none!important;width:1px!important;height:1px!important;padding:0!important;margin:0!important;border:0!important}
-.coin-combo-input{width:100%;padding:12px 12px 12px 42px;border-radius:10px;border:1px solid rgba(245,184,63,.18);background:#050b13;color:#fff;font-size:14px;outline:none;box-sizing:border-box}
+.coin-combo-input{width:100%;padding:12px 12px 12px 54px;border-radius:10px;border:1px solid rgba(245,184,63,.18);background:#050b13;color:#fff;font-size:14px;outline:none;box-sizing:border-box}
 .coin-combo-input:focus{border-color:rgba(245,184,63,.55)}
 .coin-combo-drop{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:60;max-height:240px;overflow:auto;-webkit-overflow-scrolling:touch;padding:6px;border-radius:14px;border:1px solid rgba(245,184,63,.28);background:linear-gradient(160deg,rgba(9,18,30,.98),rgba(3,8,14,.99));box-shadow:0 16px 40px rgba(0,0,0,.55)}
-.coin-combo-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;border-radius:10px;padding:9px 10px;background:transparent;color:#e8eef6;cursor:pointer;font:inherit}
+.coin-combo-item{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:0;border-radius:10px;padding:9px 10px;background:transparent;color:#e8eef6;cursor:pointer;font:inherit}
 .coin-combo-item:hover,.coin-combo-item:focus{background:rgba(245,184,63,.12);outline:none}
 .coin-combo-item img{width:22px;height:22px;border-radius:50%;object-fit:contain;background:#0b1420;flex-shrink:0}
 .coin-combo-name{flex:1;min-width:0;font-weight:700;font-size:13px}
@@ -164,7 +164,25 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .qty-auto-clock[hidden]{display:none !important}
 .platform-saldo-label{margin-top:12px;color:#9da8b5;font-size:11px;text-transform:uppercase;letter-spacing:.7px;font-weight:700}
 .platform-breakdown{display:flex;flex-direction:column;gap:6px;margin-top:6px}
-.plat-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);font-size:12px;font-weight:700;color:#c9d3de}
+.plat-row{display:flex;align-items:center;justify-content:space-between;width:100%;font:inherit;text-align:left;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);font-size:12px;font-weight:700;color:#c9d3de;cursor:pointer;transition:background .15s,border-color .15s}
+.plat-row:hover,.plat-row:focus{background:rgba(245,184,63,.10);border-color:rgba(245,184,63,.35);outline:none}
+.plat-mini{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);z-index:10050}
+.plat-mini.show{display:flex}
+.plat-mini-card{width:min(380px,100%);max-height:min(70vh,520px);overflow:auto;border-radius:18px;border:1px solid rgba(245,184,63,.35);background:linear-gradient(145deg,rgba(9,18,30,.98),rgba(3,8,14,.99));box-shadow:0 18px 48px rgba(0,0,0,.55);padding:14px 14px 16px}
+.plat-mini-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.plat-mini-head h3{margin:0;font-size:15px;display:inline-flex;align-items:center;gap:8px}
+.plat-mini-head h3 img{width:20px;height:20px;border-radius:5px;object-fit:contain;background:rgba(255,255,255,.1);padding:1px}
+.plat-mini-close{border:0;border-radius:10px;padding:8px 10px;background:#29333e;color:#fff;cursor:pointer;line-height:1}
+.plat-mini-total{font-size:12px;color:#8b97a6;margin:0 0 10px;font-weight:700}
+.plat-mini-total strong{color:#ffd96b}
+.plat-asset-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 8px;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);margin-bottom:6px}
+.plat-asset-left{display:inline-flex;align-items:center;gap:8px;min-width:0}
+.plat-asset-left img{width:22px;height:22px;border-radius:50%;object-fit:contain;background:#0b1420;flex-shrink:0}
+.plat-asset-meta{display:flex;flex-direction:column;min-width:0}
+.plat-asset-meta .sym{font-weight:800;font-size:13px;color:#e8eef6}
+.plat-asset-meta .qty{font-size:11px;color:#8b97a6;font-weight:700}
+.plat-asset-mxn{font-weight:800;font-size:12px;color:#ffd96b;white-space:nowrap}
+.plat-mini-empty{padding:18px;text-align:center;color:#8b97a6;font-size:12px}
 .plat-row .plat-left{display:inline-flex;align-items:center;gap:8px;min-width:0}
 .plat-row .plat-left img{width:18px;height:18px;border-radius:5px;object-fit:contain;background:rgba(255,255,255,.08);padding:1px}
 .plat-row .plat-amt{color:#ffd96b;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -1713,6 +1731,73 @@ function currentSaldoByPlatform(){
   });
   return out;
 }
+function assetsOnPlatform(platId){
+  const plat=String(platId||'binance').toLowerCase();
+  const platQty=qtyByPlatformFromOps();
+  const plats=new Set(['binance','ledger', ...Object.keys(platQty)]);
+  const allSyms=new Set();
+  Object.values(platQty).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
+  Object.keys(balances||{}).forEach(s=>{ if(qtyOf(s)>0) allSyms.add(String(s).toUpperCase()); });
+  const rows=[];
+  allSyms.forEach(sym=>{
+    const bal=qtyOf(sym);
+    if(!(bal>0)) return;
+    let shareSum=0;
+    const shares={};
+    plats.forEach(p=>{
+      const q=Number(platQty[p]?.[sym])||0;
+      shares[p]=q>0?q:0;
+      shareSum+=shares[p];
+    });
+    let qtyPlat=0;
+    if(shareSum>0) qtyPlat=bal*(shares[plat]||0)/shareSum;
+    else if(plat==='binance') qtyPlat=bal; // sin atribución → Binance
+    if(!(qtyPlat>0.0000001)) return;
+    const mxn=valueMxnOfQty(sym, qtyPlat);
+    rows.push({
+      sym,
+      qty: qtyPlat,
+      mxn: mxn==null?null:mxn,
+      name: coinBySymbol(sym)?.name || sym,
+      icon: coinBySymbol(sym)?.icon || ''
+    });
+  });
+  rows.sort((a,b)=>(b.mxn||0)-(a.mxn||0));
+  return rows;
+}
+function closePlatMini(){
+  const el=document.getElementById('platMini');
+  if(!el) return;
+  el.classList.remove('show');
+  el.setAttribute('aria-hidden','true');
+}
+function openPlatMini(platId){
+  const plat=String(platId||'').toLowerCase();
+  const pl=platformById(plat);
+  const mini=document.getElementById('platMini');
+  if(!mini) return;
+  const icon=document.getElementById('platMiniIcon');
+  const name=document.getElementById('platMiniName');
+  const totalEl=document.getElementById('platMiniTotal');
+  const list=document.getElementById('platMiniList');
+  if(icon){ icon.src=pl?.icon||''; icon.style.display=pl?.icon?'inline-block':'none'; }
+  if(name) name.textContent=pl?.name || plat;
+  const rows=assetsOnPlatform(plat);
+  const total=rows.reduce((s,r)=>s+(Number(r.mxn)||0),0);
+  if(totalEl) totalEl.innerHTML='Total ≈ <strong>'+money(total)+'</strong>';
+  if(list){
+    if(!rows.length){
+      list.innerHTML='<div class="plat-mini-empty">Sin activos en esta plataforma</div>';
+    } else {
+      list.innerHTML=rows.map(r=>{
+        const mxn=r.mxn==null?'…':money(r.mxn);
+        return `<div class="plat-asset-row"><span class="plat-asset-left">${r.icon?`<img src="${esc(r.icon)}" alt="" onerror="this.style.visibility='hidden'">`:''}<span class="plat-asset-meta"><span class="sym">${esc(r.name)} <span style="color:#8b97a6;font-weight:700">(${esc(r.sym)})</span></span><span class="qty">${formatQty(r.qty)} ${esc(r.sym)}</span></span></span><span class="plat-asset-mxn">${mxn}</span></div>`;
+      }).join('');
+    }
+  }
+  mini.classList.add('show');
+  mini.setAttribute('aria-hidden','false');
+}
 function renderPlatformBreakdown(){
   const el=document.getElementById('platformBreakdown');
   if(!el) return;
@@ -1726,9 +1811,24 @@ function renderPlatformBreakdown(){
     const icon=pl?.icon || '';
     const v=Number(map[id])||0;
     const shown=(usdtMxn>0 && Object.keys(priceMap||{}).length) ? money(v) : (v>0 ? '…' : money(0));
-    return `<div class="plat-row"><span class="plat-left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${esc(name)}</span></span><span class="plat-amt">${shown}</span></div>`;
+    return `<button type="button" class="plat-row" data-plat="${esc(id)}" title="Ver desglose"><span class="plat-left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${esc(name)}</span></span><span class="plat-amt">${shown}</span></button>`;
   }).join('');
+  el.querySelectorAll('.plat-row[data-plat]').forEach(btn=>{
+    btn.addEventListener('click',()=>openPlatMini(btn.dataset.plat));
+  });
 }
+function bindPlatMiniOnce(){
+  if(bindPlatMiniOnce._done) return;
+  bindPlatMiniOnce._done=true;
+  document.getElementById('platMiniClose')?.addEventListener('click', closePlatMini);
+  document.getElementById('platMini')?.addEventListener('click',e=>{
+    if(e.target && e.target.id==='platMini') closePlatMini();
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape') closePlatMini();
+  });
+}
+bindPlatMiniOnce();
 function currentValueMxn(sym){
   const s=String(sym||'').toUpperCase();
   const qty=qtyOf(s);
@@ -2157,5 +2257,17 @@ document.getElementById('cryptoAdminOverlay')?.addEventListener('click',e=>{if(e
 render();
 </script>
 <button id="pwaInstallBtn" type="button">📲 Instalar aplicación</button>
+
+<!-- Mini desglose saldo plataforma -->
+<div id="platMini" class="plat-mini" aria-hidden="true">
+  <div class="plat-mini-card" role="dialog" aria-modal="true" aria-labelledby="platMiniTitle">
+    <div class="plat-mini-head">
+      <h3 id="platMiniTitle"><img id="platMiniIcon" alt=""><span id="platMiniName">Plataforma</span></h3>
+      <button type="button" class="plat-mini-close" id="platMiniClose" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="plat-mini-total" id="platMiniTotal"></div>
+    <div id="platMiniList"></div>
+  </div>
+</div>
 </body>
 </html>
