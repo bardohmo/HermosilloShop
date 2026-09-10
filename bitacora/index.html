@@ -686,9 +686,11 @@ async function syncFromSupabase(){
       if (cloudBal && Object.keys(cloudBal).length) {
         balances = cloudBal;
         persistBalancesLocal();
+        repairInflatedBalances();
       } else if (localBal && Object.keys(localBal).length) {
         balances = localBal;
-        await pushAllBalancesToCloud(localBal);
+        repairInflatedBalances();
+        await pushAllBalancesToCloud(balances);
       } else {
         balances = {};
         persistBalancesLocal();
@@ -696,6 +698,7 @@ async function syncFromSupabase(){
     } catch (e) { console.warn('balances sync', e); }
 
     sbReady = true;
+    repairInflatedBalances();
     toastSb('Respaldo en la nube activo');
     setTimeout(() => toastSb(''), 2500);
     renderCoinSelect();
@@ -1383,6 +1386,75 @@ function applyOpQtyDelta(op, sign){
   return touched;
 }
 
+function qtySumFromOps(sym){
+  const s=String(sym||'').toUpperCase();
+  let q=0;
+  (data||[]).forEach(op=>{
+    const type=op.type||'';
+    if(type==='Conversión'){
+      const pair=parseConvertPair(op.coinFrom||op.coinTo?{coinFrom:op.coinFrom,coinTo:op.coinTo}:op.coin);
+      const from=(op.coinFrom||pair?.from||'').toUpperCase();
+      const to=(op.coinTo||pair?.to||'').toUpperCase();
+      const qFrom=Number(op.qty)||0;
+      const qTo=Number(op.qtyTo)||0;
+      if(from===s && qFrom>0) q-=qFrom;
+      if(to===s && qTo>0) q+=qTo;
+      return;
+    }
+    if(String(op.coin||'').toUpperCase()!==s) return;
+    const qq=Number(op.qty)||0;
+    if(!(qq>0)) return;
+    if(['Compra','Depósito','Staking'].includes(type)) q+=qq;
+    else if(['Venta','Retiro','Comisión'].includes(type)) q-=qq;
+  });
+  return q;
+}
+/** Si el saldo quedó inflado (p.ej. una compra aplicada 2 veces), lo alinea con la suma de ops */
+function repairInflatedBalances(){
+  const syms=new Set([
+    ...Object.keys(balances||{}),
+    ...(data||[]).map(o=>String(o.coin||'').toUpperCase()).filter(Boolean)
+  ]);
+  let fixed=0;
+  syms.forEach(sym=>{
+    if(!sym || sym==='CRIPTO') return;
+    const opsFor= (data||[]).filter(op=>{
+      const type=op.type||'';
+      if(type==='Conversión'){
+        const pair=parseConvertPair(op.coinFrom||op.coinTo?{coinFrom:op.coinFrom,coinTo:op.coinTo}:op.coin);
+        const from=(op.coinFrom||pair?.from||'').toUpperCase();
+        const to=(op.coinTo||pair?.to||'').toUpperCase();
+        return from===sym || to===sym;
+      }
+      return String(op.coin||'').toUpperCase()===sym;
+    });
+    if(!opsFor.length) return;
+    // Solo auto-reparar si todas las ops relevantes traen qty (evita pisar ajustes manuales sin qty)
+    const missingQty=opsFor.some(op=>{
+      if(op.type==='Conversión'){
+        const pair=parseConvertPair(op.coinFrom||op.coinTo?{coinFrom:op.coinFrom,coinTo:op.coinTo}:op.coin);
+        const from=(op.coinFrom||pair?.from||'').toUpperCase();
+        const to=(op.coinTo||pair?.to||'').toUpperCase();
+        if(from===sym && !(Number(op.qty)>0)) return true;
+        if(to===sym && !(Number(op.qtyTo)>0)) return true;
+        return false;
+      }
+      return !(Number(op.qty)>0);
+    });
+    if(missingQty) return;
+    const fromOps=qtySumFromOps(sym);
+    if(!(fromOps>=0)) return;
+    const bal=qtyOf(sym);
+    if(bal<=fromOps+1e-10) return; // no inflado (PEPE manual más bajo se respeta)
+    setBalanceSym(sym, fromOps);
+    upsertBalanceCloud(sym, fromOps);
+    fixed++;
+    console.info('[Bitácora] saldo corregido', sym, bal, '→', fromOps);
+  });
+  if(fixed){ persistBalancesLocal(); try{ render(); }catch(_){} }
+  return fixed;
+}
+
 function qtyOf(sym){
   const k=String(sym||'').toUpperCase();
   const v=Number(balances[k]);
@@ -2018,9 +2090,27 @@ if(document.readyState==='loading'){
 } else {
   bindPlatMiniOnce();
 }
+/** Cantidad para valuación: suma real por plataformas/ops (evita saldos duplicados) */
+function holdingQty(sym){
+  const s=String(sym||'').toUpperCase();
+  try{
+    if(typeof qtyHeldByPlatformForSymbol==='function'){
+      const held=qtyHeldByPlatformForSymbol(s);
+      const sum=Object.values(held||{}).reduce((a,b)=>a+(Number(b)||0),0);
+      if(sum>0) return sum;
+    }
+  }catch(_){}
+  try{
+    if(typeof qtySumFromOps==='function'){
+      const q=qtySumFromOps(s);
+      if(q>0) return q;
+    }
+  }catch(_){}
+  return qtyOf(s);
+}
 function currentValueMxn(sym){
   const s=String(sym||'').toUpperCase();
-  const qty=qtyOf(s);
+  const qty=holdingQty(s);
   if(!(qty>0)) return null;
   if(STABLES.has(s)) return usdtMxn>0 ? qty*usdtMxn : null;
   const pair=binancePair(s);
