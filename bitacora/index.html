@@ -199,9 +199,9 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .item-head strong{display:inline-flex;align-items:center;min-width:0}
 .item-when{font-size:11px;color:#8b97a6;font-weight:700;white-space:nowrap}
-.crypto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:10000;display:none;padding:18px;overflow:auto}
+.crypto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:10000;display:none;padding:18px;overflow:auto;scroll-behavior:smooth}
 .crypto-overlay.show{display:flex;align-items:flex-start;justify-content:center;padding-top:18px}
-.crypto-panel{width:min(720px,100%);max-height:92vh;overflow:auto;background:#0a1119;border:1px solid #263544;border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
+.crypto-panel{width:min(720px,100%);max-height:92vh;overflow:auto;scroll-behavior:smooth;background:#0a1119;border:1px solid #263544;border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
 .crypto-panel h2{margin:0 0 14px}.crypto-panel .coin-form{display:grid;grid-template-columns:1fr 1fr;gap:9px}.crypto-panel .coin-form .full{grid-column:1/-1}
 .crypto-panel input{width:100%;padding:12px;border-radius:10px;border:1px solid #334454;background:#101a24;color:#fff}
 .crypto-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.crypto-actions button{border:0;border-radius:10px;padding:10px 12px;font-weight:800;cursor:pointer}
@@ -1229,18 +1229,20 @@ function editCoin(i){
   const ov=document.getElementById('cryptoAdminOverlay');
   ov?.classList.add('show');
   const panel=ov?.querySelector('.crypto-panel');
+  const smoothTop=(el)=>{
+    if(!el) return;
+    try{ el.scrollTo({top:0, behavior:'smooth'}); }
+    catch(_){ el.scrollTop=0; }
+  };
   const scrollUp=()=>{
-    if(ov) ov.scrollTop=0;
-    if(panel) panel.scrollTop=0;
+    smoothTop(ov);
+    smoothTop(panel);
     const form=document.querySelector('#cryptoAdminOverlay .coin-form')||document.getElementById('coinName');
     try{ form?.scrollIntoView({block:'start', behavior:'smooth'}); }catch(_){}
-    try{ document.getElementById('coinName')?.focus({preventScroll:true}); }catch(_){ document.getElementById('coinName')?.focus(); }
+    try{ document.getElementById('coinName')?.focus({preventScroll:true}); }catch(_){}
   };
-  requestAnimationFrame(()=>{
-    scrollUp();
-    setTimeout(scrollUp, 50);
-    setTimeout(scrollUp, 200);
-  });
+  // Una sola subida suave (evitar reinicios que cortan la animación)
+  requestAnimationFrame(()=>setTimeout(scrollUp, 30));
 }
 function deleteCoin(i){if(coins.length<=1){alert('Debes conservar al menos una moneda.');return;} const c=coins[i]; if(!confirm(`¿Borrar ${c.name} (${c.symbol}) del catálogo?`)) return; coins.splice(i,1); saveCoins(); renderCoinSelect(); renderCoinAdmin();}
 function resetCoinForm(){editingCoinIndex=-1; document.getElementById('coinName').value=''; document.getElementById('coinSymbol').value=''; document.getElementById('coinIcon').value=''; if(document.getElementById('coinIconFile')) document.getElementById('coinIconFile').value='';}
