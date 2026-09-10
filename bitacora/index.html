@@ -30,20 +30,27 @@ h1{margin:0;font-size:23px;font-weight:950;letter-spacing:2px;text-transform:upp
 .label{font-size:11px;color:#9ca8b6;letter-spacing:1px;text-transform:uppercase}
 .big{font-size:30px;font-weight:950;margin-top:5px}
 .profit{font-size:16px;font-weight:850;color:var(--green);margin-top:5px}
-.invest-swipe{margin-top:6px;overflow:hidden;touch-action:pan-y;border-radius:12px}
-.invest-track{display:flex;width:200%;transition:transform .28s ease;will-change:transform}
+.invest-swipe{overflow:hidden;touch-action:pan-y;border-radius:12px}
+.invest-track{display:flex;align-items:flex-start;width:200%;transition:transform .28s ease;will-change:transform}
 .invest-track.page1{transform:translateX(-50%)}
 .invest-pane{width:50%;padding:0 1px;box-sizing:border-box}
-.invest-pane-hint{font-size:10px;color:#8b97a6;font-weight:700;margin:0 0 5px;letter-spacing:.02em}
+.invest-pane-title{font-size:16px;font-weight:900;color:#ffd96b;letter-spacing:.04em;margin:0 0 8px}
+.invest-pane-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px}
+.invest-pane-head .invest-pane-title{margin:0}
+.invest-edit-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.invest-edit-actions button{border:1px solid rgba(245,184,63,.35);border-radius:10px;padding:7px 10px;background:#101923;color:#ffd96b;font-weight:800;font-size:11px;cursor:pointer}
+.invest-edit-actions button.primary{background:linear-gradient(135deg,#e8a72d,#ffd96b);color:#11161b;border-color:transparent}
+.invest-edit-actions button.ghost{background:#29333e;color:#fff;border-color:transparent}
 .invest-by-coin{display:grid;gap:4px}
 .invest-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border-radius:10px;background:rgba(2,7,13,.68);border:1px solid rgba(245,184,63,.12)}
 .invest-row .left{display:inline-flex;align-items:center;gap:6px;min-width:0;font-weight:750;font-size:12px}
 .invest-row .left img{width:16px;height:16px;border-radius:50%;object-fit:contain;background:#0d1824;padding:1px;flex:0 0 auto}
 .invest-row .amt{font-weight:800;color:#ffd96b;white-space:nowrap;font-size:12px}
-.invest-row input.qty-input{width:110px;max-width:42%;border:1px solid rgba(245,184,63,.28);border-radius:8px;padding:5px 8px;background:#0b1420;color:#e8eef6;font-weight:800;font-size:12px;text-align:right}
+.invest-row .qty-locked{font-weight:800;color:#c9d4e0;white-space:nowrap;font-size:12px;padding:5px 8px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);min-width:72px;text-align:right;pointer-events:none;user-select:none}
+.invest-row input.qty-input{width:110px;max-width:42%;border:1px solid rgba(245,184,63,.45);border-radius:8px;padding:5px 8px;background:#0b1420;color:#e8eef6;font-weight:800;font-size:12px;text-align:right}
 .invest-empty{padding:8px;text-align:center;color:var(--muted);font-size:11px}
 .invest-more{margin-top:2px;width:100%;border:1px solid rgba(245,184,63,.28);border-radius:10px;padding:7px 10px;background:rgba(16,25,35,.95);color:#ffd96b;font-weight:800;font-size:11px;cursor:pointer}
-.invest-dots{display:flex;justify-content:center;gap:6px;margin-top:8px}
+.invest-dots{display:flex;justify-content:center;gap:6px;margin-top:4px}
 .invest-dots span{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.18)}
 .invest-dots span.on{background:#ffd96b}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
@@ -142,15 +149,17 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
   <div class="card">
     <div class="label">Capital neto registrado</div>
     <div class="big" id="capital">$0.00 MXN</div>
-    <div class="label" style="margin-top:15px">Activos <span style="opacity:.65;font-weight:700;font-size:11px">(desliza ← cantidad)</span></div>
-    <div class="invest-swipe" id="investSwipe">
+    <div class="invest-swipe" id="investSwipe" style="margin-top:15px">
       <div class="invest-track" id="investTrack">
-        <div class="invest-pane">
-          <div class="invest-pane-hint">INVERTIDO (MXN)</div>
+        <div class="invest-pane" id="investPane0">
+          <div class="invest-pane-title">Inversiones</div>
           <div class="invest-by-coin" id="investByCoin"><div class="invest-empty">Sin inversiones registradas</div></div>
         </div>
-        <div class="invest-pane">
-          <div class="invest-pane-hint">CANTIDAD (EDITABLE)</div>
+        <div class="invest-pane" id="investPane1">
+          <div class="invest-pane-head">
+            <div class="invest-pane-title">Cantidad</div>
+            <div class="invest-edit-actions" id="qtyEditActions"></div>
+          </div>
           <div class="invest-by-coin" id="investByQty"><div class="invest-empty">Sin inversiones registradas</div></div>
         </div>
       </div>
@@ -636,6 +645,8 @@ function localDateTimeValue(iso){
          time:`${pad(d.getHours())}:${pad(d.getMinutes())}`};
 }
 let investExpanded=false;
+let qtyEditing=false;
+let qtyDraft={};
 function persistBalancesLocal(){ localStorage.setItem(BAL_KEY, JSON.stringify(balances||{})); }
 function qtyOf(sym){
   const k=String(sym||'').toUpperCase();
@@ -682,11 +693,22 @@ async function pushAllBalancesToCloud(map){
   const { error } = await sb.from('bitacora_balances').upsert(rows, { onConflict: 'user_key,symbol' });
   if(error) throw error;
 }
+function syncInvestHeight(){
+  const swipe=document.getElementById('investSwipe');
+  const track=document.getElementById('investTrack');
+  const dots=document.getElementById('investDots');
+  const pane=document.getElementById(investPage===1?'investPane1':'investPane0');
+  if(!swipe||!track||!pane) return;
+  const h=pane.offsetHeight + (dots?dots.offsetHeight+4:0);
+  swipe.style.height=h+'px';
+}
 function setInvestPage(page){
   investPage=page?1:0;
+  if(investPage===0) qtyEditing=false;
   document.getElementById('investTrack')?.classList.toggle('page1', investPage===1);
   const dots=document.querySelectorAll('#investDots span');
   dots.forEach((d,i)=>d.classList.toggle('on', i===investPage));
+  requestAnimationFrame(syncInvestHeight);
 }
 function wireInvestSwipe(){
   const el=document.getElementById('investSwipe'); if(!el||el.dataset.wired) return;
@@ -748,8 +770,41 @@ function renderInvestRowQty([sym]){
    const cc=coinBySymbol(sym);
    const icon=cc?.icon?iconValue(cc.icon):'';
    const name=cc?.name?`${esc(sym)} · ${esc(cc.name)}`:esc(sym);
-   const q=qtyOf(sym);
-   return `<div class="invest-row"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><input class="qty-input" type="number" inputmode="decimal" step="any" data-sym="${esc(sym)}" value="${q}"></div>`;
+   const q=qtyEditing ? (Number.isFinite(Number(qtyDraft[sym]))?Number(qtyDraft[sym]):qtyOf(sym)) : qtyOf(sym);
+   const right=qtyEditing
+     ? `<input class="qty-input" type="number" inputmode="decimal" step="any" data-sym="${esc(sym)}" value="${q}">`
+     : `<span class="qty-locked">${esc(formatQty(q))}</span>`;
+   return `<div class="invest-row"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span>${right}</div>`;
+}
+function renderQtyActions(){
+  const box=document.getElementById('qtyEditActions'); if(!box) return;
+  if(qtyEditing){
+    box.innerHTML=`<button type="button" class="ghost" id="qtyCancelBtn">Cancelar</button><button type="button" class="primary" id="qtySaveBtn">Guardar</button>`;
+    document.getElementById('qtyCancelBtn')?.addEventListener('click',()=>{
+      qtyEditing=false; qtyDraft={}; renderInvestByCoin();
+    });
+    document.getElementById('qtySaveBtn')?.addEventListener('click',()=>{
+      if(!confirm('¿Confirmar y guardar las cantidades?')) return;
+      document.querySelectorAll('#investByQty input.qty-input').forEach(inp=>{
+        const sym=String(inp.dataset.sym||'').toUpperCase();
+        const val=Number(inp.value);
+        balances[sym]=Number.isFinite(val)?val:0;
+        upsertBalanceCloud(sym, balances[sym]);
+      });
+      persistBalancesLocal();
+      qtyEditing=false; qtyDraft={};
+      renderInvestByCoin();
+    });
+  } else {
+    box.innerHTML=`<button type="button" id="qtyEditBtn">Editar</button>`;
+    document.getElementById('qtyEditBtn')?.addEventListener('click',()=>{
+      const rows=investedByCoin();
+      qtyDraft={};
+      rows.forEach(([sym])=>{ qtyDraft[sym]=qtyOf(sym); });
+      qtyEditing=true;
+      renderInvestByCoin();
+    });
+  }
 }
 function renderInvestByCoin(){
  const box=document.getElementById('investByCoin'); if(!box) return;
@@ -758,9 +813,12 @@ function renderInvestByCoin(){
  const limit=10;
  const visible=investExpanded?rows:rows.slice(0,limit);
  const hidden=Math.max(0, rows.length-limit);
+ renderQtyActions();
  if(!rows.length){
    box.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
    if(qtyBox) qtyBox.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
+   wireInvestSwipe();
+   setInvestPage(investPage);
    return;
  }
  let html=visible.map(renderInvestRowMxn).join('');
@@ -779,17 +837,15 @@ function renderInvestByCoin(){
  const toggle=()=>{ investExpanded=!investExpanded; renderInvestByCoin(); };
  document.getElementById('investToggleMore')?.addEventListener('click',toggle);
  document.getElementById('investToggleMoreQty')?.addEventListener('click',toggle);
- qtyBox?.querySelectorAll('input.qty-input').forEach(inp=>{
-   const commit=()=>{
-     const sym=String(inp.dataset.sym||'').toUpperCase();
-     const val=Number(inp.value);
-     balances[sym]=Number.isFinite(val)?val:0;
-     persistBalancesLocal();
-     upsertBalanceCloud(sym, balances[sym]);
-   };
-   inp.addEventListener('change',commit);
-   inp.addEventListener('blur',commit);
- });
+ if(qtyEditing){
+   qtyBox?.querySelectorAll('input.qty-input').forEach(inp=>{
+     inp.addEventListener('input',()=>{
+       const sym=String(inp.dataset.sym||'').toUpperCase();
+       const val=Number(inp.value);
+       qtyDraft[sym]=Number.isFinite(val)?val:0;
+     });
+   });
+ }
  wireInvestSwipe();
  setInvestPage(investPage);
 }
