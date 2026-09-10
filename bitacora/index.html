@@ -99,6 +99,12 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .coin-select-wrap{position:relative;flex:1}
 .coin-select{padding-left:42px!important}
 .coin-preview{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;object-fit:contain;pointer-events:none;background:#0b1420}
+.qty-line{display:flex;gap:8px;align-items:center}
+.qty-line input{flex:1;min-width:0}
+.qty-max{flex:0 0 auto;border:1px solid rgba(245,184,63,.4);border-radius:10px;padding:10px 12px;background:#101923;color:#ffd96b;font-weight:800;font-size:11px;cursor:pointer;white-space:nowrap}
+.qty-max:active{transform:scale(.98)}
+.qty-have{display:block;margin-top:5px;color:#8b97a6;font-size:11px;font-weight:700}
+
 .coin-admin{margin-top:24px}
 .coin-admin summary{cursor:pointer;list-style:none;padding:13px 15px;border:1px solid rgba(245,184,63,.22);border-radius:14px;background:rgba(5,12,21,.84);font-weight:800;font-size:13px;color:#ffd96b}
 .coin-admin summary::-webkit-details-marker{display:none}
@@ -290,17 +296,26 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
   </div>
   <div class="field"><label>Monto en MXN</label><input id="amount" type="number" step="0.01" inputmode="decimal" placeholder="5000"></div>
   <div class="field" id="qtyField"><label>Cantidad del activo</label>
-    <input id="qty" type="number" step="any" inputmode="decimal" placeholder="Ej. 0.015">
+    <div class="qty-line">
+      <input id="qty" type="number" step="any" inputmode="decimal" placeholder="Ej. 0.015">
+      <button type="button" class="qty-max" id="qtyMaxBtn">Max</button>
+    </div>
+    <span class="qty-have" id="qtyHaveHint"></span>
     <small style="display:block;margin-top:6px;color:#8b97a6;font-size:11px">Actualiza sola tu saldo en Cantidad (opcional si solo registras pesos).</small>
   </div>
   <div class="field" id="qtyConvertField" hidden>
     <label>Cantidades de la conversión</label>
     <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px">
       <div class="field" style="margin:0"><label style="opacity:.8">Cant. De</label>
-        <input id="qtyFrom" type="number" step="any" inputmode="decimal" placeholder="0.01">
+        <div class="qty-line">
+          <input id="qtyFrom" type="number" step="any" inputmode="decimal" placeholder="0.01">
+          <button type="button" class="qty-max" id="qtyFromMaxBtn">Max</button>
+        </div>
+        <span class="qty-have" id="qtyFromHaveHint"></span>
       </div>
-      <div class="field" style="margin:0"><label style="opacity:.8">Cant. A</label>
-        <input id="qtyTo" type="number" step="any" inputmode="decimal" placeholder="0.25">
+      <div class="field" style="margin:0"><label style="opacity:.8">Cant. A <span style="opacity:.7;font-weight:600">(auto)</span></label>
+        <input id="qtyTo" type="number" step="any" inputmode="decimal" placeholder="auto">
+        <span class="qty-have" id="qtyToAutoHint">Se calcula con precio Binance</span>
       </div>
     </div>
   </div>
@@ -596,6 +611,78 @@ function parseConvertPair(coin){
 function formatConvertPair(from,to){
  return `${String(from||'').toUpperCase()}→${String(to||'').toUpperCase()}`;
 }
+function usdPriceOfSym(sym){
+  const s=String(sym||'').toUpperCase();
+  if(!s) return null;
+  if(typeof STABLES!=='undefined' && STABLES.has(s)) return 1;
+  const pair=binancePair(s);
+  const px=pair?Number(priceMap[pair]):NaN;
+  return Number.isFinite(px)&&px>0?px:null;
+}
+function updateQtyHaveHints(){
+  const type=document.getElementById('type')?.value;
+  const coin=(document.getElementById('coin')?.value||'').trim().toUpperCase();
+  const from=(document.getElementById('coinFrom')?.value||'').trim().toUpperCase();
+  const h1=document.getElementById('qtyHaveHint');
+  const h2=document.getElementById('qtyFromHaveHint');
+  if(h1){
+    if(type==='Conversión'||!coin) h1.textContent='';
+    else h1.textContent='Tienes: '+formatQty(qtyOf(coin))+' '+coin;
+  }
+  if(h2){
+    if(type!=='Conversión'||!from) h2.textContent='';
+    else h2.textContent='Tienes: '+formatQty(qtyOf(from))+' '+from;
+  }
+}
+function fillQtyMax(){
+  const coin=(document.getElementById('coin')?.value||'').trim().toUpperCase();
+  const inp=document.getElementById('qty');
+  if(!inp||!coin) return;
+  const q=qtyOf(coin);
+  inp.value=q>0?String(q):'0';
+  updateQtyHaveHints();
+}
+function fillQtyFromMax(){
+  const from=(document.getElementById('coinFrom')?.value||'').trim().toUpperCase();
+  const inp=document.getElementById('qtyFrom');
+  if(!inp||!from) return;
+  const q=qtyOf(from);
+  inp.value=q>0?String(q):'0';
+  estimateQtyToAuto(true);
+  updateQtyHaveHints();
+}
+async function estimateQtyToAuto(force){
+  const from=(document.getElementById('coinFrom')?.value||'').trim().toUpperCase();
+  const to=(document.getElementById('coinTo')?.value||'').trim().toUpperCase();
+  const qFrom=parseFloat(document.getElementById('qtyFrom')?.value);
+  const toInp=document.getElementById('qtyTo');
+  const hint=document.getElementById('qtyToAutoHint');
+  if(!toInp) return;
+  if(!from||!to||!(qFrom>0)){
+    if(hint) hint.textContent='Se calcula con precio Binance';
+    return;
+  }
+  // No pisar si el usuario ya escribió Cant. A a mano (salvo force=Max o vacío)
+  if(!force && toInp.dataset.manual==='1' && String(toInp.value||'').trim()!=='') return;
+  try{
+    if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false);
+  }catch(_){}
+  const pxFrom=usdPriceOfSym(from);
+  const pxTo=usdPriceOfSym(to);
+  if(!(pxFrom>0) || !(pxTo>0)){
+    if(hint) hint.textContent='Sin precio Binance aún';
+    return;
+  }
+  const est=qFrom*pxFrom/pxTo;
+  // precisión razonable
+  let out=est;
+  if(est>=1000) out=Number(est.toFixed(4));
+  else if(est>=1) out=Number(est.toFixed(6));
+  else out=Number(est.toFixed(10));
+  toInp.value=String(out);
+  toInp.dataset.manual='0';
+  if(hint) hint.textContent='Auto ≈ '+formatQty(out)+' '+to;
+}
 function updateTypeFields(){
  const type=document.getElementById('type')?.value;
  const isConvert=type==='Conversión';
@@ -607,6 +694,8 @@ function updateTypeFields(){
  if(pair) pair.hidden=!isConvert;
  if(qtyField) qtyField.hidden=!!isConvert;
  if(qtyConv) qtyConv.hidden=!isConvert;
+ updateQtyHaveHints();
+ if(isConvert) estimateQtyToAuto(false);
 }
 function renderCoinSelect(selected='', fromSel='', toSel=''){
  fillCoinSelect(document.getElementById('coin'), selected);
@@ -688,10 +777,14 @@ document.querySelectorAll('.user-btn').forEach(btn=>{
   btn.addEventListener('click',()=>switchUser(btn.dataset.user));
 });
 
-document.getElementById('coin')?.addEventListener('change',updateCoinPreview);
+document.getElementById('coin')?.addEventListener('change',()=>{updateCoinPreview();updateQtyHaveHints();});
 document.getElementById('platform')?.addEventListener('change',updatePlatformPreview);
-document.getElementById('coinFrom')?.addEventListener('change',updateConvertPreviews);
-document.getElementById('coinTo')?.addEventListener('change',updateConvertPreviews);
+document.getElementById('coinFrom')?.addEventListener('change',()=>{updateConvertPreviews();updateQtyHaveHints();estimateQtyToAuto(true);});
+document.getElementById('coinTo')?.addEventListener('change',()=>{updateConvertPreviews();estimateQtyToAuto(true);});
+document.getElementById('qtyMaxBtn')?.addEventListener('click',fillQtyMax);
+document.getElementById('qtyFromMaxBtn')?.addEventListener('click',fillQtyFromMax);
+document.getElementById('qtyFrom')?.addEventListener('input',()=>estimateQtyToAuto(true));
+document.getElementById('qtyTo')?.addEventListener('input',e=>{ e.target.dataset.manual='1'; });
 document.getElementById('type')?.addEventListener('change',updateTypeFields);
 document.getElementById('typePicker')?.addEventListener('click',e=>{
   const btn=e.target.closest('.type-chip'); if(!btn) return;
@@ -1294,7 +1387,9 @@ function openModal(index=-1){
    document.getElementById('time').value=dt.time;
    document.getElementById('note').value='';
  }
+ document.getElementById('qtyTo')&&(document.getElementById('qtyTo').dataset.manual='0');
  updateTypeFields();
+ updateQtyHaveHints();
  document.getElementById('modal').classList.add('show');
 }
 function editActivityById(id){
