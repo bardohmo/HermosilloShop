@@ -86,7 +86,14 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 <style id="bita-pwa-admin-css">
 #pwaInstallBtn{position:fixed;left:14px;bottom:14px;z-index:9997;display:none;border:0;border-radius:14px;padding:12px 15px;background:#f5b83f;color:#071018;font-weight:800;box-shadow:0 8px 28px rgba(0,0,0,.35);cursor:pointer}
 #pwaInstallBtn.show{display:block}
-#cryptoAdminBtn{position:fixed;right:14px;top:14px;z-index:9998;border:1px solid rgba(245,184,63,.45);border-radius:14px;padding:12px 15px;background:#101923;color:#fff;font-weight:800;box-shadow:0 8px 28px rgba(0,0,0,.35);cursor:pointer}
+#cryptoAdminBtn{border:1px solid rgba(245,184,63,.35);border-radius:12px;padding:8px 12px;background:#101923;color:#ffd96b;font-weight:800;font-size:11px;cursor:pointer}
+.type-row{display:flex;flex-wrap:wrap;gap:8px}
+.type-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:9px 11px;background:rgba(5,12,21,.84);color:#e8eef6;font-weight:800;font-size:12px;cursor:pointer}
+.type-chip.active{border-color:rgba(245,184,63,.55);background:rgba(245,184,63,.12);color:#ffd96b}
+.type-chip .type-icon{margin-right:0}
+.item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.item-head strong{display:inline-flex;align-items:center;min-width:0}
+.item-when{font-size:11px;color:#8b97a6;font-weight:700;white-space:nowrap}
 .crypto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:10000;display:none;padding:18px;overflow:auto}
 .crypto-overlay.show{display:flex;align-items:center;justify-content:center}
 .crypto-panel{width:min(720px,100%);max-height:92vh;overflow:auto;background:#0a1119;border:1px solid #263544;border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
@@ -128,9 +135,13 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 
   <button class="add" onclick="openModal()">＋ AGREGAR ACTIVIDAD</button>
 
-  <div class="section"><h2>Últimas actividades</h2><button onclick="clearAll()" style="background:#29333e;color:#fff;padding:8px 10px;font-size:11px">BORRAR</button></div>
+  <div class="section"><h2>Últimas actividades</h2>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button id="cryptoAdminBtn" type="button">⚙️ Criptomonedas</button>
+      <button onclick="clearAll()" style="background:#29333e;color:#fff;padding:8px 10px;font-size:11px;border:0;border-radius:12px;cursor:pointer">BORRAR</button>
+    </div>
+  </div>
   <div class="card" id="history"><div class="empty">Aún no tienes operaciones registradas.</div></div>
-<button id="cryptoAdminBtn" type="button">⚙️ Criptomonedas</button>
 <div class="crypto-overlay" id="cryptoAdminOverlay">
  <div class="crypto-panel">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
@@ -158,9 +169,12 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 <div class="modal" id="modal">
  <div class="sheet">
   <h2 id="modalTitle">Agregar actividad</h2>
-  <div class="field"><label>Tipo</label><select id="type">
-   <option value="Compra">🛒 Compra</option><option value="Venta">💰 Venta</option><option value="Depósito">📥 Depósito</option><option value="Retiro">📤 Retiro</option><option value="Conversión">🔄 Conversión</option><option value="Staking">🔒 Staking</option><option value="Comisión">💸 Comisión</option>
-  </select></div>
+  <div class="field"><label>Tipo</label>
+    <select id="type" hidden>
+     <option value="Compra">Compra</option><option value="Venta">Venta</option><option value="Depósito">Depósito</option><option value="Retiro">Retiro</option><option value="Conversión">Conversión</option><option value="Staking">Staking</option><option value="Comisión">Comisión</option>
+    </select>
+    <div class="type-row" id="typePicker"></div>
+  </div>
   <div class="field" id="singleCoinField">
     <label>Criptomoneda</label>
     <div class="grid" style="grid-template-columns:1fr;align-items:end;gap:10px">
@@ -223,6 +237,19 @@ const TYPE_SYMBOLS={
 const TYPE_CLASSES={Compra:'buy',Venta:'sell',Depósito:'transfer',Retiro:'transfer',Conversión:'convert',Staking:'',Comisión:''};
 const typeSymbol=t=>TYPE_SYMBOLS[String(t||'')]||'•';
 const typeIcon=t=>`<span class="type-icon ${TYPE_CLASSES[String(t||'')]||''}">${typeSymbol(t)}</span>`;
+const TYPE_ORDER=['Compra','Venta','Depósito','Retiro','Conversión','Staking','Comisión'];
+function renderTypePicker(selected){
+  const row=document.getElementById('typePicker'); if(!row) return;
+  const cur=selected||document.getElementById('type')?.value||'Compra';
+  row.innerHTML=TYPE_ORDER.map(t=>`<button type="button" class="type-chip${t===cur?' active':''}" data-type="${esc(t)}">${typeIcon(t)}${esc(t)}</button>`).join('');
+  const sel=document.getElementById('type'); if(sel){ sel.value=TYPE_ORDER.includes(cur)?cur:'Compra'; }
+  updateTypeFields();
+}
+function setType(t){
+  const sel=document.getElementById('type'); if(sel) sel.value=t;
+  renderTypePicker(t);
+}
+
 const PLATFORMS=[
  {id:'binance', name:'Binance', icon:'https://www.google.com/s2/favicons?domain=binance.com&sz=128'},
  {id:'ledger', name:'Ledger', icon:'https://www.google.com/s2/favicons?domain=ledger.com&sz=128'},
@@ -542,6 +569,11 @@ document.getElementById('platform')?.addEventListener('change',updatePlatformPre
 document.getElementById('coinFrom')?.addEventListener('change',updateConvertPreviews);
 document.getElementById('coinTo')?.addEventListener('change',updateConvertPreviews);
 document.getElementById('type')?.addEventListener('change',updateTypeFields);
+document.getElementById('typePicker')?.addEventListener('click',e=>{
+  const btn=e.target.closest('.type-chip'); if(!btn) return;
+  setType(btn.dataset.type||'Compra');
+});
+renderTypePicker(document.getElementById('type')?.value||'Compra');
 renderCoinSelect();
 renderPlatformSelect();
 renderCoinAdmin();
@@ -598,9 +630,11 @@ function render(){
    }
    return `<div class="item">
      <div style="display:flex;align-items:center;gap:10px;min-width:0">
-       <div style="min-width:0"><strong>${typeIcon(x.type)}${esc(x.type)}</strong>
-       <div class="coin-line">${coinHtml}</div>
-       <small>${platformHtml?platformHtml+' · ':''}${when}${x.note?' · '+esc(x.note):''}</small></div>
+       <div style="min-width:0">
+         <div class="item-head"><strong>${typeIcon(x.type)}${esc(x.type)}</strong><span class="item-when">${when}</span></div>
+         <div class="coin-line">${coinHtml}</div>
+         <small>${platformHtml?platformHtml+(x.note?' · ':''):''}${x.note?esc(x.note):''}</small>
+       </div>
      </div>
      <div class="amt">
        ${money(Number(x.amount))}
@@ -621,7 +655,7 @@ function openModal(index=-1){
  document.getElementById('modalTitle').textContent=index<0?'Agregar actividad':'Editar actividad';
  if(index>=0){
    const x=data[index], dt=localDateTimeValue(x.date);
-   document.getElementById('type').value=x.type||'Compra';
+   setType(x.type||'Compra');
    renderCoinSelect(x.coin||'', x.coinFrom||'', x.coinTo||'');
    renderPlatformSelect(x.platform||'binance');
    document.getElementById('amount').value=x.amount??'';
@@ -630,7 +664,7 @@ function openModal(index=-1){
    document.getElementById('note').value=x.note||'';
  } else {
    const dt=localDateTimeValue();
-   document.getElementById('type').value='Compra';
+   setType('Compra');
    renderCoinSelect();
    renderPlatformSelect('binance');
    document.getElementById('amount').value='';
