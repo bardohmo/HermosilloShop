@@ -86,7 +86,8 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 <style id="bita-pwa-admin-css">
 #pwaInstallBtn{position:fixed;left:14px;bottom:14px;z-index:9997;display:none;border:0;border-radius:14px;padding:12px 15px;background:#f5b83f;color:#071018;font-weight:800;box-shadow:0 8px 28px rgba(0,0,0,.35);cursor:pointer}
 #pwaInstallBtn.show{display:block}
-#cryptoAdminBtn{border:1px solid rgba(245,184,63,.35);border-radius:12px;padding:8px 12px;background:#101923;color:#ffd96b;font-weight:800;font-size:11px;cursor:pointer}
+#cryptoAdminBtn{flex:0 0 auto;border:1px solid rgba(245,184,63,.42);border-radius:14px;padding:10px 14px;background:linear-gradient(180deg,rgba(245,184,63,.14),rgba(16,25,35,.95));color:#ffd96b;font-weight:800;font-size:12px;letter-spacing:.02em;cursor:pointer;white-space:nowrap}
+#cryptoAdminBtn:active{transform:scale(.98)}
 .type-row{display:flex;flex-wrap:wrap;gap:8px}
 .type-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:9px 11px;background:rgba(5,12,21,.84);color:#e8eef6;font-weight:800;font-size:12px;cursor:pointer}
 .type-chip.active{border-color:rgba(245,184,63,.55);background:rgba(245,184,63,.12);color:#ffd96b}
@@ -135,11 +136,9 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 
   <button class="add" onclick="openModal()">＋ AGREGAR ACTIVIDAD</button>
 
-  <div class="section"><h2>Últimas actividades</h2>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button id="cryptoAdminBtn" type="button">⚙️ Criptomonedas</button>
-      <button onclick="clearAll()" style="background:#29333e;color:#fff;padding:8px 10px;font-size:11px;border:0;border-radius:12px;cursor:pointer">BORRAR</button>
-    </div>
+  <div class="section">
+    <h2>Últimas actividades</h2>
+    <button id="cryptoAdminBtn" type="button">⚙️ Criptomonedas</button>
   </div>
   <div class="card" id="history"><div class="empty">Aún no tienes operaciones registradas.</div></div>
 <div class="crypto-overlay" id="cryptoAdminOverlay">
