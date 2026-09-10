@@ -289,6 +289,21 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
    </div>
   </div>
   <div class="field"><label>Monto en MXN</label><input id="amount" type="number" step="0.01" inputmode="decimal" placeholder="5000"></div>
+  <div class="field" id="qtyField"><label>Cantidad del activo</label>
+    <input id="qty" type="number" step="any" inputmode="decimal" placeholder="Ej. 0.015">
+    <small style="display:block;margin-top:6px;color:#8b97a6;font-size:11px">Actualiza sola tu saldo en Cantidad (opcional si solo registras pesos).</small>
+  </div>
+  <div class="field" id="qtyConvertField" hidden>
+    <label>Cantidades de la conversión</label>
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field" style="margin:0"><label style="opacity:.8">Cant. De</label>
+        <input id="qtyFrom" type="number" step="any" inputmode="decimal" placeholder="0.01">
+      </div>
+      <div class="field" style="margin:0"><label style="opacity:.8">Cant. A</label>
+        <input id="qtyTo" type="number" step="any" inputmode="decimal" placeholder="0.25">
+      </div>
+    </div>
+  </div>
   <div class="grid">
     <div class="field"><label>Fecha de operación</label><input id="date" type="date"></div>
     <div class="field"><label>Hora de operación</label><input id="time" type="time"></div>
@@ -400,7 +415,7 @@ async function pullOpsFromCloud(){
   if (!sb) return false;
   const { data: rows, error } = await sb
     .from('bitacora_ops')
-    .select('id,user_key,type,coin,amount,note,date,platform')
+    .select('id,user_key,type,coin,amount,note,date,platform,qty,qty_to')
     .eq('user_key', activeUser)
     .order('date', { ascending: true });
   if (error) throw error;
@@ -411,7 +426,9 @@ async function pullOpsFromCloud(){
     amount: Number(r.amount),
     note: r.note || '',
     date: r.date,
-    platform: r.platform || ''
+    platform: r.platform || '',
+    qty: Number(r.qty)||0,
+    qtyTo: Number(r.qty_to)||0
   }));
 }
 
@@ -426,6 +443,8 @@ async function pushAllOpsToCloud(list){
     note: x.note || '',
     date: x.date,
     platform: x.platform || '',
+    qty: Number(x.qty)||0,
+    qty_to: Number(x.qtyTo)||0,
     updated_at: new Date().toISOString()
   }));
   if (!rows.length) return;
@@ -444,6 +463,8 @@ async function upsertOpCloud(op){
     note: op.note || '',
     date: op.date,
     platform: op.platform || '',
+    qty: Number(op.qty)||0,
+    qty_to: Number(op.qtyTo)||0,
     updated_at: new Date().toISOString()
   }, { onConflict: 'id' });
   if (error) throw error;
@@ -580,8 +601,12 @@ function updateTypeFields(){
  const isConvert=type==='Conversión';
  const single=document.getElementById('singleCoinField');
  const pair=document.getElementById('convertPairField');
+ const qtyField=document.getElementById('qtyField');
+ const qtyConv=document.getElementById('qtyConvertField');
  if(single) single.hidden=!!isConvert;
  if(pair) pair.hidden=!isConvert;
+ if(qtyField) qtyField.hidden=!!isConvert;
+ if(qtyConv) qtyConv.hidden=!isConvert;
 }
 function renderCoinSelect(selected='', fromSel='', toSel=''){
  fillCoinSelect(document.getElementById('coin'), selected);
@@ -691,6 +716,49 @@ let investCycleMode=0;
 let investCycleTimer=null;
 let usdtMxn=0;
 function persistBalancesLocal(){ localStorage.setItem(BAL_KEY, JSON.stringify(balances||{})); }
+function setBalanceSym(sym, value){
+  const k=String(sym||'').trim().toUpperCase();
+  if(!k) return;
+  const v=Number(value);
+  balances[k]=Number.isFinite(v)?v:0;
+  if(Math.abs(balances[k])<1e-12) balances[k]=0;
+}
+function touchBalance(sym, delta){
+  const k=String(sym||'').trim().toUpperCase();
+  if(!k) return;
+  setBalanceSym(k, qtyOf(k)+Number(delta||0));
+}
+/** sign=+1 aplica la op; sign=-1 la revierte */
+function applyOpQtyDelta(op, sign){
+  if(!op) return [];
+  const s=Number(sign)||1;
+  const type=op.type||'';
+  const touched=[];
+  const mark=sym=>{ const k=String(sym||'').toUpperCase(); if(k&&!touched.includes(k)) touched.push(k); };
+  if(type==='Conversión'){
+    const pair=parseConvertPair(op.coinFrom||op.coinTo?{coinFrom:op.coinFrom,coinTo:op.coinTo}:op.coin);
+    const from=(op.coinFrom||pair?.from||'').toUpperCase();
+    const to=(op.coinTo||pair?.to||'').toUpperCase();
+    const qFrom=Number(op.qty)||0;
+    const qTo=Number(op.qtyTo)||0;
+    if(!(qFrom>0) && !(qTo>0)) return [];
+    if(from && qFrom>0){ touchBalance(from, -s*qFrom); mark(from); }
+    if(to && qTo>0){ touchBalance(to, s*qTo); mark(to); }
+  } else {
+    const q=Number(op.qty)||0;
+    if(!(q>0)) return [];
+    const coin=String(op.coin||'').toUpperCase();
+    if(!coin) return [];
+    if(['Compra','Depósito','Staking'].includes(type)) touchBalance(coin, s*q);
+    else if(['Venta','Retiro','Comisión'].includes(type)) touchBalance(coin, -s*q);
+    else return [];
+    mark(coin);
+  }
+  persistBalancesLocal();
+  touched.forEach(sym=>upsertBalanceCloud(sym, qtyOf(sym)));
+  return touched;
+}
+
 function qtyOf(sym){
   const k=String(sym||'').toUpperCase();
   const v=Number(balances[k]);
@@ -1207,6 +1275,9 @@ function openModal(index=-1){
    renderCoinSelect(x.coin||'', x.coinFrom||'', x.coinTo||'');
    renderPlatformSelect(x.platform||'binance');
    document.getElementById('amount').value=x.amount??'';
+   document.getElementById('qty').value=(x.qty!=null && Number(x.qty)>0)?x.qty:'';
+   document.getElementById('qtyFrom').value=(x.qty!=null && Number(x.qty)>0)?x.qty:'';
+   document.getElementById('qtyTo').value=(x.qtyTo!=null && Number(x.qtyTo)>0)?x.qtyTo:'';
    document.getElementById('date').value=dt.date;
    document.getElementById('time').value=dt.time;
    document.getElementById('note').value=x.note||'';
@@ -1216,6 +1287,9 @@ function openModal(index=-1){
    renderCoinSelect();
    renderPlatformSelect('binance');
    document.getElementById('amount').value='';
+   document.getElementById('qty').value='';
+   document.getElementById('qtyFrom').value='';
+   document.getElementById('qtyTo').value='';
    document.getElementById('date').value=dt.date;
    document.getElementById('time').value=dt.time;
    document.getElementById('note').value='';
@@ -1236,6 +1310,7 @@ function deleteActivityById(id){
    typeSymbol(x.type)+' '+(x.type||'Actividad')+' · '+(x.coin||'Cripto')+'\n'+
    money(Number(x.amount));
  if(!confirm(message)) return;
+ applyOpQtyDelta(x, -1);
  data.splice(index,1);
  persistLocalOps();
  render();
@@ -1252,18 +1327,37 @@ function save(){
  const type=document.getElementById('type').value;
  let coin=document.getElementById('coin').value.trim()||'Cripto';
  let coinFrom='', coinTo='';
+ let qty=0, qtyTo=0;
  if(type==='Conversión'){
    coinFrom=(document.getElementById('coinFrom')?.value||'').trim().toUpperCase();
    coinTo=(document.getElementById('coinTo')?.value||'').trim().toUpperCase();
    if(!coinFrom||!coinTo){alert('Elige de qué cripto a qué cripto.');return}
    if(coinFrom===coinTo){alert('La conversión debe ser entre criptos distintas.');return}
    coin=formatConvertPair(coinFrom, coinTo);
+   const qf=document.getElementById('qtyFrom')?.value.trim()||'';
+   const qt=document.getElementById('qtyTo')?.value.trim()||'';
+   if(qf!=='' || qt!==''){
+     qty=parseFloat(qf); qtyTo=parseFloat(qt);
+     if(!(qty>0) || !(qtyTo>0)){alert('Escribe cantidades válidas De y A.');return}
+   }
+ } else {
+   const qRaw=document.getElementById('qty')?.value.trim()||'';
+   if(qRaw!==''){
+     qty=parseFloat(qRaw);
+     if(!(qty>0)){alert('Escribe una cantidad de activo válida.');return}
+   }
  }
  const platform=(document.getElementById('platform')?.value||'').trim()||'binance';
+ const prev=editIndex>=0?{...data[editIndex]}:null;
  const obj={id:editIndex>=0?data[editIndex].id:(crypto.randomUUID ? crypto.randomUUID() : Date.now()+'-'+Math.random()),type,coin,
  coinFrom: coinFrom||undefined, coinTo: coinTo||undefined,
  platform,
- amount,note:document.getElementById('note').value.trim(),date:new Date(`${date}T${time}`).toISOString()};
+ amount,
+ qty: qty>0?qty:undefined,
+ qtyTo: qtyTo>0?qtyTo:undefined,
+ note:document.getElementById('note').value.trim(),date:new Date(`${date}T${time}`).toISOString()};
+ if(prev) applyOpQtyDelta(prev, -1);
+ applyOpQtyDelta(obj, +1);
  if(editIndex>=0) data[editIndex]=obj; else data.push(obj);
  persistLocalOps();
  closeModal();render();
