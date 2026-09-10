@@ -99,9 +99,19 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .note{margin-top:15px;color:#778391;font-size:10px;text-align:center}
 
 .coin-picker{display:flex;gap:8px;align-items:center}
-.coin-select-wrap{position:relative;flex:1}
+.coin-select-wrap,.coin-combo-wrap{position:relative;flex:1}
 .coin-select{padding-left:42px!important}
-.coin-preview{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;object-fit:contain;pointer-events:none;background:#0b1420}
+.coin-select-native{position:absolute!important;opacity:0!important;pointer-events:none!important;width:1px!important;height:1px!important;padding:0!important;margin:0!important;border:0!important}
+.coin-combo-input{width:100%;padding:12px 12px 12px 42px;border-radius:10px;border:1px solid rgba(245,184,63,.18);background:#050b13;color:#fff;font-size:14px;outline:none;box-sizing:border-box}
+.coin-combo-input:focus{border-color:rgba(245,184,63,.55)}
+.coin-combo-drop{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:60;max-height:240px;overflow:auto;-webkit-overflow-scrolling:touch;padding:6px;border-radius:14px;border:1px solid rgba(245,184,63,.28);background:linear-gradient(160deg,rgba(9,18,30,.98),rgba(3,8,14,.99));box-shadow:0 16px 40px rgba(0,0,0,.55)}
+.coin-combo-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;border-radius:10px;padding:9px 10px;background:transparent;color:#e8eef6;cursor:pointer;font:inherit}
+.coin-combo-item:hover,.coin-combo-item:focus{background:rgba(245,184,63,.12);outline:none}
+.coin-combo-item img{width:22px;height:22px;border-radius:50%;object-fit:contain;background:#0b1420;flex-shrink:0}
+.coin-combo-name{flex:1;min-width:0;font-weight:700;font-size:13px}
+.coin-combo-sym{color:#8b97a6;font-size:11px;font-weight:800}
+.coin-combo-empty{padding:12px;color:#8b97a6;font-size:12px;text-align:center}
+.coin-preview{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;object-fit:contain;pointer-events:none;background:#0b1420;z-index:2}
 .qty-line{display:flex;gap:8px;align-items:center}
 .qty-line input{flex:1;min-width:0}
 .qty-max{flex:0 0 auto;border:1px solid rgba(245,184,63,.4);border-radius:10px;padding:10px 12px;background:#101923;color:#ffd96b;font-weight:800;font-size:11px;cursor:pointer;white-space:nowrap}
@@ -417,7 +427,7 @@ function updatePlatformPreview(){
 }
 const COINS_KEY='cripto_bitacora_coins_v1';
 /* Orden por relevancia de mercado (cap aproximada) */
-const MARKET_RANK={BTC:1,ETH:2,USDT:3,BNB:4,XRP:5,SOL:6,USDC:7,DOGE:8,ADA:9,TRX:10,AVAX:11,LINK:12,TON:13,SHIB:14,BCH:15,DOT:16,LTC:17,XMR:18,PEPE:19,WIF:20,FLOKI:21,BONK:22};
+const MARKET_RANK={BTC:1,ETH:2,USDT:3,BNB:4,XRP:5,SOL:6,USDC:7,DOGE:8,ADA:9,TRX:10,AVAX:11,LINK:12,TON:13,SHIB:14,BCH:15,DOT:16,LTC:17,XMR:18,PEPE:19,WIF:20,FLOKI:21,BONK:22,CGPT:45};
 function marketRankOf(sym){
   const k=String(sym||'').toUpperCase();
   return MARKET_RANK[k] ?? 900;
@@ -429,7 +439,15 @@ function sortCoinsByMarket(list){
     return String(a.symbol||'').localeCompare(String(b.symbol||''));
   });
 }
-const DEFAULT_COINS=sortCoinsByMarket([
+function sortCoinsAlpha(list){
+  return (list||[]).slice().sort((a,b)=>{
+    const na=String(a.name||a.symbol||'').toLocaleLowerCase('es');
+    const nb=String(b.name||b.symbol||'').toLocaleLowerCase('es');
+    if(na!==nb) return na.localeCompare(nb,'es',{sensitivity:'base'});
+    return String(a.symbol||'').localeCompare(String(b.symbol||''),'es',{sensitivity:'base'});
+  });
+}
+const DEFAULT_COINS=sortCoinsAlpha([
  {name:'Bitcoin',symbol:'BTC',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/btc.png'},
  {name:'Ethereum',symbol:'ETH',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/eth.png'},
  {name:'Tether',symbol:'USDT',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/usdt.png'},
@@ -449,9 +467,26 @@ const DEFAULT_COINS=sortCoinsByMarket([
  {name:'Pepe',symbol:'PEPE',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/pepe.png'},
  {name:'dogwifhat',symbol:'WIF',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/wif.png'},
  {name:'Floki',symbol:'FLOKI',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/floki.png'},
- {name:'Bonk',symbol:'BONK',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/bonk.png'}
+ {name:'Bonk',symbol:'BONK',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/bonk.png'},
+ {name:'ChainGPT',symbol:'CGPT',icon:'https://www.google.com/s2/favicons?domain=chaingpt.org&sz=128'}
 ]);
-let coins=sortCoinsByMarket(JSON.parse(localStorage.getItem(COINS_KEY)||'null')||DEFAULT_COINS);
+let coins=sortCoinsAlpha(JSON.parse(localStorage.getItem(COINS_KEY)||'null')||DEFAULT_COINS);
+function ensureCatalogDefaults(){
+  const have=new Set((coins||[]).map(c=>String(c.symbol||'').toUpperCase()));
+  let added=false;
+  DEFAULT_COINS.forEach(d=>{
+    const sym=String(d.symbol||'').toUpperCase();
+    if(!sym || have.has(sym)) return;
+    coins.push({...d});
+    have.add(sym);
+    added=true;
+  });
+  if(added){
+    coins=sortCoinsAlpha(coins);
+    try{ saveCoins(); }catch(_){ try{ localStorage.setItem(COINS_KEY, JSON.stringify(coins)); }catch(__){} }
+  }
+  return added;
+}
 let editingCoinIndex=-1;
 
 /* === Supabase sync for Cripto Bitácora === */
@@ -603,11 +638,13 @@ async function syncFromSupabase(){
 
     const cloudCoins = await pullCoinsFromCloud();
     if (cloudCoins && cloudCoins.length) {
-      coins = sortCoinsByMarket(cloudCoins);
+      coins = sortCoinsAlpha(cloudCoins);
+      ensureCatalogDefaults();
       saveCoinsLocalOnly();
-      await pushCoinsToCloud(coins); // reescribe sort_order por relevancia de mercado
+      await pushCoinsToCloud(coins);
     } else if (coins && coins.length) {
-      coins = sortCoinsByMarket(coins);
+      coins = sortCoinsAlpha(coins);
+      ensureCatalogDefaults();
       await pushCoinsToCloud(coins);
     }
 
@@ -659,10 +696,95 @@ function coinBySymbol(symbol){return coins.find(c=>c.symbol.toUpperCase()===Stri
 function fillCoinSelect(sel, selected=''){
  if(!sel) return;
  const old=selected||sel.value;
- const list=sortCoinsByMarket(coins);
+ const list=sortCoinsAlpha(coins);
  sel.innerHTML=list.map(c=>`<option value="${esc(c.symbol)}">${esc(c.name)} (${esc(c.symbol)})</option>`).join('')||'<option value="Cripto">Cripto</option>';
  const found=list.find(c=>c.symbol.toUpperCase()===String(old).toUpperCase());
  sel.value=found?found.symbol:(list[0]?.symbol||'Cripto');
+ ensureCoinCombobox(sel);
+ if(sel._coinComboSync) sel._coinComboSync();
+}
+function ensureCoinCombobox(sel){
+  if(!sel || sel.dataset.combo==='1') return;
+  // Solo monedas (no plataforma)
+  if(sel.id==='platform') return;
+  sel.dataset.combo='1';
+  sel.classList.add('coin-select-native');
+  sel.setAttribute('aria-hidden','true');
+  sel.tabIndex=-1;
+  const wrap=sel.closest('.coin-select-wrap')||sel.parentElement;
+  if(!wrap) return;
+  wrap.classList.add('coin-combo-wrap');
+  const input=document.createElement('input');
+  input.type='search';
+  input.className='coin-combo-input';
+  input.autocomplete='off';
+  input.spellcheck=false;
+  input.placeholder='Buscar moneda…';
+  input.setAttribute('aria-autocomplete','list');
+  const drop=document.createElement('div');
+  drop.className='coin-combo-drop';
+  drop.hidden=true;
+  wrap.appendChild(input);
+  wrap.appendChild(drop);
+
+  const syncLabel=()=>{
+    const c=coinBySymbol(sel.value);
+    input.value=c ? (c.name+' ('+c.symbol+')') : (sel.value||'');
+  };
+
+  const openDrop=(q)=>{
+    const list=sortCoinsAlpha(coins);
+    const query=String(q||'').trim().toLowerCase();
+    const filtered=!query ? list : list.filter(c=>{
+      const hay=((c.name||'')+' '+(c.symbol||'')).toLowerCase();
+      return hay.includes(query);
+    });
+    drop.innerHTML=filtered.length
+      ? filtered.map(c=>`<button type="button" class="coin-combo-item" data-sym="${esc(c.symbol)}"><img src="${esc(c.icon||'')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span class="coin-combo-name">${esc(c.name)}</span><span class="coin-combo-sym">${esc(c.symbol)}</span></button>`).join('')
+      : '<div class="coin-combo-empty">Sin resultados</div>';
+    drop.hidden=false;
+  };
+
+  const pick=sym=>{
+    const found=coins.find(c=>c.symbol.toUpperCase()===String(sym||'').toUpperCase());
+    if(found) sel.value=found.symbol;
+    else sel.value=sym;
+    sel.dispatchEvent(new Event('change',{bubbles:true}));
+    syncLabel();
+    drop.hidden=true;
+    input.blur();
+  };
+
+  input.addEventListener('focus',()=>{
+    // Al enfocar, mostrar catálogo A–Z; si ya hay texto de etiqueta, buscar vacío
+    openDrop('');
+    try{ input.select(); }catch(_){}
+  });
+  input.addEventListener('input',()=>openDrop(input.value));
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){ drop.hidden=true; syncLabel(); input.blur(); }
+    if(e.key==='Enter'){
+      e.preventDefault();
+      const first=drop.querySelector('.coin-combo-item');
+      if(first) pick(first.dataset.sym);
+    }
+  });
+  drop.addEventListener('mousedown',e=>{
+    // evitar blur antes del click
+    e.preventDefault();
+  });
+  drop.addEventListener('click',e=>{
+    const btn=e.target.closest('.coin-combo-item');
+    if(!btn) return;
+    pick(btn.dataset.sym);
+  });
+  document.addEventListener('click',e=>{
+    if(!wrap.contains(e.target)){
+      if(!drop.hidden){ drop.hidden=true; syncLabel(); }
+    }
+  });
+  sel._coinComboSync=syncLabel;
+  syncLabel();
 }
 function parseConvertPair(coin){
  const s=String(coin||'');
@@ -1017,6 +1139,7 @@ function updateTypeFields(){
  }
 }
 function renderCoinSelect(selected='', fromSel='', toSel=''){
+ ensureCatalogDefaults();
  fillCoinSelect(document.getElementById('coin'), selected);
  const pair=parseConvertPair(selected);
  fillCoinSelect(document.getElementById('coinFrom'), fromSel||pair?.from||'');
