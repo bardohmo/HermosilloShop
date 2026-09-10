@@ -30,6 +30,12 @@ h1{margin:0;font-size:23px;font-weight:950;letter-spacing:2px;text-transform:upp
 .label{font-size:11px;color:#9ca8b6;letter-spacing:1px;text-transform:uppercase}
 .big{font-size:30px;font-weight:950;margin-top:5px}
 .profit{font-size:16px;font-weight:850;color:var(--green);margin-top:5px}
+.invest-by-coin{display:grid;gap:8px;margin-top:8px}
+.invest-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border-radius:13px;background:rgba(2,7,13,.68);border:1px solid rgba(245,184,63,.15)}
+.invest-row .left{display:inline-flex;align-items:center;gap:8px;min-width:0;font-weight:800}
+.invest-row .left img{width:22px;height:22px;border-radius:50%;object-fit:contain;background:#0d1824;padding:2px;flex:0 0 auto}
+.invest-row .amt{font-weight:850;color:#ffd96b;white-space:nowrap}
+.invest-empty{padding:12px;text-align:center;color:var(--muted);font-size:12px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .mini{padding:13px;border-radius:13px;background:rgba(2,7,13,.68);border:1px solid rgba(245,184,63,.15)}
 .mini b{display:block;font-size:17px;margin-top:4px}
@@ -126,8 +132,8 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
   <div class="card">
     <div class="label">Capital neto registrado</div>
     <div class="big" id="capital">$0.00 MXN</div>
-    <div class="label" style="margin-top:15px">Ganancia / pérdida</div>
-    <div class="profit" id="profit">$0.00 MXN · 0.00%</div>
+    <div class="label" style="margin-top:15px">Invertido por cripto</div>
+    <div class="invest-by-coin" id="investByCoin"><div class="invest-empty">Sin inversiones registradas</div></div>
     <div class="grid">
       <div class="mini"><span class="label">Operaciones</span><b id="ops">0</b></div>
       <div class="mini"><span class="label">Monedas</span><b id="coins">0</b></div>
@@ -584,6 +590,43 @@ function localDateTimeValue(iso){
  return {date:`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,
          time:`${pad(d.getHours())}:${pad(d.getMinutes())}`};
 }
+function investedByCoin(){
+ const map={};
+ const add=(sym, delta)=>{
+   const key=String(sym||'').trim().toUpperCase();
+   if(!key) return;
+   map[key]=(map[key]||0)+Number(delta||0);
+ };
+ data.forEach(x=>{
+   const amt=Number(x.amount)||0;
+   const pair=parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin);
+   if(x.type==='Conversión' && pair && pair.from && pair.to){
+     add(pair.from, -amt);
+     add(pair.to, amt);
+     return;
+   }
+   const coin=(x.coin||'').toUpperCase();
+   if(['Compra','Depósito','Staking'].includes(x.type)) add(coin, amt);
+   else if(['Venta','Retiro','Comisión'].includes(x.type)) add(coin, -amt);
+ });
+ return Object.entries(map)
+   .filter(([,v])=>Math.abs(v)>=0.005)
+   .sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+}
+function renderInvestByCoin(){
+ const box=document.getElementById('investByCoin'); if(!box) return;
+ const rows=investedByCoin();
+ if(!rows.length){
+   box.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
+   return;
+ }
+ box.innerHTML=rows.map(([sym, amt])=>{
+   const cc=coinBySymbol(sym);
+   const icon=cc?.icon?iconValue(cc.icon):'';
+   const name=cc?.name?`${esc(sym)} · ${esc(cc.name)}`:esc(sym);
+   return `<div class="invest-row"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="amt">${money(amt)}</span></div>`;
+ }).join('');
+}
 function render(){
  let net=0;
  data.forEach(x=>{
@@ -591,7 +634,7 @@ function render(){
    if(['Venta','Retiro','Comisión'].includes(x.type)) net -= Number(x.amount);
  });
  document.getElementById('capital').textContent=money(net);
- document.getElementById('profit').textContent=money(0)+' · 0.00%';
+ renderInvestByCoin();
  document.getElementById('ops').textContent=data.length;
  document.getElementById('coins').textContent=new Set(data.flatMap(x=>{
    const pair=parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin);
