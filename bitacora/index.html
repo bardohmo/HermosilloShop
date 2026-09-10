@@ -149,8 +149,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .qty-auto-clock{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;font-size:12px;font-weight:800;color:#f5b83f;font-variant-numeric:tabular-nums;white-space:nowrap;padding:0 2px}
 .qty-auto-clock.paused{color:#8b97a6}
 .qty-auto-clock[hidden]{display:none !important}
-.coin-preview,.coin-display img{background:rgba(255,255,255,.08);border-radius:7px;padding:2px;box-sizing:border-box}
-.coin-display img[src*="simpleicons.org/ledger"],#platformPreview[src*="simpleicons.org/ledger"]{background:rgba(255,255,255,.16);filter:none}
+.coin-display img[src^="data:image/svg"],#platformPreview[src^="data:image/svg"]{background:rgba(255,255,255,.14);border-radius:7px;padding:3px;box-sizing:border-box}
 .type-chip .type-icon{margin-right:0}
 .item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .item-head strong{display:inline-flex;align-items:center;min-width:0}
@@ -383,7 +382,7 @@ function setType(t){
 
 const PLATFORMS=[
  {id:'binance', name:'Binance', icon:'https://www.google.com/s2/favicons?domain=binance.com&sz=128'},
- {id:'ledger', name:'Ledger', icon:'https://cdn.simpleicons.org/ledger/E8EEF6'},
+ {id:'ledger', name:'Ledger', icon:'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22%23E8EEF6%22%20d%3D%22M0%200h9.357v9.357H0V0zm14.643%200H24v9.357h-9.357V0zM0%2014.643h9.357V24H0v-9.357zm14.643%200H24V24h-9.357v-9.357z%22%2F%3E%3C%2Fsvg%3E'},
  {id:'santander', name:'Banco Santander', icon:'https://www.google.com/s2/favicons?domain=santander.com.mx&sz=128'}
 ];
 function platformById(id){return PLATFORMS.find(p=>p.id===String(id||'').toLowerCase())||PLATFORMS.find(p=>p.name.toLowerCase()===String(id||'').toLowerCase())||null;}
