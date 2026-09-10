@@ -144,8 +144,11 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .type-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.10);border-radius:11px;padding:8px 9px;background:rgba(5,12,21,.84);color:#e8eef6;font-weight:800;font-size:11px;cursor:pointer;min-width:0;width:100%;box-sizing:border-box}
 .type-chip.active{border-color:rgba(245,184,63,.55);background:rgba(245,184,63,.12);color:#ffd96b}
 .type-chip .type-icon{width:20px;height:20px;font-size:13px;flex-shrink:0}
-.qty-auto-clock{display:inline-flex;align-items:center;gap:4px;margin-left:8px;font-size:11px;font-weight:800;color:#f5b83f;font-variant-numeric:tabular-nums;white-space:nowrap}
+.qty-value-row{display:flex;align-items:center;gap:8px}
+.qty-value-row input{flex:1;min-width:0}
+.qty-auto-clock{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;font-size:12px;font-weight:800;color:#f5b83f;font-variant-numeric:tabular-nums;white-space:nowrap;padding:0 2px}
 .qty-auto-clock.paused{color:#8b97a6}
+.qty-auto-clock[hidden]{display:none !important}
 .type-chip .type-icon{margin-right:0}
 .item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .item-head strong{display:inline-flex;align-items:center;min-width:0}
@@ -303,9 +306,11 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
     <span class="qty-have" id="amountAutoHint"></span>
   </div>
   <div class="field" id="qtyField"><label>Cantidad a recibir</label>
-    <input id="qty" type="number" step="any" inputmode="decimal" placeholder="Se calcula con el monto">
+    <div class="qty-value-row">
+      <input id="qty" type="number" step="any" inputmode="decimal" placeholder="Se calcula con el monto">
+      <span class="qty-auto-clock" id="qtyAutoClock" aria-live="polite" hidden></span>
+    </div>
     <span class="qty-have" id="qtyHaveHint"></span>
-    <span class="qty-auto-clock" id="qtyAutoClock" aria-live="polite"></span>
     <small style="display:block;margin-top:6px;color:#8b97a6;font-size:11px">En Compra/Depósito se calcula con tu monto MXN y el precio de Binance. Si editas la cantidad, queda en Cantidad Manual hasta que cambies el Monto MXN.</small>
   </div>
   <div class="field" id="qtyConvertField" hidden>
@@ -678,15 +683,24 @@ function isQtyManual(){
   return !!(qtyInp && qtyInp.dataset.manual==='1' && String(qtyInp.value||'').trim()!=='');
 }
 
+function hasMxnAmount(){
+  const amt=parseFloat(document.getElementById('amount')?.value);
+  return Number.isFinite(amt) && amt>0;
+}
+
 function updateQtyAutoClock(){
   const el=document.getElementById('qtyAutoClock');
   if(!el) return;
   const type=document.getElementById('type')?.value;
-  if(type!=='Compra' && type!=='Depósito'){
+  const showType=(type==='Compra' || type==='Depósito');
+  // Sin Monto MXN: no mostrar reloj ni reseteo
+  if(!showType || (!hasMxnAmount() && !isQtyManual())){
     el.textContent='';
+    el.hidden=true;
     el.classList.remove('paused');
     return;
   }
+  el.hidden=false;
   if(isQtyManual()){
     el.textContent='⏱ Cantidad Manual';
     el.classList.add('paused');
@@ -695,6 +709,12 @@ function updateQtyAutoClock(){
   if(isQtyFieldFocused()){
     el.textContent='⏱ pausado';
     el.classList.add('paused');
+    return;
+  }
+  if(!hasMxnAmount()){
+    el.textContent='';
+    el.hidden=true;
+    el.classList.remove('paused');
     return;
   }
   el.classList.remove('paused');
@@ -706,7 +726,7 @@ function stopQtyAutoTimer(){
   if(qtyAutoTimer){ clearInterval(qtyAutoTimer); qtyAutoTimer=null; }
   if(qtyCountdownTimer){ clearInterval(qtyCountdownTimer); qtyCountdownTimer=null; }
   const el=document.getElementById('qtyAutoClock');
-  if(el){ el.textContent=''; el.classList.remove('paused'); }
+  if(el){ el.textContent=''; el.hidden=true; el.classList.remove('paused'); }
 }
 async function fetchBinancePriceFresh(pair){
   if(!pair) return null;
@@ -736,6 +756,12 @@ function startQtyAutoTimer(){
       updateQtyAutoClock();
       return;
     }
+    // El contador solo corre cuando hay Monto MXN
+    if(!hasMxnAmount()){
+      qtyNextUpdateAt=0;
+      updateQtyAutoClock();
+      return;
+    }
     if(isQtyManual() || isQtyFieldFocused()){
       updateQtyAutoClock();
       return;
@@ -744,7 +770,7 @@ function startQtyAutoTimer(){
     qtyNextUpdateAt=Date.now()+QTY_AUTO_MS;
     updateQtyAutoClock();
   };
-  qtyNextUpdateAt=Date.now()+QTY_AUTO_MS;
+  qtyNextUpdateAt=0; // no cuenta hasta que haya MXN
   tick();
   qtyAutoTimer=setInterval(tick, QTY_AUTO_MS);
   qtyCountdownTimer=setInterval(updateQtyAutoClock, 250);
@@ -1063,7 +1089,15 @@ document.getElementById('qty')?.addEventListener('input',e=>{
 });
 document.getElementById('amount')?.addEventListener('change',()=>{
   const type=document.getElementById('type')?.value;
-  if(type==='Compra'||type==='Depósito') estimateQtyFromAmountAuto(true);
+  if(type==='Compra'||type==='Depósito'){
+    if(hasMxnAmount()){
+      estimateQtyFromAmountAuto(true);
+      qtyNextUpdateAt=Date.now()+QTY_AUTO_MS;
+    } else {
+      qtyNextUpdateAt=0;
+    }
+    updateQtyAutoClock();
+  }
 });
 
 document.getElementById('qtyFrom')?.addEventListener('input',()=>estimateQtyToAuto(true));
@@ -1073,8 +1107,13 @@ document.getElementById('amount')?.addEventListener('input',e=>{
   const qty=document.getElementById('qty');
   if((type==='Compra'||type==='Depósito') && qty) qty.dataset.manual='0';
   if(type==='Compra'||type==='Depósito'){
-    estimateQtyFromAmountAuto(true);
-    qtyNextUpdateAt=Date.now()+QTY_AUTO_MS;
+    if(hasMxnAmount()){
+      estimateQtyFromAmountAuto(true);
+      qtyNextUpdateAt=Date.now()+QTY_AUTO_MS;
+    } else {
+      qtyNextUpdateAt=0;
+      if(qty && qty.dataset.manual!=='1') qty.value='';
+    }
     updateQtyAutoClock();
   }
 });
