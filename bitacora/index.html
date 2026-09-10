@@ -1694,13 +1694,66 @@ function valueMxnOfQty(sym, qty){
   if(!Number.isFinite(px) || !(usdtMxn>0)) return null;
   return q * px * usdtMxn;
 }
+/** MXN neto invertido por plataforma y moneda (fallback si no hay qty en ops) */
+function investedMxnByPlatformCoin(){
+  const map={};
+  const touch=(plat, sym, delta)=>{
+    const p=String(plat||'binance').toLowerCase();
+    const s=String(sym||'').trim().toUpperCase();
+    if(!s || !Number.isFinite(delta) || !delta) return;
+    if(!map[p]) map[p]={};
+    map[p][s]=(map[p][s]||0)+delta;
+  };
+  data.forEach(op=>{
+    const plat=op.platform||'binance';
+    const type=op.type||'';
+    const amt=Number(op.amount)||0;
+    if(!(amt>0) && type!=='Conversión') return;
+    if(type==='Conversión'){
+      const pair=parseConvertPair(op.coinFrom||op.coinTo?{coinFrom:op.coinFrom,coinTo:op.coinTo}:op.coin);
+      const from=(op.coinFrom||pair?.from||'').toUpperCase();
+      const to=(op.coinTo||pair?.to||'').toUpperCase();
+      if(from) touch(plat, from, -amt);
+      if(to) touch(plat, to, amt);
+      return;
+    }
+    const coin=String(op.coin||'').toUpperCase();
+    if(!coin) return;
+    if(['Compra','Depósito','Staking'].includes(type)) touch(plat, coin, amt);
+    else if(['Venta','Retiro','Comisión'].includes(type)) touch(plat, coin, -amt);
+  });
+  return map;
+}
+/** Reparto de un activo entre plataformas: qty de ops, o si falta → MXN invertido */
+function platformSharesForSymbol(sym){
+  const s=String(sym||'').toUpperCase();
+  const qtyMap=qtyByPlatformFromOps();
+  const mxnMap=investedMxnByPlatformCoin();
+  const plats=new Set(['binance','ledger', ...Object.keys(qtyMap), ...Object.keys(mxnMap)]);
+  const shares={};
+  let sum=0;
+  plats.forEach(p=>{
+    const q=Number(qtyMap[p]?.[s])||0;
+    if(q>0){ shares[p]=q; sum+=q; }
+  });
+  if(sum>0) return {shares, sum, mode:'qty'};
+  sum=0;
+  Object.keys(shares).forEach(k=>delete shares[k]);
+  plats.forEach(p=>{
+    const a=Number(mxnMap[p]?.[s])||0;
+    if(a>0){ shares[p]=a; sum+=a; }
+  });
+  if(sum>0) return {shares, sum, mode:'mxn'};
+  return {shares:{}, sum:0, mode:'none'};
+}
 /** Saldo actual (valor de mercado MXN) por plataforma */
 function currentSaldoByPlatform(){
-  const platQty=qtyByPlatformFromOps();
-  const plats=new Set(['binance','ledger', ...Object.keys(platQty)]);
-  // Incluir símbolos con saldo manual aunque no tengan ops con plataforma
+  const qtyMap=qtyByPlatformFromOps();
+  const mxnMap=investedMxnByPlatformCoin();
+  const plats=new Set(['binance','ledger', ...Object.keys(qtyMap), ...Object.keys(mxnMap)]);
   const allSyms=new Set();
-  Object.values(platQty).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
+  Object.values(qtyMap).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
+  Object.values(mxnMap).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
   Object.keys(balances||{}).forEach(s=>{ if(qtyOf(s)>0) allSyms.add(String(s).toUpperCase()); });
 
   const out={};
@@ -1711,47 +1764,33 @@ function currentSaldoByPlatform(){
     if(!(bal>0)) return;
     const totalVal=valueMxnOfQty(sym, bal);
     if(totalVal==null) return;
-    // Repartir el valor actual según proporción de qty en cada plataforma (ops)
-    let shareSum=0;
-    const shares={};
+    const {shares, sum}=platformSharesForSymbol(sym);
+    if(!(sum>0)) return; // no adivinar → Binance
     plats.forEach(p=>{
-      const q=Number(platQty[p]?.[sym])||0;
-      shares[p]=q>0?q:0;
-      shareSum+=shares[p];
-    });
-    if(shareSum<=0){
-      // Sin atribución: todo a Binance por defecto
-      out.binance=(out.binance||0)+totalVal;
-      return;
-    }
-    plats.forEach(p=>{
-      if(!(shares[p]>0)) return;
-      out[p]=(out[p]||0)+ totalVal*(shares[p]/shareSum);
+      const sh=Number(shares[p])||0;
+      if(!(sh>0)) return;
+      out[p]=(out[p]||0)+ totalVal*(sh/sum);
     });
   });
   return out;
 }
 function assetsOnPlatform(platId){
   const plat=String(platId||'binance').toLowerCase();
-  const platQty=qtyByPlatformFromOps();
-  const plats=new Set(['binance','ledger', ...Object.keys(platQty)]);
+  const qtyMap=qtyByPlatformFromOps();
+  const mxnMap=investedMxnByPlatformCoin();
   const allSyms=new Set();
-  Object.values(platQty).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
+  Object.values(qtyMap).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
+  Object.values(mxnMap).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
   Object.keys(balances||{}).forEach(s=>{ if(qtyOf(s)>0) allSyms.add(String(s).toUpperCase()); });
   const rows=[];
   allSyms.forEach(sym=>{
     const bal=qtyOf(sym);
     if(!(bal>0)) return;
-    let shareSum=0;
-    const shares={};
-    plats.forEach(p=>{
-      const q=Number(platQty[p]?.[sym])||0;
-      shares[p]=q>0?q:0;
-      shareSum+=shares[p];
-    });
-    let qtyPlat=0;
-    if(shareSum>0) qtyPlat=bal*(shares[plat]||0)/shareSum;
-    else if(plat==='binance') qtyPlat=bal; // sin atribución → Binance
+    const {shares, sum}=platformSharesForSymbol(sym);
+    if(!(sum>0)) return;
+    const sh=Number(shares[plat])||0;
+    if(!(sh>0)) return;
+    const qtyPlat=bal*(sh/sum);
     if(!(qtyPlat>0.0000001)) return;
     const mxn=valueMxnOfQty(sym, qtyPlat);
     rows.push({
