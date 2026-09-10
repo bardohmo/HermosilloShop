@@ -1445,11 +1445,22 @@ function repairInflatedBalances(){
     const fromOps=qtySumFromOps(sym);
     if(!(fromOps>=0)) return;
     const bal=qtyOf(sym);
-    if(bal<=fromOps+1e-10) return; // no inflado (PEPE manual más bajo se respeta)
+    if(bal<=fromOps+1e-10) return; // no inflado (ajustes manuales a la baja se respetan)
+    // Solo reparar duplicados claros (compra aplicada 2 veces), no subidas manuales en Cantidad
+    const diff=bal-fromOps;
+    const tol=Math.max(1e-8, fromOps*1e-9);
+    const looksDouble=Math.abs(bal-2*fromOps)<=tol*2
+      || opsFor.some(op=>{
+          const q=op.type==='Conversión'
+            ? ((String(op.coinTo||'').toUpperCase()===sym||String(parseConvertPair(op.coin)?.to||'').toUpperCase()===sym)?Number(op.qtyTo):Number(op.qty))
+            : Number(op.qty);
+          return q>0 && Math.abs(diff-q)<=Math.max(tol,q*1e-9);
+        });
+    if(!looksDouble) return;
     setBalanceSym(sym, fromOps);
     upsertBalanceCloud(sym, fromOps);
     fixed++;
-    console.info('[Bitácora] saldo corregido', sym, bal, '→', fromOps);
+    console.info('[Bitácora] saldo duplicado corregido', sym, bal, '→', fromOps);
   });
   if(fixed){ persistBalancesLocal(); try{ render(); }catch(_){} }
   return fixed;
@@ -1853,7 +1864,12 @@ function qtyHeldByPlatformForSymbol(sym){
     out[p]=Math.max(0, Number(qtyMap[p]?.[s])||0);
     used+=out[p];
   });
-  if(used>bal && used>0){
+  if(used>0 && bal>0 && Math.abs(bal-used)>1e-12 && !mxnPlats.length){
+    // Ajustar al saldo de Cantidad (subió o bajó)
+    const scale=bal/used;
+    qtyPlats.forEach(p=>{ out[p]*=scale; });
+    used=bal;
+  } else if(used>bal && used>0){
     const scale=bal/used;
     qtyPlats.forEach(p=>{ out[p]*=scale; });
     used=bal;
@@ -2092,21 +2108,8 @@ if(document.readyState==='loading'){
 }
 /** Cantidad para valuación: suma real por plataformas/ops (evita saldos duplicados) */
 function holdingQty(sym){
-  const s=String(sym||'').toUpperCase();
-  try{
-    if(typeof qtyHeldByPlatformForSymbol==='function'){
-      const held=qtyHeldByPlatformForSymbol(s);
-      const sum=Object.values(held||{}).reduce((a,b)=>a+(Number(b)||0),0);
-      if(sum>0) return sum;
-    }
-  }catch(_){}
-  try{
-    if(typeof qtySumFromOps==='function'){
-      const q=qtySumFromOps(s);
-      if(q>0) return q;
-    }
-  }catch(_){}
-  return qtyOf(s);
+  // Fuente de verdad: saldo de la pestaña Cantidad
+  return qtyOf(sym);
 }
 function currentValueMxn(sym){
   const s=String(sym||'').toUpperCase();
@@ -2211,6 +2214,8 @@ function renderQtyActions(){
       persistBalancesLocal();
       qtyEditing=false; qtyDraft={};
       renderInvestByCoin();
+      try{ renderPlatformBreakdown(); }catch(_){}
+      try{ refreshBinancePrices(true); }catch(_){}
       showToast('Guardado con Éxito', true);
     });
   } else {
