@@ -315,8 +315,17 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
       </div>
       <div class="field" style="margin:0"><label style="opacity:.8">Cant. A <span style="opacity:.7;font-weight:600">(auto)</span></label>
         <input id="qtyTo" type="number" step="any" inputmode="decimal" placeholder="auto">
-        <span class="qty-have" id="qtyToAutoHint">Se calcula con precio Binance</span>
+        <span class="qty-have" id="qtyToAutoHint">Precio Binance − fee</span>
       </div>
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label>Fee Binance estimado (%)</label>
+      <div class="qty-line">
+        <input id="convertFeePct" type="number" step="0.001" min="0" max="5" inputmode="decimal" placeholder="0.1">
+        <button type="button" class="qty-max" id="feeSpotBtn" title="Spot clásico">0.1%</button>
+        <button type="button" class="qty-max" id="feeBnbBtn" title="Con descuento BNB">0.075%</button>
+      </div>
+      <small style="display:block;margin-top:6px;color:#8b97a6;font-size:11px">Cant. A ≈ (De × precio) ÷ precio destino × (1 − fee%). Puedes corregir Cant. A a mano.</small>
     </div>
   </div>
   <div class="grid">
@@ -651,6 +660,24 @@ function fillQtyFromMax(){
   estimateQtyToAuto(true);
   updateQtyHaveHints();
 }
+function getConvertFeePct(){
+  const el=document.getElementById('convertFeePct');
+  let v=parseFloat(el?.value);
+  if(!Number.isFinite(v) || v<0) v=0.1;
+  if(v>5) v=5;
+  try{ localStorage.setItem('bita_convert_fee_pct', String(v)); }catch(_){}
+  return v;
+}
+function loadConvertFeePct(){
+  const el=document.getElementById('convertFeePct');
+  if(!el) return;
+  let v=0.1;
+  try{
+    const raw=localStorage.getItem('bita_convert_fee_pct');
+    if(raw!=null && raw!==''){ const n=parseFloat(raw); if(Number.isFinite(n)) v=n; }
+  }catch(_){}
+  el.value=String(v);
+}
 async function estimateQtyToAuto(force){
   const from=(document.getElementById('coinFrom')?.value||'').trim().toUpperCase();
   const to=(document.getElementById('coinTo')?.value||'').trim().toUpperCase();
@@ -659,10 +686,10 @@ async function estimateQtyToAuto(force){
   const hint=document.getElementById('qtyToAutoHint');
   if(!toInp) return;
   if(!from||!to||!(qFrom>0)){
-    if(hint) hint.textContent='Se calcula con precio Binance';
+    if(hint) hint.textContent='Precio Binance − fee';
     return;
   }
-  // No pisar si el usuario ya escribió Cant. A a mano (salvo force=Max o vacío)
+  // No pisar si el usuario ya escribió Cant. A a mano (salvo force)
   if(!force && toInp.dataset.manual==='1' && String(toInp.value||'').trim()!=='') return;
   try{
     if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false);
@@ -673,15 +700,20 @@ async function estimateQtyToAuto(force){
     if(hint) hint.textContent='Sin precio Binance aún';
     return;
   }
-  const est=qFrom*pxFrom/pxTo;
-  // precisión razonable
+  const feePct=getConvertFeePct();
+  const factor=Math.max(0, 1 - feePct/100);
+  const gross=qFrom*pxFrom/pxTo;
+  const est=gross*factor;
   let out=est;
   if(est>=1000) out=Number(est.toFixed(4));
   else if(est>=1) out=Number(est.toFixed(6));
   else out=Number(est.toFixed(10));
   toInp.value=String(out);
   toInp.dataset.manual='0';
-  if(hint) hint.textContent='Auto ≈ '+formatQty(out)+' '+to;
+  if(hint){
+    const cut=gross-est;
+    hint.textContent=`Auto ≈ ${formatQty(out)} ${to} (fee ${feePct}% ≈ ${formatQty(cut)} ${to})`;
+  }
 }
 function updateTypeFields(){
  const type=document.getElementById('type')?.value;
@@ -784,6 +816,17 @@ document.getElementById('coinTo')?.addEventListener('change',()=>{updateConvertP
 document.getElementById('qtyMaxBtn')?.addEventListener('click',fillQtyMax);
 document.getElementById('qtyFromMaxBtn')?.addEventListener('click',fillQtyFromMax);
 document.getElementById('qtyFrom')?.addEventListener('input',()=>estimateQtyToAuto(true));
+document.getElementById('convertFeePct')?.addEventListener('input',()=>estimateQtyToAuto(true));
+document.getElementById('convertFeePct')?.addEventListener('change',()=>estimateQtyToAuto(true));
+document.getElementById('feeSpotBtn')?.addEventListener('click',()=>{
+  const el=document.getElementById('convertFeePct'); if(el) el.value='0.1';
+  estimateQtyToAuto(true);
+});
+document.getElementById('feeBnbBtn')?.addEventListener('click',()=>{
+  const el=document.getElementById('convertFeePct'); if(el) el.value='0.075';
+  estimateQtyToAuto(true);
+});
+
 document.getElementById('qtyTo')?.addEventListener('input',e=>{ e.target.dataset.manual='1'; });
 document.getElementById('type')?.addEventListener('change',updateTypeFields);
 document.getElementById('typePicker')?.addEventListener('click',e=>{
@@ -793,6 +836,7 @@ document.getElementById('typePicker')?.addEventListener('click',e=>{
 renderTypePicker(document.getElementById('type')?.value||'Compra');
 renderCoinSelect();
 renderPlatformSelect();
+loadConvertFeePct();
 renderCoinAdmin();
 setTimeout(() => syncFromSupabase(), 0);
 
@@ -1388,6 +1432,7 @@ function openModal(index=-1){
    document.getElementById('note').value='';
  }
  document.getElementById('qtyTo')&&(document.getElementById('qtyTo').dataset.manual='0');
+ loadConvertFeePct();
  updateTypeFields();
  updateQtyHaveHints();
  document.getElementById('modal').classList.add('show');
