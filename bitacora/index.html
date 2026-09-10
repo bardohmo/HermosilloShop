@@ -294,14 +294,14 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
     </div>
    </div>
   </div>
-  <div class="field"><label>Monto en MXN <span style="opacity:.7;font-weight:600">(auto)</span></label>
-    <input id="amount" type="number" step="0.01" inputmode="decimal" placeholder="auto">
-    <span class="qty-have" id="amountAutoHint">Se sugiere con precio × cantidad × USDT/MXN</span>
+  <div class="field"><label>Monto en MXN</label>
+    <input id="amount" type="number" step="0.01" inputmode="decimal" placeholder="5000">
+    <span class="qty-have" id="amountAutoHint"></span>
   </div>
-  <div class="field" id="qtyField"><label>Cantidad del activo <span style="opacity:.7;font-weight:600">(auto en compra)</span></label>
-    <input id="qty" type="number" step="any" inputmode="decimal" placeholder="auto">
+  <div class="field" id="qtyField"><label>Cantidad a recibir</label>
+    <input id="qty" type="number" step="any" inputmode="decimal" placeholder="Se calcula con el monto">
     <span class="qty-have" id="qtyHaveHint"></span>
-    <small style="display:block;margin-top:6px;color:#8b97a6;font-size:11px">En Compra/Depósito se recalcula cada 5s con el monto y el precio. Puedes editarla a mano.</small>
+    <small style="display:block;margin-top:6px;color:#8b97a6;font-size:11px">En Compra/Depósito se calcula con tu monto MXN y el precio de Binance (cada 5s). Puedes corregirla a mano.</small>
   </div>
   <div class="field" id="qtyConvertField" hidden>
     <label>Cantidades de la conversión</label>
@@ -686,7 +686,7 @@ async function estimateQtyFromAmountAuto(force){
   else out=Number(est.toFixed(10));
   qtyInp.value=String(out);
   qtyInp.dataset.manual='0';
-  if(hint) hint.textContent=`Tienes: ${formatQty(qtyOf(coin))} ${coin} · auto ≈ ${formatQty(out)} ${coin}`;
+  if(hint) hint.textContent=`Tienes: ${formatQty(qtyOf(coin))} ${coin} · recibirás ≈ ${formatQty(out)} ${coin}`;
 }
 function fillQtyMax(){
 
@@ -835,12 +835,18 @@ function updateTypeFields(){
  if(qtyField) qtyField.hidden=!!isConvert;
  if(qtyConv) qtyConv.hidden=!isConvert;
  updateQtyHaveHints();
- if(isConvert) estimateQtyToAuto(false);
- else if(type==='Compra'||type==='Depósito'){
+ const amtHint=document.getElementById('amountAutoHint');
+ if(isConvert){
+   if(amtHint) amtHint.textContent='En conversión puedes dejar el monto sugerido o editarlo';
+   estimateQtyToAuto(false);
+ } else if(type==='Compra'||type==='Depósito'){
+   if(amtHint) amtHint.textContent='Escribe cuánto pagas en MXN; abajo verás cuánto recibes';
    const q=document.getElementById('qty');
    if(q && q.dataset.manual!=='1') estimateQtyFromAmountAuto(true);
-   else estimateAmountMxnAuto(false);
- } else estimateAmountMxnAuto(false);
+ } else {
+   if(amtHint) amtHint.textContent='';
+   estimateAmountMxnAuto(false);
+ }
 }
 function renderCoinSelect(selected='', fromSel='', toSel=''){
  fillCoinSelect(document.getElementById('coin'), selected);
@@ -922,7 +928,16 @@ document.querySelectorAll('.user-btn').forEach(btn=>{
   btn.addEventListener('click',()=>switchUser(btn.dataset.user));
 });
 
-document.getElementById('coin')?.addEventListener('change',()=>{updateCoinPreview();updateQtyHaveHints();estimateAmountMxnAuto(true);});
+document.getElementById('coin')?.addEventListener('change',()=>{
+  updateCoinPreview();
+  updateQtyHaveHints();
+  const type=document.getElementById('type')?.value;
+  if(type==='Compra'||type==='Depósito'){
+    const q=document.getElementById('qty');
+    if(q) q.dataset.manual='0';
+    estimateQtyFromAmountAuto(true);
+  } else estimateAmountMxnAuto(true);
+});
 document.getElementById('platform')?.addEventListener('change',updatePlatformPreview);
 document.getElementById('coinFrom')?.addEventListener('change',()=>{updateConvertPreviews();updateQtyHaveHints();estimateQtyToAuto(true);});
 document.getElementById('coinTo')?.addEventListener('change',()=>{updateConvertPreviews();estimateQtyToAuto(true);});
