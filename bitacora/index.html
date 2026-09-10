@@ -64,7 +64,15 @@ h1{margin:0;font-size:23px;font-weight:950;letter-spacing:2px;text-transform:upp
 .invest-pane0-head{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 8px}
 .invest-pane0-head .invest-cycle-hint{margin:0;width:100%;text-align:right}
 .invest-row .price-cell{display:flex;flex-direction:row;align-items:baseline;justify-content:flex-end;gap:6px;line-height:1.15;flex-wrap:nowrap}
-.invest-val{position:relative;min-width:158px;height:34px;flex:0 0 auto;display:block}
+.invest-val{position:relative;min-width:168px;height:34px;flex:0 0 auto;display:block}
+.invest-val.mode-3{min-width:196px;height:42px}
+.invest-val .face-avg{flex-direction:column;align-items:flex-end;justify-content:center;gap:1px}
+.invest-val .face-avg .avg-line,.invest-val .face-avg .cur-line{font-size:10px;font-weight:800;white-space:nowrap;line-height:1.15}
+.invest-val .face-avg .avg-line{color:#ffd96b}
+.invest-val .face-avg .cur-line{color:#c9d3de}
+.invest-val .face-avg .cur-line.up{color:#0ecb81}
+.invest-val .face-avg .cur-line.down{color:#f6465d}
+.invest-val .face-avg .lbl{font-size:9px;font-weight:700;color:#8b97a6;margin-right:4px}
 .invest-val .face{position:absolute;inset:0;display:flex;flex-direction:row;align-items:center;justify-content:flex-end;gap:6px;opacity:0;transform:translateY(4px);transition:opacity .55s ease,transform .55s ease;pointer-events:none;white-space:nowrap}
 .invest-val.mode-0 .face-inv,.invest-val:not([class*="mode-"]) .face-inv{opacity:1;transform:translateY(0)}
 .invest-val.mode-1 .face-pnl{opacity:1;transform:translateY(0)}
@@ -2154,6 +2162,43 @@ function moneyUsd(n){
   if(v>=1) return '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4});
   return '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:8});
 }
+/** MXN para precios unitarios (SHIB etc.): no redondear a $0.00 */
+function moneyUnitMxn(n){
+  const v=Number(n);
+  if(!Number.isFinite(v)) return '—';
+  const abs=Math.abs(v);
+  let dig=2;
+  if(abs>0 && abs<0.01) dig=8;
+  else if(abs<1) dig=6;
+  else if(abs<100) dig=4;
+  return new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',minimumFractionDigits:2,maximumFractionDigits:dig}).format(v);
+}
+function formatUnitUsd(n){
+  const v=Number(n);
+  if(!Number.isFinite(v)) return null;
+  const abs=Math.abs(v);
+  if(abs>=1000) return v.toLocaleString('en-US',{maximumFractionDigits:2});
+  if(abs>=1) return v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4});
+  if(abs>=0.0001) return v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:8});
+  return v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:12});
+}
+function currentUnitPriceMxn(sym){
+  const s=String(sym||'').toUpperCase();
+  if(!s) return null;
+  if(STABLES.has(s)) return usdtMxn>0 ? usdtMxn : null;
+  const pair=binancePair(s);
+  const px=pair ? Number(priceMap[pair]) : NaN;
+  if(!Number.isFinite(px) || !(usdtMxn>0)) return null;
+  return px * usdtMxn;
+}
+function currentUnitPriceUsd(sym){
+  const s=String(sym||'').toUpperCase();
+  if(!s) return null;
+  if(STABLES.has(s)) return 1;
+  const pair=binancePair(s);
+  const px=pair ? Number(priceMap[pair]) : NaN;
+  return Number.isFinite(px) ? px : null;
+}
 function formatChgPct(n){
   const v=Number(n);
   if(!Number.isFinite(v)) return '';
@@ -2584,7 +2629,18 @@ function openCoinInvestMini(sym){
   const total=ops.reduce((a,r)=>a+Number(r.delta||0),0);
   if(totalEl){
     const avg=avgBuyPriceMxn(s);
-    const avgLine=avg!=null?('<br><span style="font-weight:700;color:#ffd96b">Precio promedio ≈ '+money(avg)+' / '+esc(s)+'</span>'):'';
+    const curU=currentUnitPriceUsd(s);
+    const avgU=(avg!=null && usdtMxn>0)?(avg/usdtMxn):null;
+    const avgFmt=avg!=null?(formatUnitUsd(avgU)!=null?('≈ $'+formatUnitUsd(avgU)) : moneyUnitMxn(avg)):'—';
+    const curFmt=curU!=null?(formatUnitUsd(curU)!=null?('≈ $'+formatUnitUsd(curU)) : '—'):'N/D';
+    let vs='';
+    if(avgU!=null && avgU>0 && curU!=null){
+      const pct=((curU-avgU)/avgU)*100;
+      const sign=pct>0?'+':'';
+      const col=pct>0.05?'#0ecb81':(pct<-0.05?'#f6465d':'#8b97a6');
+      vs=' <span style="color:'+col+'">('+sign+pct.toFixed(2)+'%)</span>';
+    }
+    const avgLine='<br><span style="font-weight:700;color:#ffd96b">Promedio ≈ '+avgFmt+' / '+esc(s)+'</span><br><span style="font-weight:700;color:#c9d3de">Actual ≈ '+curFmt+vs+'</span>';
     totalEl.innerHTML='Invertido neto ≈ <strong>'+money(total)+'</strong>'+avgLine+'<br><span style="font-weight:600;color:#8b97a6">Suma de compras/depósitos/staking − ventas/retiros/comisiones ± conversiones</span>';
   }
   if(list){
@@ -2837,16 +2893,38 @@ function avgBuyPriceMxn(sym){
 function avgFaceHtml(sym){
   const avg=avgBuyPriceMxn(sym);
   const q=qtyOf(sym);
-  if(avg==null){
+  const curMxn=currentUnitPriceMxn(sym);
+  const curUsd=currentUnitPriceUsd(sym);
+  const avgUsd=(avg!=null && usdtMxn>0)?(avg/usdtMxn):null;
+  if(avg==null && curMxn==null && curUsd==null){
     return `<span class="amt muted">${q>0?'Sin invertido':'Sin cant.'}</span>`;
   }
-  const usd=(usdtMxn>0)?(avg/usdtMxn):null;
-  const usdTxt=(usd!=null && Number.isFinite(usd))
-    ? (usd>=1?usd.toLocaleString('en-US',{maximumFractionDigits:2}):usd.toLocaleString('en-US',{maximumFractionDigits:6}))
-    : null;
-  return `<span class="amt">${money(avg)}<span style="color:#8b97a6;font-weight:700;font-size:10px"> /u</span></span>`
-    +(usdTxt?`<span class="chg flat">≈ $${usdTxt}</span>`:'');
+  let avgTxt='—';
+  if(avg!=null){
+    const u=formatUnitUsd(avgUsd);
+    avgTxt=u!=null?('≈ $'+u):moneyUnitMxn(avg);
+  } else if(q>0){
+    avgTxt='Sin inv.';
+  }
+  let curTxt='N/D';
+  let curCls='';
+  let pctTxt='';
+  if(curUsd!=null){
+    const u=formatUnitUsd(curUsd);
+    curTxt=u!=null?('≈ $'+u):moneyUnitMxn(curMxn);
+    if(avgUsd!=null && avgUsd>0){
+      const pct=((curUsd-avgUsd)/avgUsd)*100;
+      const sign=pct>0?'+':'';
+      curCls=pct>0.05?'up':(pct<-0.05?'down':'');
+      pctTxt=' <span style="opacity:.9">'+sign+pct.toFixed(2)+'%</span>';
+    }
+  } else if(priceLoading){
+    curTxt='…';
+  }
+  return `<span class="avg-line"><span class="lbl">Prom</span>${avgTxt}</span>`
+    +`<span class="cur-line ${curCls}"><span class="lbl">Actual</span>${curTxt}${pctTxt}</span>`;
 }
+
 function investModeClass(){
   const m=Number(investCycleMode)||0;
   return ' mode-'+m;
