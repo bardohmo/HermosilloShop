@@ -306,7 +306,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
     <input id="qty" type="number" step="any" inputmode="decimal" placeholder="Se calcula con el monto">
     <span class="qty-have" id="qtyHaveHint"></span>
     <span class="qty-auto-clock" id="qtyAutoClock" aria-live="polite"></span>
-    <small style="display:block;margin-top:6px;color:#8b97a6;font-size:11px">En Compra/Depósito se calcula con tu monto MXN y el precio de Binance. Si editas la cantidad, se pausa hasta que salgas del campo.</small>
+    <small style="display:block;margin-top:6px;color:#8b97a6;font-size:11px">En Compra/Depósito se calcula con tu monto MXN y el precio de Binance. Si editas la cantidad, queda en Cantidad Manual hasta que cambies el Monto MXN.</small>
   </div>
   <div class="field" id="qtyConvertField" hidden>
     <label>Cantidades de la conversión</label>
@@ -394,29 +394,42 @@ function updatePlatformPreview(){
  if(!img) return; img.src=p?.icon||''; img.style.display=p?.icon?'block':'none';
 }
 const COINS_KEY='cripto_bitacora_coins_v1';
-const DEFAULT_COINS=[
+/* Orden por relevancia de mercado (cap aproximada) */
+const MARKET_RANK={BTC:1,ETH:2,USDT:3,BNB:4,XRP:5,SOL:6,USDC:7,DOGE:8,ADA:9,TRX:10,AVAX:11,LINK:12,TON:13,SHIB:14,BCH:15,DOT:16,LTC:17,XMR:18,PEPE:19,WIF:20,FLOKI:21,BONK:22};
+function marketRankOf(sym){
+  const k=String(sym||'').toUpperCase();
+  return MARKET_RANK[k] ?? 900;
+}
+function sortCoinsByMarket(list){
+  return (list||[]).slice().sort((a,b)=>{
+    const ra=marketRankOf(a.symbol), rb=marketRankOf(b.symbol);
+    if(ra!==rb) return ra-rb;
+    return String(a.symbol||'').localeCompare(String(b.symbol||''));
+  });
+}
+const DEFAULT_COINS=sortCoinsByMarket([
  {name:'Bitcoin',symbol:'BTC',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/btc.png'},
  {name:'Ethereum',symbol:'ETH',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/eth.png'},
  {name:'Tether',symbol:'USDT',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/usdt.png'},
  {name:'BNB',symbol:'BNB',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/bnb.png'},
- {name:'Solana',symbol:'SOL',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/sol.png'},
  {name:'XRP',symbol:'XRP',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/xrp.png'},
+ {name:'Solana',symbol:'SOL',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/sol.png'},
  {name:'Dogecoin',symbol:'DOGE',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/doge.png'},
  {name:'Cardano',symbol:'ADA',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/ada.png'},
- {name:'Shiba Inu',symbol:'SHIB',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/shib.png'},
- {name:'Pepe',symbol:'PEPE',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/pepe.png'},
- {name:'dogwifhat',symbol:'WIF',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/wif.png'},
- {name:'Floki',symbol:'FLOKI',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/floki.png'},
- {name:'Bonk',symbol:'BONK',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/bonk.png'},
- {name:'Polkadot',symbol:'DOT',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/dot.png'},
- {name:'Bitcoin Cash',symbol:'BCH',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/bch.png'},
- {name:'Litecoin',symbol:'LTC',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/ltc.png'},
  {name:'Avalanche',symbol:'AVAX',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/avax.png'},
  {name:'Chainlink',symbol:'LINK',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/link.png'},
  {name:'Toncoin',symbol:'TON',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/ton.png'},
- {name:'Monero',symbol:'XMR',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/xmr.png'}
-];
-let coins=JSON.parse(localStorage.getItem(COINS_KEY)||'null')||DEFAULT_COINS;
+ {name:'Shiba Inu',symbol:'SHIB',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/shib.png'},
+ {name:'Bitcoin Cash',symbol:'BCH',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/bch.png'},
+ {name:'Polkadot',symbol:'DOT',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/dot.png'},
+ {name:'Litecoin',symbol:'LTC',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/ltc.png'},
+ {name:'Monero',symbol:'XMR',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/xmr.png'},
+ {name:'Pepe',symbol:'PEPE',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/pepe.png'},
+ {name:'dogwifhat',symbol:'WIF',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/wif.png'},
+ {name:'Floki',symbol:'FLOKI',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/floki.png'},
+ {name:'Bonk',symbol:'BONK',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/bonk.png'}
+]);
+let coins=sortCoinsByMarket(JSON.parse(localStorage.getItem(COINS_KEY)||'null')||DEFAULT_COINS);
 let editingCoinIndex=-1;
 
 /* === Supabase sync for Cripto Bitácora === */
@@ -557,9 +570,11 @@ async function syncFromSupabase(){
 
     const cloudCoins = await pullCoinsFromCloud();
     if (cloudCoins && cloudCoins.length) {
-      coins = cloudCoins;
+      coins = sortCoinsByMarket(cloudCoins);
       saveCoinsLocalOnly();
+      await pushCoinsToCloud(coins); // reescribe sort_order por relevancia de mercado
     } else if (coins && coins.length) {
+      coins = sortCoinsByMarket(coins);
       await pushCoinsToCloud(coins);
     }
 
@@ -611,9 +626,10 @@ function coinBySymbol(symbol){return coins.find(c=>c.symbol.toUpperCase()===Stri
 function fillCoinSelect(sel, selected=''){
  if(!sel) return;
  const old=selected||sel.value;
- sel.innerHTML=coins.map(c=>`<option value="${esc(c.symbol)}">${esc(c.name)} (${esc(c.symbol)})</option>`).join('')||'<option value="Cripto">Cripto</option>';
- const found=coins.find(c=>c.symbol.toUpperCase()===String(old).toUpperCase());
- sel.value=found?found.symbol:(coins[0]?.symbol||'Cripto');
+ const list=sortCoinsByMarket(coins);
+ sel.innerHTML=list.map(c=>`<option value="${esc(c.symbol)}">${esc(c.name)} (${esc(c.symbol)})</option>`).join('')||'<option value="Cripto">Cripto</option>';
+ const found=list.find(c=>c.symbol.toUpperCase()===String(old).toUpperCase());
+ sel.value=found?found.symbol:(list[0]?.symbol||'Cripto');
 }
 function parseConvertPair(coin){
  const s=String(coin||'');
@@ -657,6 +673,11 @@ function isQtyFieldFocused(){
   return document.activeElement && document.activeElement.id==='qty';
 }
 
+function isQtyManual(){
+  const qtyInp=document.getElementById('qty');
+  return !!(qtyInp && qtyInp.dataset.manual==='1' && String(qtyInp.value||'').trim()!=='');
+}
+
 function updateQtyAutoClock(){
   const el=document.getElementById('qtyAutoClock');
   if(!el) return;
@@ -664,6 +685,11 @@ function updateQtyAutoClock(){
   if(type!=='Compra' && type!=='Depósito'){
     el.textContent='';
     el.classList.remove('paused');
+    return;
+  }
+  if(isQtyManual()){
+    el.textContent='⏱ Cantidad Manual';
+    el.classList.add('paused');
     return;
   }
   if(isQtyFieldFocused()){
@@ -710,7 +736,7 @@ function startQtyAutoTimer(){
       updateQtyAutoClock();
       return;
     }
-    if(isQtyFieldFocused()){
+    if(isQtyManual() || isQtyFieldFocused()){
       updateQtyAutoClock();
       return;
     }
@@ -731,7 +757,9 @@ function bindQtyFocusPause(){
   qtyEl.dataset.pauseBound='1';
   qtyEl.addEventListener('focus', ()=>{ updateQtyAutoClock(); });
   qtyEl.addEventListener('blur', ()=>{
+    // Si editó a mano, queda en Cantidad Manual hasta que cambie Monto MXN
     updateQtyAutoClock();
+    if(isQtyManual()) return;
     const type=document.getElementById('type')?.value;
     if(type==='Compra' || type==='Depósito'){
       estimateQtyFromAmountAuto(true);
@@ -747,7 +775,8 @@ async function estimateQtyFromAmountAuto(force){
   const amtInp=document.getElementById('amount');
   const hint=document.getElementById('qtyHaveHint');
   if(!qtyInp) return;
-  if(!force && qtyInp.dataset.manual==='1' && String(qtyInp.value||'').trim()!=='') return;
+  // Cantidad Manual: no sobreescribir hasta que el usuario cambie Monto MXN
+  if(qtyInp.dataset.manual==='1' && String(qtyInp.value||'').trim()!=='') return;
   const coin=(document.getElementById('coin')?.value||'').trim().toUpperCase();
   const amount=parseFloat(amtInp?.value);
   if(!coin || !(amount>0)){
@@ -1030,6 +1059,7 @@ document.getElementById('qtyFromMaxBtn')?.addEventListener('click',fillQtyFromMa
 document.getElementById('qty')?.addEventListener('input',e=>{
   e.target.dataset.manual='1';
   estimateAmountMxnAuto(false);
+  updateQtyAutoClock();
 });
 document.getElementById('amount')?.addEventListener('change',()=>{
   const type=document.getElementById('type')?.value;
@@ -1042,7 +1072,11 @@ document.getElementById('amount')?.addEventListener('input',e=>{
   const type=document.getElementById('type')?.value;
   const qty=document.getElementById('qty');
   if((type==='Compra'||type==='Depósito') && qty) qty.dataset.manual='0';
-  if(type==='Compra'||type==='Depósito') estimateQtyFromAmountAuto(true);
+  if(type==='Compra'||type==='Depósito'){
+    estimateQtyFromAmountAuto(true);
+    qtyNextUpdateAt=Date.now()+QTY_AUTO_MS;
+    updateQtyAutoClock();
+  }
 });
 
 document.getElementById('convertFeePct')?.addEventListener('input',()=>estimateQtyToAuto(true));
@@ -1401,7 +1435,11 @@ function investedByCoin(){
  });
  return Object.entries(map)
    .filter(([,v])=>v>0.005)
-   .sort((a,b)=>b[1]-a[1]);
+   .sort((a,b)=>{
+     const ra=marketRankOf(a[0]), rb=marketRankOf(b[0]);
+     if(ra!==rb) return ra-rb;
+     return b[1]-a[1];
+   });
 }
 function currentValueMxn(sym){
   const s=String(sym||'').toUpperCase();
