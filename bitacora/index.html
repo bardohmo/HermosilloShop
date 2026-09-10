@@ -47,7 +47,12 @@ h1{margin:0;font-size:23px;font-weight:950;letter-spacing:2px;text-transform:upp
 .invest-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border-radius:10px;background:rgba(2,7,13,.68);border:1px solid rgba(245,184,63,.12)}
 .invest-row .left{display:inline-flex;align-items:center;gap:6px;min-width:0;font-weight:750;font-size:12px}
 .invest-row .left img{width:16px;height:16px;border-radius:50%;object-fit:contain;background:#0d1824;padding:1px;flex:0 0 auto}
-.invest-row .amt{font-weight:800;color:#ffd96b;white-space:nowrap;font-size:12px}
+.invest-row .amt{font-weight:800;color:#ffd96b;white-space:nowrap;font-size:12px;transition:opacity .25s ease}
+.invest-row .amt.pnl-up,.invest-row .chg.pnl-up{color:#0ecb81}
+.invest-row .amt.pnl-down,.invest-row .chg.pnl-down{color:#f6465d}
+.invest-row .amt.pnl-flat,.invest-row .chg.pnl-flat{color:#8b97a6}
+.invest-row .amt.muted{color:#8b97a6;font-weight:700}
+.invest-cycle-hint{font-size:10px;color:#8b97a6;font-weight:700;margin:-2px 0 6px}
 .invest-row .price-cell{display:flex;flex-direction:column;align-items:flex-end;gap:2px;line-height:1.15}
 .invest-row .chg{font-size:11px;font-weight:800;white-space:nowrap}
 .invest-row .chg.up{color:#0ecb81}
@@ -163,6 +168,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
         <div class="invest-track" id="investTrack">
           <div class="invest-pane" id="investPane0">
             <div class="invest-pane-title">Inversiones</div>
+            <div class="invest-cycle-hint" id="investCycleHint">Invertido · actualiza cada 5s</div>
             <div class="invest-by-coin" id="investByCoin"><div class="invest-empty">Sin inversiones registradas</div></div>
           </div>
           <div class="invest-pane" id="investPane1">
@@ -671,6 +677,9 @@ function localDateTimeValue(iso){
 let investExpanded=false;
 let qtyEditing=false;
 let qtyDraft={};
+let investShowPnl=false;
+let investCycleTimer=null;
+let usdtMxn=0;
 function persistBalancesLocal(){ localStorage.setItem(BAL_KEY, JSON.stringify(balances||{})); }
 function qtyOf(sym){
   const k=String(sym||'').toUpperCase();
@@ -852,7 +861,7 @@ async function refreshBinancePrices(force){
     return;
   }
   const fresh=Date.now()-priceFetchedAt<45000;
-  if(!force && fresh && pairs.every(p=>priceMap[p]!=null)){
+  if(!force && fresh && pairs.every(p=>priceMap[p]!=null) && usdtMxn>0){
     renderInvestPricesOnly();
     return;
   }
@@ -867,12 +876,19 @@ async function refreshBinancePrices(force){
     const want=new Set(pairs);
     (all||[]).forEach(row=>{
       const sym=String(row.symbol||'');
-      if(!want.has(sym)) return;
       const px=Number(row.lastPrice!=null?row.lastPrice:row.price);
+      if(sym==='USDTMXN' && Number.isFinite(px) && px>0) usdtMxn=px;
+      if(!want.has(sym)) return;
       if(Number.isFinite(px)) priceMap[sym]=px;
       const chg=Number(row.priceChangePercent);
       if(Number.isFinite(chg)) changeMap[sym]=chg;
     });
+    if(!(usdtMxn>0)){
+      try{
+        const rMx=await fetch('https://data-api.binance.vision/api/v3/ticker/price?symbol=USDTMXN',{cache:'no-store'});
+        if(rMx.ok){ const j=await rMx.json(); const px=Number(j.price); if(px>0) usdtMxn=px; }
+      }catch(_){}
+    }
     priceFetchedAt=Date.now();
   }catch(e){
     console.warn('Binance 24hr', e);
@@ -942,11 +958,72 @@ function investedByCoin(){
    .filter(([,v])=>v>0.005)
    .sort((a,b)=>b[1]-a[1]);
 }
+function currentValueMxn(sym){
+  const s=String(sym||'').toUpperCase();
+  const qty=qtyOf(s);
+  if(!(qty>0)) return null;
+  if(STABLES.has(s)) return usdtMxn>0 ? qty*usdtMxn : null;
+  const pair=binancePair(s);
+  const px=pair!=null ? Number(priceMap[pair]) : NaN;
+  if(!Number.isFinite(px) || !(usdtMxn>0)) return null;
+  return qty * px * usdtMxn;
+}
 function renderInvestRowMxn([sym, amt]){
    const cc=coinBySymbol(sym);
    const icon=cc?.icon?iconValue(cc.icon):'';
    const name=cc?.name?`${esc(sym)} · ${esc(cc.name)}`:esc(sym);
-   return `<div class="invest-row"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="amt">${money(amt)}</span></div>`;
+   let right='';
+   if(investShowPnl){
+     const val=currentValueMxn(sym);
+     if(val==null){
+       right=`<span class="amt muted">${qtyOf(sym)>0?'…':'Sin cant.'}</span>`;
+     } else {
+       const pnl=val - Number(amt||0);
+       const pct=Number(amt)>0.005 ? (pnl/Number(amt))*100 : 0;
+       const cls=pnl>0.005?'pnl-up':(pnl<-0.005?'pnl-down':'pnl-flat');
+       const sign=pnl>0?'+':'';
+       const signP=pct>0?'+':'';
+       right=`<span class="price-cell"><span class="amt ${cls}">${sign}${money(pnl)}</span><span class="chg ${cls}">${signP}${pct.toFixed(2)}%</span></span>`;
+     }
+   } else {
+     right=`<span class="amt">${money(amt)}</span>`;
+   }
+   return `<div class="invest-row"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span>${right}</div>`;
+}
+function updateInvestCycleHint(){
+  const el=document.getElementById('investCycleHint');
+  if(!el) return;
+  el.textContent=investShowPnl ? 'Ganancia / pérdida (MXN)' : 'Invertido (MXN)';
+}
+function ensureInvestCycle(){
+  if(investCycleTimer) return;
+  investCycleTimer=setInterval(()=>{
+    investShowPnl=!investShowPnl;
+    updateInvestCycleHint();
+    // Re-pinta solo montos de inversiones (reusa lista)
+    const box=document.getElementById('investByCoin');
+    if(box && investPage===0){
+      const rows=investedByCoin();
+      if(rows.length){
+        const limit=10;
+        const visible=investExpanded?rows:rows.slice(0,limit);
+        const hidden=Math.max(0, rows.length-limit);
+        let html=visible.map(renderInvestRowMxn).join('');
+        if(hidden>0){
+          html+=investExpanded
+            ?`<button type="button" class="invest-more" id="investToggleMore">Ver menos</button>`
+            :`<button type="button" class="invest-more" id="investToggleMore">Ver ${hidden} más</button>`;
+        }
+        box.innerHTML=html;
+        document.getElementById('investToggleMore')?.addEventListener('click',()=>{
+          investExpanded=!investExpanded; renderInvestByCoin();
+        });
+        requestAnimationFrame(syncInvestHeight);
+      }
+    }
+    // Mantener precios frescos en segundo plano
+    if(investShowPnl) refreshBinancePrices(false);
+  }, 5000);
 }
 function renderInvestRowQty([sym]){
    const cc=coinBySymbol(sym);
@@ -1033,6 +1110,9 @@ function renderInvestByCoin(){
  }
  wireInvestSwipe();
  setInvestPage(investPage);
+ updateInvestCycleHint();
+ ensureInvestCycle();
+ refreshBinancePrices(false);
 }
 function render(){
  let net=0;
