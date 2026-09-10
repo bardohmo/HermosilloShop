@@ -787,18 +787,13 @@ function binanceSymbolUnderscore(sym){
 function binanceTradeUrl(sym){
   const s=binanceSymbolUnderscore(sym);
   if(!s) return '';
-  // Página de gráfica (no solo el panel de trade)
+  // Chart web (fallback si no abre la app)
   return `https://www.binance.com/es/chart/${encodeURIComponent(s)}`;
 }
 function binanceAppUrl(sym){
   const s=binanceSymbolUnderscore(sym);
   if(!s) return '';
-  // TradingView / gráfica dentro de la app Binance
-  return `bnc://app.binance.com/markets/tradingview?symbol=${encodeURIComponent(s)}`;
-}
-function binanceAppTradeFallback(sym){
-  const s=binanceSymbolUnderscore(sym);
-  if(!s) return '';
+  // Ruta estable en la app: trade spot (incluye gráfica). Evita /markets/tradingview (rompe en varias versiones).
   return `bnc://app.binance.com/trade/trade?at=spot&symbol=${encodeURIComponent(s)}`;
 }
 function launchExternal(url){
@@ -820,8 +815,8 @@ function openBinanceChart(sym){
   const isIOS=/iPhone|iPad|iPod/i.test(ua);
   if(isAndroid && app){
     const s=binanceSymbolUnderscore(sym);
-    // Intent directo a gráfica TradingView; si no, cae a chart web
-    const intent=`intent://app.binance.com/markets/tradingview?symbol=${encodeURIComponent(s)}#Intent;scheme=bnc;package=com.binance.dev;S.browser_fallback_url=${encodeURIComponent(web)};end`;
+    // Intent a trade spot (gráfica del par); fallback web /chart
+    const intent=`intent://app.binance.com/trade/trade?at=spot&symbol=${encodeURIComponent(s)}#Intent;scheme=bnc;package=com.binance.dev;S.browser_fallback_url=${encodeURIComponent(web)};end`;
     window.location.href=intent;
     return;
   }
