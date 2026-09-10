@@ -89,7 +89,10 @@ button:active{transform:translateY(1px)}
 .modal{position:fixed;inset:0;display:none;align-items:flex-end;justify-content:center;padding:12px;background:rgba(0,0,0,.80);backdrop-filter:blur(8px)}
 .modal.show{display:flex}
 .sheet{width:min(620px,100%);max-height:min(92vh,920px);overflow:auto;-webkit-overflow-scrolling:touch;padding:18px;border-radius:22px;border:1px solid rgba(245,184,63,.30);background:linear-gradient(145deg,rgba(9,18,30,.98),rgba(3,8,14,.99));box-shadow:0 -12px 48px rgba(0,0,0,.56)}
-.sheet h2{margin:0 0 15px}.field{margin:10px 0}.field label{display:block;margin-bottom:5px;color:#9da8b5;font-size:11px;text-transform:uppercase;letter-spacing:.7px}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 15px}
+.sheet-head h2{margin:0}
+.sheet-close{border:0;border-radius:10px;padding:9px 11px;background:#29333e;color:#fff;font-size:14px;cursor:pointer;line-height:1;flex-shrink:0}
+.sheet-close:active{opacity:.85}.field{margin:10px 0}.field label{display:block;margin-bottom:5px;color:#9da8b5;font-size:11px;text-transform:uppercase;letter-spacing:.7px}
 input,select{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(245,184,63,.18);background:#050b13;color:#fff;font-size:14px;outline:none}
 input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px rgba(245,184,63,.08)}
 .actions{display:flex;gap:9px;margin-top:15px}.actions button{flex:1}.cancel{background:#18212c;color:#fff;border-color:#2b3745}
@@ -149,7 +152,8 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .qty-auto-clock{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;font-size:12px;font-weight:800;color:#f5b83f;font-variant-numeric:tabular-nums;white-space:nowrap;padding:0 2px}
 .qty-auto-clock.paused{color:#8b97a6}
 .qty-auto-clock[hidden]{display:none !important}
-.platform-breakdown{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.platform-saldo-label{margin-top:12px;color:#9da8b5;font-size:11px;text-transform:uppercase;letter-spacing:.7px;font-weight:700}
+.platform-breakdown{display:flex;flex-direction:column;gap:6px;margin-top:6px}
 .plat-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);font-size:12px;font-weight:700;color:#c9d3de}
 .plat-row .plat-left{display:inline-flex;align-items:center;gap:8px;min-width:0}
 .plat-row .plat-left img{width:18px;height:18px;border-radius:5px;object-fit:contain;background:rgba(255,255,255,.08);padding:1px}
@@ -192,7 +196,8 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
   <div class="card">
     <div class="label">Capital neto registrado</div>
     <div class="big" id="capital">$0.00 MXN</div>
-    <div class="platform-breakdown" id="platformBreakdown" aria-label="Desglose por plataforma"></div>
+    <div class="platform-saldo-label">Saldo actual</div>
+    <div class="platform-breakdown" id="platformBreakdown" aria-label="Saldo actual por plataforma"></div>
     <div class="invest-wrap" style="margin-top:15px">
       <div class="invest-swipe" id="investSwipe">
         <div class="invest-track" id="investTrack">
@@ -266,7 +271,10 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 
 <div class="modal" id="modal">
  <div class="sheet">
-  <h2 id="modalTitle">Agregar actividad</h2>
+  <div class="sheet-head">
+    <h2 id="modalTitle">Agregar actividad</h2>
+    <button type="button" id="closeModalBtn" class="sheet-close" aria-label="Cerrar">✕</button>
+  </div>
   <div class="field"><label>Tipo</label>
     <select id="type" hidden>
      <option value="Compra">Compra</option><option value="Venta">Venta</option><option value="Depósito">Depósito</option><option value="Retiro">Retiro</option><option value="Conversión">Conversión</option><option value="Staking">Staking</option><option value="Comisión">Comisión</option>
@@ -1052,7 +1060,7 @@ function addCoin(){
    const reader=new FileReader(); reader.onload=()=>finish(String(reader.result)); reader.readAsDataURL(file);
  } else finish(iconInput);
 }
-function editCoin(i){const c=coins[i]; editingCoinIndex=i; document.getElementById('coinName').value=c.name; document.getElementById('coinSymbol').value=c.symbol; document.getElementById('coinIcon').value=c.icon||''; const ov=document.getElementById('cryptoAdminOverlay'); ov?.classList.add('show'); if(ov) ov.scrollTop=0; try{ window.scrollTo({top:0, behavior:'smooth'}); }catch(_){ window.scrollTo(0,0); }}
+function editCoin(i){const c=coins[i]; editingCoinIndex=i; document.getElementById('coinName').value=c.name; document.getElementById('coinSymbol').value=c.symbol; document.getElementById('coinIcon').value=c.icon||''; const ov=document.getElementById('cryptoAdminOverlay'); ov?.classList.add('show'); if(ov) ov.scrollTop=0;}
 function deleteCoin(i){if(coins.length<=1){alert('Debes conservar al menos una moneda.');return;} const c=coins[i]; if(!confirm(`¿Borrar ${c.name} (${c.symbol}) del catálogo?`)) return; coins.splice(i,1); saveCoins(); renderCoinSelect(); renderCoinAdmin();}
 function resetCoinForm(){editingCoinIndex=-1; document.getElementById('coinName').value=''; document.getElementById('coinSymbol').value=''; document.getElementById('coinIcon').value=''; if(document.getElementById('coinIconFile')) document.getElementById('coinIconFile').value='';}
 
@@ -1089,6 +1097,8 @@ document.querySelectorAll('.user-btn').forEach(btn=>{
 });
 
 document.getElementById('coin')?.addEventListener('change',()=>{
+  const sheet=document.querySelector('#modal .sheet');
+  if(sheet) sheet.scrollTop=0;
   updateCoinPreview();
   updateQtyHaveHints();
   const type=document.getElementById('type')?.value;
@@ -1449,6 +1459,7 @@ async function refreshBinancePrices(force){
   }
 }
 function renderInvestPricesOnly(){
+  try{ renderPlatformBreakdown(); }catch(_){}
   const priceBox=document.getElementById('investByPrice'); if(!priceBox) return;
   const rows=investedByCoin();
   if(!rows.length){
@@ -1500,31 +1511,99 @@ function investedByCoin(){
      return b[1]-a[1];
    });
 }
-function investedByPlatform(){
+/** Cantidades por plataforma según historial (ops) */
+function qtyByPlatformFromOps(){
   const map={};
-  data.forEach(x=>{
-    const p=String(x.platform||'binance').toLowerCase();
-    const amt=Number(x.amount)||0;
-    if(!map[p]) map[p]=0;
-    if(['Compra','Depósito','Staking'].includes(x.type)) map[p]+=amt;
-    else if(['Venta','Retiro','Comisión'].includes(x.type)) map[p]-=amt;
-    // Conversión no mueve capital neto entre plataformas
+  const touch=(plat, sym, delta)=>{
+    const p=String(plat||'binance').toLowerCase();
+    const s=String(sym||'').trim().toUpperCase();
+    if(!s || !Number.isFinite(delta) || !delta) return;
+    if(!map[p]) map[p]={};
+    map[p][s]=(map[p][s]||0)+delta;
+  };
+  data.forEach(op=>{
+    const plat=op.platform||'binance';
+    const type=op.type||'';
+    if(type==='Conversión'){
+      const pair=parseConvertPair(op.coinFrom||op.coinTo?{coinFrom:op.coinFrom,coinTo:op.coinTo}:op.coin);
+      const from=(op.coinFrom||pair?.from||'').toUpperCase();
+      const to=(op.coinTo||pair?.to||'').toUpperCase();
+      const qFrom=Number(op.qty)||0;
+      const qTo=Number(op.qtyTo)||0;
+      if(from && qFrom>0) touch(plat, from, -qFrom);
+      if(to && qTo>0) touch(plat, to, qTo);
+      return;
+    }
+    const q=Number(op.qty)||0;
+    if(!(q>0)) return;
+    const coin=String(op.coin||'').toUpperCase();
+    if(!coin) return;
+    if(['Compra','Depósito','Staking'].includes(type)) touch(plat, coin, q);
+    else if(['Venta','Retiro','Comisión'].includes(type)) touch(plat, coin, -q);
   });
   return map;
+}
+function valueMxnOfQty(sym, qty){
+  const s=String(sym||'').toUpperCase();
+  const q=Number(qty)||0;
+  if(!(q>0)) return null;
+  if(typeof STABLES!=='undefined' && STABLES.has(s)) return usdtMxn>0 ? q*usdtMxn : null;
+  const pair=binancePair(s);
+  const px=pair!=null ? Number(priceMap[pair]) : NaN;
+  if(!Number.isFinite(px) || !(usdtMxn>0)) return null;
+  return q * px * usdtMxn;
+}
+/** Saldo actual (valor de mercado MXN) por plataforma */
+function currentSaldoByPlatform(){
+  const platQty=qtyByPlatformFromOps();
+  const plats=new Set(['binance','ledger', ...Object.keys(platQty)]);
+  // Incluir símbolos con saldo manual aunque no tengan ops con plataforma
+  const allSyms=new Set();
+  Object.values(platQty).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
+  Object.keys(balances||{}).forEach(s=>{ if(qtyOf(s)>0) allSyms.add(String(s).toUpperCase()); });
+
+  const out={};
+  plats.forEach(p=>{ out[p]=0; });
+
+  allSyms.forEach(sym=>{
+    const bal=qtyOf(sym);
+    if(!(bal>0)) return;
+    const totalVal=valueMxnOfQty(sym, bal);
+    if(totalVal==null) return;
+    // Repartir el valor actual según proporción de qty en cada plataforma (ops)
+    let shareSum=0;
+    const shares={};
+    plats.forEach(p=>{
+      const q=Number(platQty[p]?.[sym])||0;
+      shares[p]=q>0?q:0;
+      shareSum+=shares[p];
+    });
+    if(shareSum<=0){
+      // Sin atribución: todo a Binance por defecto
+      out.binance=(out.binance||0)+totalVal;
+      return;
+    }
+    plats.forEach(p=>{
+      if(!(shares[p]>0)) return;
+      out[p]=(out[p]||0)+ totalVal*(shares[p]/shareSum);
+    });
+  });
+  return out;
 }
 function renderPlatformBreakdown(){
   const el=document.getElementById('platformBreakdown');
   if(!el) return;
-  const map=investedByPlatform();
+  const map=currentSaldoByPlatform();
   const preferred=['binance','ledger'];
-  const rest=Object.keys(map).filter(k=>!preferred.includes(k) && Math.abs(map[k]||0)>=0.005);
+  const rest=Object.keys(map).filter(k=>!preferred.includes(k) && Math.abs(map[k]||0)>=0.5);
   const ids=[...preferred, ...rest];
   el.innerHTML=ids.map(id=>{
     const pl=platformById(id);
     const name=pl?.name || id;
     const icon=pl?.icon || '';
     const v=Number(map[id])||0;
-    return `<div class="plat-row"><span class="plat-left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${esc(name)}</span></span><span class="plat-amt">${money(v)}</span></div>`;
+    const shown=(usdtMxn>0 && Object.keys(priceMap||{}).length) ? money(v) : (v>0 ? '…' : money(0));
+    return `<div class="plat-row"><span class="plat-left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${esc(name)}</span></span><span class="plat-amt">${shown}</span></div>`;
   }).join('');
 }
 function currentValueMxn(sym){
@@ -1640,12 +1719,17 @@ function renderQtyActions(){
       rows.forEach(([sym])=>{ qtyDraft[sym]=qtyOf(sym); });
       qtyEditing=true;
       renderInvestByCoin();
-      const pane=document.getElementById('investPane1')||document.getElementById('investByQty');
-      try{ pane?.scrollIntoView({block:'start', behavior:'smooth'}); window.scrollTo({top:0, behavior:'smooth'}); }catch(_){ window.scrollTo(0,0); }
-      // Al enfocar una cripto, subirla a la vista
+      // Scroll solo dentro del panel de cantidades, no la página
+      const qtyBox=document.getElementById('investByQty');
+      if(qtyBox) qtyBox.scrollTop=0;
       document.querySelectorAll('#investByQty input.qty-input').forEach(inp=>{
         inp.addEventListener('focus',()=>{
-          try{ inp.scrollIntoView({block:'start', behavior:'smooth'}); }catch(_){}
+          try{
+            const box=document.getElementById('investByQty');
+            if(box && inp){
+              box.scrollTop=Math.max(0, inp.offsetTop - box.offsetTop - 8);
+            }
+          }catch(_){}
         }, {once:false});
       });
     });
@@ -1804,12 +1888,10 @@ function openModal(index=-1){
  updateTypeFields();
  updateQtyHaveHints();
  document.getElementById('modal').classList.add('show');
- // Al editar/abrir, subir el sheet y la página hasta arriba
+ // Al editar/abrir, subir solo el cuadro de edición (sheet), no la página
  requestAnimationFrame(()=>{
    const sheet=document.querySelector('#modal .sheet');
    if(sheet) sheet.scrollTop=0;
-   try{ window.scrollTo({top:0, behavior:'smooth'}); }catch(_){ window.scrollTo(0,0); }
-   sheet?.scrollIntoView({block:'start', behavior:'smooth'});
  });
  const t0=document.getElementById('type')?.value;
  if((t0==='Compra'||t0==='Depósito') && editIndex<0) estimateQtyFromAmountAuto(true);
@@ -1911,6 +1993,10 @@ function save(){
 }
 function clearAll(){if(data.length&&confirm('¿Borrar todo el historial?')){data=[];localStorage.removeItem(KEY);localStorage.removeItem('cripto_bitacora_v1');persistLocalOps();render();clearOpsCloud().catch(e=>console.warn('clear ops',e));}}
 document.querySelector('.add').onclick=()=>openModal();
+document.getElementById('closeModalBtn')?.addEventListener('click',()=>closeModal());
+document.getElementById('modal')?.addEventListener('click',e=>{
+  if(e.target && e.target.id==='modal') closeModal();
+});
 
 document.getElementById('history').addEventListener('click', function(e){
  const edit=e.target.closest('.editBtn');
