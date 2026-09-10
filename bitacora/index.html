@@ -776,20 +776,65 @@ function binancePair(sym){
   if(s.endsWith('USDT')||s.endsWith('USDC')) return s;
   return s+'USDT';
 }
-function binanceTradeUrl(sym){
+function binanceSymbolUnderscore(sym){
   const pair=binancePair(sym);
   if(!pair) return '';
-  // BTCUSDT -> BTC_USDT (vista trade/gráfica)
   let base=pair, quote='USDT';
   if(pair.endsWith('USDT')){ base=pair.slice(0,-4); quote='USDT'; }
   else if(pair.endsWith('USDC')){ base=pair.slice(0,-4); quote='USDC'; }
-  return `https://www.binance.com/es/trade/${encodeURIComponent(base+'_'+quote)}?type=spot`;
+  return base+'_'+quote;
+}
+function binanceTradeUrl(sym){
+  const s=binanceSymbolUnderscore(sym);
+  if(!s) return '';
+  return `https://www.binance.com/es/trade/${encodeURIComponent(s)}?type=spot`;
+}
+function binanceAppUrl(sym){
+  const s=binanceSymbolUnderscore(sym);
+  if(!s) return '';
+  // Deep link nativo de Binance (gráfica/trade spot)
+  return `bnc://app.binance.com/trade/trade?at=spot&symbol=${encodeURIComponent(s)}`;
+}
+function launchExternal(url){
+  // Evita window.open del PWA (suele abrir “navegador interno”)
+  const a=document.createElement('a');
+  a.href=url;
+  a.target='_blank';
+  a.rel='noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 function openBinanceChart(sym){
-  const url=binanceTradeUrl(sym);
-  if(!url) return;
-  // En móvil, Binance suele abrir la app con este enlace de trade/gráfica
-  window.open(url,'_blank','noopener,noreferrer');
+  const web=binanceTradeUrl(sym);
+  const app=binanceAppUrl(sym);
+  if(!web && !app) return;
+  const ua=navigator.userAgent||'';
+  const isAndroid=/Android/i.test(ua);
+  const isIOS=/iPhone|iPad|iPod/i.test(ua);
+  if(isAndroid && app){
+    // Intent: abre la app si existe; si no, cae al trade web
+    const intent=`intent://app.binance.com/trade/trade?at=spot&symbol=${encodeURIComponent(binanceSymbolUnderscore(sym))}#Intent;scheme=bnc;package=com.binance.dev;S.browser_fallback_url=${encodeURIComponent(web)};end`;
+    window.location.href=intent;
+    return;
+  }
+  if(isIOS && app){
+    const start=Date.now();
+    const onHide=()=>document.removeEventListener('visibilitychange', onHide);
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.visibilityState==='hidden') onHide();
+    });
+    window.location.href=app;
+    setTimeout(()=>{
+      // Si seguimos en la PWA, la app no abrió → web (Safari/sistema)
+      if(document.visibilityState==='visible' && Date.now()-start>500){
+        launchExternal(web);
+      }
+    }, 900);
+    return;
+  }
+  // Escritorio u otros
+  launchExternal(web||app);
 }
 function moneyUsd(n){
   const v=Number(n);
