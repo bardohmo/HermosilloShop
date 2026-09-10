@@ -66,6 +66,8 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .coin-row .danger{background:#8e211b}
 .coin-form{display:grid;grid-template-columns:1fr 1fr;gap:8px}.coin-form .full{grid-column:1/-1}
 .coin-form input{padding:10px;font-size:12px}.coin-help{font-size:10px;color:#7f8a98;margin-top:8px;line-height:1.45}
+.coin-line{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+.coin-line .coin-display{font-size:13px;font-weight:800;color:#e8eef6}
 .coin-display{display:inline-flex;align-items:center;gap:6px}.coin-display img{width:20px;height:20px;border-radius:50%;object-fit:contain;vertical-align:middle;background:#0d1824;padding:2px;flex:0 0 auto}.type-icon{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;margin-right:5px;border-radius:7px;background:rgba(245,184,63,.10);border:1px solid rgba(245,184,63,.22);font-size:15px;line-height:1;vertical-align:-5px}.type-icon.buy{background:rgba(84,224,160,.10);border-color:rgba(84,224,160,.24)}.type-icon.sell{background:rgba(255,92,92,.10);border-color:rgba(255,92,92,.24)}.type-icon.transfer{background:rgba(80,170,255,.10);border-color:rgba(80,170,255,.24)}.type-icon.convert{background:rgba(170,110,255,.10);border-color:rgba(170,110,255,.24)}
 @media(max-width:420px){.wrap{padding-left:11px;padding-right:11px}h1{font-size:19px}.card{padding:15px}.coin-form{grid-template-columns:1fr}}
 
@@ -159,13 +161,16 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
   <div class="field"><label>Tipo</label><select id="type">
    <option value="Compra">🛒 Compra</option><option value="Venta">💰 Venta</option><option value="Depósito">📥 Depósito</option><option value="Retiro">📤 Retiro</option><option value="Conversión">🔄 Conversión</option><option value="Staking">🔒 Staking</option><option value="Comisión">💸 Comisión</option>
   </select></div>
-  <div class="field" id="singleCoinField"><label>Criptomoneda</label>
-   <div class="coin-picker">
-    <div class="coin-select-wrap">
-      <img id="coinPreview" class="coin-preview" alt="">
-      <select id="coin" class="coin-select"></select>
+  <div class="field" id="singleCoinField">
+    <label>Criptomoneda</label>
+    <div class="grid" style="grid-template-columns:1fr;align-items:end;gap:10px">
+      <div class="field" style="margin:0"><label style="opacity:.8">Moneda</label>
+        <div class="coin-picker"><div class="coin-select-wrap">
+          <img id="coinPreview" class="coin-preview" alt="">
+          <select id="coin" class="coin-select"></select>
+        </div></div>
+      </div>
     </div>
-   </div>
   </div>
   <div class="field" id="convertPairField" hidden>
     <label>Conversión (de → a)</label>
@@ -184,6 +189,14 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
         </div></div>
       </div>
     </div>
+  </div>
+  <div class="field" id="platformField"><label>Plataforma</label>
+   <div class="coin-picker">
+    <div class="coin-select-wrap">
+      <img id="platformPreview" class="coin-preview" alt="">
+      <select id="platform" class="coin-select"></select>
+    </div>
+   </div>
   </div>
   <div class="field"><label>Monto en MXN</label><input id="amount" type="number" step="0.01" inputmode="decimal" placeholder="5000"></div>
   <div class="grid">
@@ -210,6 +223,25 @@ const TYPE_SYMBOLS={
 const TYPE_CLASSES={Compra:'buy',Venta:'sell',Depósito:'transfer',Retiro:'transfer',Conversión:'convert',Staking:'',Comisión:''};
 const typeSymbol=t=>TYPE_SYMBOLS[String(t||'')]||'•';
 const typeIcon=t=>`<span class="type-icon ${TYPE_CLASSES[String(t||'')]||''}">${typeSymbol(t)}</span>`;
+const PLATFORMS=[
+ {id:'binance', name:'Binance', icon:'https://www.google.com/s2/favicons?domain=binance.com&sz=128'},
+ {id:'ledger', name:'Ledger', icon:'https://www.google.com/s2/favicons?domain=ledger.com&sz=128'},
+ {id:'santander', name:'Banco Santander', icon:'https://www.google.com/s2/favicons?domain=santander.com.mx&sz=128'}
+];
+function platformById(id){return PLATFORMS.find(p=>p.id===String(id||'').toLowerCase())||PLATFORMS.find(p=>p.name.toLowerCase()===String(id||'').toLowerCase())||null;}
+function renderPlatformSelect(selected=''){
+ const sel=document.getElementById('platform'); if(!sel) return;
+ const old=selected||sel.value||'binance';
+ sel.innerHTML=PLATFORMS.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+ const found=platformById(old);
+ sel.value=found?found.id:(PLATFORMS[0]?.id||'');
+ updatePlatformPreview();
+}
+function updatePlatformPreview(){
+ const p=platformById(document.getElementById('platform')?.value);
+ const img=document.getElementById('platformPreview');
+ if(!img) return; img.src=p?.icon||''; img.style.display=p?.icon?'block':'none';
+}
 const COINS_KEY='cripto_bitacora_coins_v1';
 const DEFAULT_COINS=[
  {name:'Bitcoin',symbol:'BTC',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/btc.png'},
@@ -261,7 +293,7 @@ async function pullOpsFromCloud(){
   if (!sb) return false;
   const { data: rows, error } = await sb
     .from('bitacora_ops')
-    .select('id,user_key,type,coin,amount,note,date')
+    .select('id,user_key,type,coin,amount,note,date,platform')
     .eq('user_key', activeUser)
     .order('date', { ascending: true });
   if (error) throw error;
@@ -271,7 +303,8 @@ async function pullOpsFromCloud(){
     coin: r.coin,
     amount: Number(r.amount),
     note: r.note || '',
-    date: r.date
+    date: r.date,
+    platform: r.platform || ''
   }));
 }
 
@@ -285,6 +318,7 @@ async function pushAllOpsToCloud(list){
     amount: Number(x.amount) || 0,
     note: x.note || '',
     date: x.date,
+    platform: x.platform || '',
     updated_at: new Date().toISOString()
   }));
   if (!rows.length) return;
@@ -302,6 +336,7 @@ async function upsertOpCloud(op){
     amount: Number(op.amount) || 0,
     note: op.note || '',
     date: op.date,
+    platform: op.platform || '',
     updated_at: new Date().toISOString()
   }, { onConflict: 'id' });
   if (error) throw error;
@@ -503,10 +538,12 @@ document.querySelectorAll('.user-btn').forEach(btn=>{
 });
 
 document.getElementById('coin')?.addEventListener('change',updateCoinPreview);
+document.getElementById('platform')?.addEventListener('change',updatePlatformPreview);
 document.getElementById('coinFrom')?.addEventListener('change',updateConvertPreviews);
 document.getElementById('coinTo')?.addEventListener('change',updateConvertPreviews);
 document.getElementById('type')?.addEventListener('change',updateTypeFields);
 renderCoinSelect();
+renderPlatformSelect();
 renderCoinAdmin();
 setTimeout(() => syncFromSupabase(), 0);
 
@@ -545,6 +582,8 @@ function render(){
    const d=new Date(x.date);
    const when=isNaN(d) ? 'Fecha no disponible' :
      d.toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'});
+   const pl=platformById(x.platform);
+   const platformHtml=pl?`<span class="coin-display" style="gap:4px;margin-right:4px"><img src="${esc(pl.icon||'')}" alt="">${esc(pl.name)}</span>`:(x.platform?esc(x.platform):'');
    const pair=parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin);
    let coinHtml='';
    if(pair&&pair.from&&pair.to){
@@ -559,8 +598,9 @@ function render(){
    }
    return `<div class="item">
      <div style="display:flex;align-items:center;gap:10px;min-width:0">
-       <div style="min-width:0"><strong>${typeIcon(x.type)}${esc(x.type)} · ${coinHtml}</strong>
-       <small>${when}${x.note?' · '+esc(x.note):''}</small></div>
+       <div style="min-width:0"><strong>${typeIcon(x.type)}${esc(x.type)}</strong>
+       <div class="coin-line">${coinHtml}</div>
+       <small>${platformHtml?platformHtml+' · ':''}${when}${x.note?' · '+esc(x.note):''}</small></div>
      </div>
      <div class="amt">
        ${money(Number(x.amount))}
@@ -583,6 +623,7 @@ function openModal(index=-1){
    const x=data[index], dt=localDateTimeValue(x.date);
    document.getElementById('type').value=x.type||'Compra';
    renderCoinSelect(x.coin||'', x.coinFrom||'', x.coinTo||'');
+   renderPlatformSelect(x.platform||'binance');
    document.getElementById('amount').value=x.amount??'';
    document.getElementById('date').value=dt.date;
    document.getElementById('time').value=dt.time;
@@ -591,6 +632,7 @@ function openModal(index=-1){
    const dt=localDateTimeValue();
    document.getElementById('type').value='Compra';
    renderCoinSelect();
+   renderPlatformSelect('binance');
    document.getElementById('amount').value='';
    document.getElementById('date').value=dt.date;
    document.getElementById('time').value=dt.time;
@@ -635,8 +677,10 @@ function save(){
    if(coinFrom===coinTo){alert('La conversión debe ser entre criptos distintas.');return}
    coin=formatConvertPair(coinFrom, coinTo);
  }
+ const platform=(document.getElementById('platform')?.value||'').trim()||'binance';
  const obj={id:editIndex>=0?data[editIndex].id:(crypto.randomUUID ? crypto.randomUUID() : Date.now()+'-'+Math.random()),type,coin,
  coinFrom: coinFrom||undefined, coinTo: coinTo||undefined,
+ platform,
  amount,note:document.getElementById('note').value.trim(),date:new Date(`${date}T${time}`).toISOString()};
  if(editIndex>=0) data[editIndex]=obj; else data.push(obj);
  persistLocalOps();
