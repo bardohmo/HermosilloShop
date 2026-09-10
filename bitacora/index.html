@@ -149,6 +149,13 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .qty-auto-clock{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;font-size:12px;font-weight:800;color:#f5b83f;font-variant-numeric:tabular-nums;white-space:nowrap;padding:0 2px}
 .qty-auto-clock.paused{color:#8b97a6}
 .qty-auto-clock[hidden]{display:none !important}
+.platform-breakdown{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.plat-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);font-size:12px;font-weight:700;color:#c9d3de}
+.plat-row .plat-left{display:inline-flex;align-items:center;gap:8px;min-width:0}
+.plat-row .plat-left img{width:18px;height:18px;border-radius:5px;object-fit:contain;background:rgba(255,255,255,.08);padding:1px}
+.plat-row .plat-amt{color:#ffd96b;font-variant-numeric:tabular-nums;white-space:nowrap}
+#sbSyncStatus.toast-ok{color:#b6f5c5;border-color:rgba(80,200,120,.45)}
+
 .coin-display img[src^="data:image"],#platformPreview[src^="data:image"]{background:rgba(255,255,255,.06);border-radius:8px;padding:2px;box-sizing:border-box;object-fit:contain}
 .type-chip .type-icon{margin-right:0}
 .item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -185,6 +192,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
   <div class="card">
     <div class="label">Capital neto registrado</div>
     <div class="big" id="capital">$0.00 MXN</div>
+    <div class="platform-breakdown" id="platformBreakdown" aria-label="Desglose por plataforma"></div>
     <div class="invest-wrap" style="margin-top:15px">
       <div class="invest-swipe" id="investSwipe">
         <div class="invest-track" id="investTrack">
@@ -450,9 +458,20 @@ let sbSyncing = false;
 function toastSb(msg){
   try {
     const el = document.getElementById('sbSyncStatus');
-    if (el) { el.textContent = msg; el.hidden = !msg; }
+    if (el) { el.textContent = msg; el.hidden = !msg; el.classList.remove('toast-ok'); }
     else if (msg) console.info('[Bitácora]', msg);
   } catch (_) {}
+}
+function showToast(msg, ok=true){
+  try{
+    const el=document.getElementById('sbSyncStatus');
+    if(!el){ if(msg) console.info('[Bitácora]', msg); return; }
+    el.textContent=msg||'';
+    el.hidden=!msg;
+    el.classList.toggle('toast-ok', !!ok);
+    clearTimeout(showToast._t);
+    if(msg) showToast._t=setTimeout(()=>{ el.hidden=true; el.classList.remove('toast-ok'); }, 2400);
+  }catch(_){}
 }
 
 function persistLocalOps(){
@@ -1033,7 +1052,7 @@ function addCoin(){
    const reader=new FileReader(); reader.onload=()=>finish(String(reader.result)); reader.readAsDataURL(file);
  } else finish(iconInput);
 }
-function editCoin(i){const c=coins[i]; editingCoinIndex=i; document.getElementById('coinName').value=c.name; document.getElementById('coinSymbol').value=c.symbol; document.getElementById('coinIcon').value=c.icon||''; document.getElementById('cryptoAdminOverlay')?.classList.add('show');}
+function editCoin(i){const c=coins[i]; editingCoinIndex=i; document.getElementById('coinName').value=c.name; document.getElementById('coinSymbol').value=c.symbol; document.getElementById('coinIcon').value=c.icon||''; const ov=document.getElementById('cryptoAdminOverlay'); ov?.classList.add('show'); if(ov) ov.scrollTop=0; try{ window.scrollTo({top:0, behavior:'smooth'}); }catch(_){ window.scrollTo(0,0); }}
 function deleteCoin(i){if(coins.length<=1){alert('Debes conservar al menos una moneda.');return;} const c=coins[i]; if(!confirm(`¿Borrar ${c.name} (${c.symbol}) del catálogo?`)) return; coins.splice(i,1); saveCoins(); renderCoinSelect(); renderCoinAdmin();}
 function resetCoinForm(){editingCoinIndex=-1; document.getElementById('coinName').value=''; document.getElementById('coinSymbol').value=''; document.getElementById('coinIcon').value=''; if(document.getElementById('coinIconFile')) document.getElementById('coinIconFile').value='';}
 
@@ -1481,6 +1500,33 @@ function investedByCoin(){
      return b[1]-a[1];
    });
 }
+function investedByPlatform(){
+  const map={};
+  data.forEach(x=>{
+    const p=String(x.platform||'binance').toLowerCase();
+    const amt=Number(x.amount)||0;
+    if(!map[p]) map[p]=0;
+    if(['Compra','Depósito','Staking'].includes(x.type)) map[p]+=amt;
+    else if(['Venta','Retiro','Comisión'].includes(x.type)) map[p]-=amt;
+    // Conversión no mueve capital neto entre plataformas
+  });
+  return map;
+}
+function renderPlatformBreakdown(){
+  const el=document.getElementById('platformBreakdown');
+  if(!el) return;
+  const map=investedByPlatform();
+  const preferred=['binance','ledger'];
+  const rest=Object.keys(map).filter(k=>!preferred.includes(k) && Math.abs(map[k]||0)>=0.005);
+  const ids=[...preferred, ...rest];
+  el.innerHTML=ids.map(id=>{
+    const pl=platformById(id);
+    const name=pl?.name || id;
+    const icon=pl?.icon || '';
+    const v=Number(map[id])||0;
+    return `<div class="plat-row"><span class="plat-left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${esc(name)}</span></span><span class="plat-amt">${money(v)}</span></div>`;
+  }).join('');
+}
 function currentValueMxn(sym){
   const s=String(sym||'').toUpperCase();
   const qty=qtyOf(s);
@@ -1584,6 +1630,7 @@ function renderQtyActions(){
       persistBalancesLocal();
       qtyEditing=false; qtyDraft={};
       renderInvestByCoin();
+      showToast('Guardado exitoso', true);
     });
   } else {
     box.innerHTML=`<button type="button" id="qtyEditBtn">Editar</button>`;
@@ -1593,6 +1640,14 @@ function renderQtyActions(){
       rows.forEach(([sym])=>{ qtyDraft[sym]=qtyOf(sym); });
       qtyEditing=true;
       renderInvestByCoin();
+      const pane=document.getElementById('investPane1')||document.getElementById('investByQty');
+      try{ pane?.scrollIntoView({block:'start', behavior:'smooth'}); window.scrollTo({top:0, behavior:'smooth'}); }catch(_){ window.scrollTo(0,0); }
+      // Al enfocar una cripto, subirla a la vista
+      document.querySelectorAll('#investByQty input.qty-input').forEach(inp=>{
+        inp.addEventListener('focus',()=>{
+          try{ inp.scrollIntoView({block:'start', behavior:'smooth'}); }catch(_){}
+        }, {once:false});
+      });
     });
   }
 }
@@ -1652,6 +1707,7 @@ function render(){
    if(['Venta','Retiro','Comisión'].includes(x.type)) net -= Number(x.amount);
  });
  document.getElementById('capital').textContent=money(net);
+ renderPlatformBreakdown();
  renderInvestByCoin();
  document.getElementById('ops').textContent=data.length;
  document.getElementById('coins').textContent=new Set(data.flatMap(x=>{
@@ -1748,6 +1804,13 @@ function openModal(index=-1){
  updateTypeFields();
  updateQtyHaveHints();
  document.getElementById('modal').classList.add('show');
+ // Al editar/abrir, subir el sheet y la página hasta arriba
+ requestAnimationFrame(()=>{
+   const sheet=document.querySelector('#modal .sheet');
+   if(sheet) sheet.scrollTop=0;
+   try{ window.scrollTo({top:0, behavior:'smooth'}); }catch(_){ window.scrollTo(0,0); }
+   sheet?.scrollIntoView({block:'start', behavior:'smooth'});
+ });
  const t0=document.getElementById('type')?.value;
  if((t0==='Compra'||t0==='Depósito') && editIndex<0) estimateQtyFromAmountAuto(true);
  bindQtyFocusPause();
@@ -1841,7 +1904,9 @@ function save(){
  }
  if(editIndex>=0) data[editIndex]=obj; else data.push(obj);
  persistLocalOps();
+ const wasEdit=!!prev;
  closeModal();render();
+ showToast(wasEdit ? 'Guardado exitoso' : 'Guardado exitoso', true);
  upsertOpCloud(obj).catch(e => console.warn('op upsert', e));
 }
 function clearAll(){if(data.length&&confirm('¿Borrar todo el historial?')){data=[];localStorage.removeItem(KEY);localStorage.removeItem('cripto_bitacora_v1');persistLocalOps();render();clearOpsCloud().catch(e=>console.warn('clear ops',e));}}
