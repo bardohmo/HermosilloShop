@@ -57,7 +57,10 @@ h1{margin:0;font-size:23px;font-weight:950;letter-spacing:2px;text-transform:upp
 .invest-row .amt.pnl-down,.invest-row .chg.pnl-down{color:#f6465d}
 .invest-row .amt.pnl-flat,.invest-row .chg.pnl-flat{color:#8b97a6}
 .invest-row .amt.muted{color:#8b97a6;font-weight:700}
-.invest-cycle-hint{font-size:11px;color:#ffd96b;font-weight:800;letter-spacing:.02em;white-space:nowrap;opacity:.9;text-align:right}
+.invest-cycle-hint{font-size:11px;color:#ffd96b;font-weight:800;letter-spacing:.02em;white-space:nowrap;opacity:.9;text-align:right;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;padding:6px 8px;margin:-6px -8px;border-radius:10px}
+.invest-cycle-hint:active{cursor:grabbing;background:rgba(245,184,63,.08)}
+.invest-cycle-hint.paused{color:#c9d3de}
+.invest-cycle-hint .hint-pause{margin-left:6px;font-size:10px;font-weight:700;color:#8b97a6}
 .invest-pane0-head{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 8px}
 .invest-pane0-head .invest-cycle-hint{margin:0;width:100%;text-align:right}
 .invest-row .price-cell{display:flex;flex-direction:row;align-items:baseline;justify-content:flex-end;gap:6px;line-height:1.15;flex-wrap:nowrap}
@@ -248,7 +251,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
           <div class="invest-pane" id="investPane0">
             <div class="invest-pane-title">Inversiones</div>
             <div class="invest-pane0-head">
-              <div class="invest-cycle-hint" id="investCycleHint">Invertido en MXN</div>
+              <div class="invest-cycle-hint" id="investCycleHint" title="Desliza ← → para cambiar cara (se pausa)">Invertido en MXN</div>
             </div>
             <div class="invest-by-coin" id="investByCoin"><div class="invest-empty">Sin inversiones registradas</div></div>
           </div>
@@ -1390,6 +1393,7 @@ let qtyEditing=false;
 let qtyDraft={};
 let investCycleMode=0;
 let investCycleTimer=null;
+let investCyclePaused=false;
 let usdtMxn=0;
 function persistBalancesLocal(){ localStorage.setItem(BAL_KEY, JSON.stringify(balances||{})); }
 function setBalanceSym(sym, value){
@@ -2229,10 +2233,13 @@ function updateInvestCycleHint(){
   const el=document.getElementById('investCycleHint');
   if(!el) return;
   const labels=['Invertido en MXN','Ganancia / pérdida','Valor actual MXN aprox','Precio promedio compra'];
+  const label=labels[Number(investCycleMode)||0]||labels[0];
+  const pauseMark=investCyclePaused?' <span class="hint-pause">⏸</span>':'';
+  el.classList.toggle('paused', !!investCyclePaused);
   el.style.transition='opacity .35s ease';
   el.style.opacity='0';
   setTimeout(()=>{
-    el.textContent=labels[Number(investCycleMode)||0]||labels[0];
+    el.innerHTML=label+pauseMark;
     el.style.opacity='1';
   }, 160);
 }
@@ -2254,9 +2261,73 @@ function refreshInvestPnlFaces(){
     if(avg) avg.innerHTML=avgFaceHtml(sym);
   });
 }
+function pauseInvestCycle(){
+  investCyclePaused=true;
+  if(investCycleTimer){ clearInterval(investCycleTimer); investCycleTimer=null; }
+  updateInvestCycleHint();
+}
+function resumeInvestCycle(){
+  investCyclePaused=false;
+  updateInvestCycleHint();
+  ensureInvestCycle();
+}
+function stepInvestCycle(dir){
+  const d=dir<0?-1:1;
+  investCycleMode=(Number(investCycleMode)+d+4)%4;
+  updateInvestCycleHint();
+  applyInvestCycleMode();
+  if(investCycleMode!==0) refreshBinancePrices(false);
+}
+function bindInvestCycleSwipe(){
+  const el=document.getElementById('investCycleHint');
+  if(!el || el.dataset.swipeBound==='1') return;
+  el.dataset.swipeBound='1';
+  let x0=null, y0=null, tracking=false;
+  const thresh=36;
+  function start(x,y){ x0=x; y0=y; tracking=true; }
+  function move(x,y,e){
+    if(!tracking || x0==null) return;
+    const dx=x-x0, dy=y-y0;
+    if(Math.abs(dx)<thresh && Math.abs(dy)<thresh) return;
+    if(Math.abs(dx)<Math.abs(dy)){ tracking=false; return; }
+    if(e && e.cancelable) e.preventDefault();
+    tracking=false;
+    pauseInvestCycle();
+    stepInvestCycle(dx<0?1:-1); // left = next, right = prev
+  }
+  function end(){ tracking=false; x0=null; y0=null; }
+  el.addEventListener('touchstart', ev=>{
+    if(ev.touches.length!==1) return;
+    start(ev.touches[0].clientX, ev.touches[0].clientY);
+  }, {passive:true});
+  el.addEventListener('touchmove', ev=>{
+    if(ev.touches.length!==1) return;
+    move(ev.touches[0].clientX, ev.touches[0].clientY, ev);
+  }, {passive:false});
+  el.addEventListener('touchend', end, {passive:true});
+  el.addEventListener('touchcancel', end, {passive:true});
+  el.addEventListener('pointerdown', ev=>{
+    if(ev.pointerType==='touch') return;
+    if(ev.button!==0) return;
+    start(ev.clientX, ev.clientY);
+    el.setPointerCapture?.(ev.pointerId);
+  });
+  el.addEventListener('pointermove', ev=>{
+    if(ev.pointerType==='touch') return;
+    move(ev.clientX, ev.clientY, ev);
+  });
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  el.addEventListener('click', ()=>{
+    if(investCyclePaused) resumeInvestCycle();
+  });
+}
 function ensureInvestCycle(){
+  bindInvestCycleSwipe();
+  if(investCyclePaused) return;
   if(investCycleTimer) return;
   investCycleTimer=setInterval(()=>{
+    if(investCyclePaused) return;
     investCycleMode=(Number(investCycleMode)+1)%4;
     updateInvestCycleHint();
     applyInvestCycleMode();
