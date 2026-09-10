@@ -1724,52 +1724,101 @@ function investedMxnByPlatformCoin(){
   });
   return map;
 }
-/** Reparto de un activo entre plataformas: qty de ops, o si falta → MXN invertido */
-function platformSharesForSymbol(sym){
+function hasQtyOpsOnPlatform(plat, sym){
+  const p=String(plat||'binance').toLowerCase();
+  const s=String(sym||'').toUpperCase();
+  return (data||[]).some(op=>{
+    if(String(op.platform||'binance').toLowerCase()!==p) return false;
+    const type=op.type||'';
+    if(type==='Conversión'){
+      const pair=parseConvertPair(op.coinFrom||op.coinTo?{coinFrom:op.coinFrom,coinTo:op.coinTo}:op.coin);
+      const from=(op.coinFrom||pair?.from||'').toUpperCase();
+      const to=(op.coinTo||pair?.to||'').toUpperCase();
+      const qFrom=Number(op.qty)||0, qTo=Number(op.qtyTo)||0;
+      return (from===s && qFrom>0) || (to===s && qTo>0);
+    }
+    if(String(op.coin||'').toUpperCase()!==s) return false;
+    if(!(Number(op.qty)>0)) return false;
+    return ['Compra','Depósito','Staking','Venta','Retiro','Comisión'].includes(type);
+  });
+}
+/**
+ * Cantidad real por plataforma para un activo:
+ * - Plataformas con ops que sí tienen qty → usan esa qty
+ * - El resto del balance global se reparte por MXN invertido entre las que no tienen qty
+ * (evita mandar todo a Binance cuando Ledger no guardó cantidad)
+ */
+function qtyHeldByPlatformForSymbol(sym){
   const s=String(sym||'').toUpperCase();
   const qtyMap=qtyByPlatformFromOps();
   const mxnMap=investedMxnByPlatformCoin();
-  const plats=new Set(['binance','ledger', ...Object.keys(qtyMap), ...Object.keys(mxnMap)]);
-  const shares={};
-  let sum=0;
+  const plats=new Set(['binance','ledger', ...Object.keys(qtyMap||{}), ...Object.keys(mxnMap||{})]);
+  const out={};
+  plats.forEach(p=>{ out[p]=0; });
+  const bal=Math.max(0, qtyOf(s));
+  const qtyPlats=[];
+  const mxnPlats=[];
   plats.forEach(p=>{
-    const q=Number(qtyMap[p]?.[s])||0;
-    if(q>0){ shares[p]=q; sum+=q; }
+    if(hasQtyOpsOnPlatform(p, s)) qtyPlats.push(p);
+    else if((Number(mxnMap[p]?.[s])||0)>0) mxnPlats.push(p);
   });
-  if(sum>0) return {shares, sum, mode:'qty'};
-  sum=0;
-  Object.keys(shares).forEach(k=>delete shares[k]);
-  plats.forEach(p=>{
-    const a=Number(mxnMap[p]?.[s])||0;
-    if(a>0){ shares[p]=a; sum+=a; }
+  let used=0;
+  qtyPlats.forEach(p=>{
+    out[p]=Math.max(0, Number(qtyMap[p]?.[s])||0);
+    used+=out[p];
   });
-  if(sum>0) return {shares, sum, mode:'mxn'};
-  return {shares:{}, sum:0, mode:'none'};
+  if(used>bal && used>0){
+    const scale=bal/used;
+    qtyPlats.forEach(p=>{ out[p]*=scale; });
+    used=bal;
+  }
+  const rem=Math.max(0, bal-used);
+  if(rem>0 && mxnPlats.length){
+    let mxnSum=0;
+    mxnPlats.forEach(p=>{ mxnSum+=Math.max(0, Number(mxnMap[p]?.[s])||0); });
+    if(mxnSum>0){
+      mxnPlats.forEach(p=>{
+        out[p]=rem*(Math.max(0, Number(mxnMap[p]?.[s])||0)/mxnSum);
+      });
+    }
+  } else if(rem>0 && !qtyPlats.length && mxnPlats.length===0){
+    // Sin info de plataforma: no asignar
+  } else if(rem>0 && !qtyPlats.length && mxnPlats.length){
+    // already handled
+  } else if(bal>0 && !qtyPlats.length && mxnPlats.length===0){
+    // ops sin plataforma útil
+  }
+  // Caso solo MXN (nadie con qty): repartir TODO el balance por MXN
+  if(!qtyPlats.length && mxnPlats.length && bal>0){
+    let mxnSum=0;
+    mxnPlats.forEach(p=>{ mxnSum+=Math.max(0, Number(mxnMap[p]?.[s])||0); });
+    if(mxnSum>0){
+      mxnPlats.forEach(p=>{
+        out[p]=bal*(Math.max(0, Number(mxnMap[p]?.[s])||0)/mxnSum);
+      });
+    }
+  }
+  return out;
 }
-/** Saldo actual (valor de mercado MXN) por plataforma */
 function currentSaldoByPlatform(){
   const qtyMap=qtyByPlatformFromOps();
   const mxnMap=investedMxnByPlatformCoin();
-  const plats=new Set(['binance','ledger', ...Object.keys(qtyMap), ...Object.keys(mxnMap)]);
+  const plats=new Set(['binance','ledger', ...Object.keys(qtyMap||{}), ...Object.keys(mxnMap||{})]);
   const allSyms=new Set();
-  Object.values(qtyMap).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
-  Object.values(mxnMap).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
+  Object.values(qtyMap||{}).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
+  Object.values(mxnMap||{}).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
   Object.keys(balances||{}).forEach(s=>{ if(qtyOf(s)>0) allSyms.add(String(s).toUpperCase()); });
-
   const out={};
   plats.forEach(p=>{ out[p]=0; });
-
   allSyms.forEach(sym=>{
-    const bal=qtyOf(sym);
-    if(!(bal>0)) return;
-    const totalVal=valueMxnOfQty(sym, bal);
-    if(totalVal==null) return;
-    const {shares, sum}=platformSharesForSymbol(sym);
-    if(!(sum>0)) return; // no adivinar → Binance
-    plats.forEach(p=>{
-      const sh=Number(shares[p])||0;
-      if(!(sh>0)) return;
-      out[p]=(out[p]||0)+ totalVal*(sh/sum);
+    if(!(qtyOf(sym)>0)) return;
+    const held=qtyHeldByPlatformForSymbol(sym);
+    Object.keys(held).forEach(p=>{
+      const q=Number(held[p])||0;
+      if(!(q>0)) return;
+      const v=valueMxnOfQty(sym, q);
+      if(v==null) return;
+      out[p]=(out[p]||0)+v;
     });
   });
   return out;
@@ -1779,18 +1828,14 @@ function assetsOnPlatform(platId){
   const qtyMap=qtyByPlatformFromOps();
   const mxnMap=investedMxnByPlatformCoin();
   const allSyms=new Set();
-  Object.values(qtyMap).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
-  Object.values(mxnMap).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
+  Object.values(qtyMap||{}).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
+  Object.values(mxnMap||{}).forEach(m=>Object.keys(m||{}).forEach(s=>allSyms.add(s)));
   Object.keys(balances||{}).forEach(s=>{ if(qtyOf(s)>0) allSyms.add(String(s).toUpperCase()); });
   const rows=[];
   allSyms.forEach(sym=>{
-    const bal=qtyOf(sym);
-    if(!(bal>0)) return;
-    const {shares, sum}=platformSharesForSymbol(sym);
-    if(!(sum>0)) return;
-    const sh=Number(shares[plat])||0;
-    if(!(sh>0)) return;
-    const qtyPlat=bal*(sh/sum);
+    if(!(qtyOf(sym)>0)) return;
+    const held=qtyHeldByPlatformForSymbol(sym);
+    const qtyPlat=Number(held[plat])||0;
     if(!(qtyPlat>0.0000001)) return;
     const mxn=valueMxnOfQty(sym, qtyPlat);
     rows.push({
