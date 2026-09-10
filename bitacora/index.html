@@ -61,11 +61,12 @@ h1{margin:0;font-size:23px;font-weight:950;letter-spacing:2px;text-transform:upp
 .invest-pane0-head{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 8px}
 .invest-pane0-head .invest-cycle-hint{margin:0;width:100%;text-align:right}
 .invest-row .price-cell{display:flex;flex-direction:row;align-items:baseline;justify-content:flex-end;gap:6px;line-height:1.15;flex-wrap:nowrap}
-.invest-val{position:relative;min-width:140px;height:34px;flex:0 0 auto;display:block}
+.invest-val{position:relative;min-width:158px;height:34px;flex:0 0 auto;display:block}
 .invest-val .face{position:absolute;inset:0;display:flex;flex-direction:row;align-items:center;justify-content:flex-end;gap:6px;opacity:0;transform:translateY(4px);transition:opacity .55s ease,transform .55s ease;pointer-events:none;white-space:nowrap}
 .invest-val.mode-0 .face-inv,.invest-val:not([class*="mode-"]) .face-inv{opacity:1;transform:translateY(0)}
 .invest-val.mode-1 .face-pnl{opacity:1;transform:translateY(0)}
 .invest-val.mode-2 .face-val{opacity:1;transform:translateY(0)}
+.invest-val.mode-3 .face-avg{opacity:1;transform:translateY(0)}
 .invest-row .chg{font-size:11px;font-weight:800;white-space:nowrap}
 .invest-row .chg.up{color:#0ecb81}
 .invest-row .chg.down{color:#f6465d}
@@ -204,6 +205,14 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .crypto-panel{width:min(720px,100%);max-height:92vh;overflow:auto;scroll-behavior:smooth;background:#0a1119;border:1px solid #263544;border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
 .crypto-panel h2{margin:0 0 14px}.crypto-panel .coin-form{display:grid;grid-template-columns:1fr 1fr;gap:9px}.crypto-panel .coin-form .full{grid-column:1/-1}
 .crypto-panel input{width:100%;padding:12px;border-radius:10px;border:1px solid #334454;background:#101a24;color:#fff}
+
+.file-pick{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:10px 12px;border-radius:12px;border:1px solid rgba(245,184,63,.28);background:linear-gradient(145deg,rgba(16,25,35,.95),rgba(8,14,22,.98));cursor:pointer;user-select:none}
+.file-pick:hover{border-color:rgba(245,184,63,.55);background:rgba(245,184,63,.08)}
+.file-pick-ico{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:rgba(245,184,63,.14);border:1px solid rgba(245,184,63,.3);font-size:16px;flex-shrink:0}
+.file-pick-txt{display:flex;flex-direction:column;min-width:0;flex:1}
+.file-pick-txt strong{color:#ffd96b;font-size:12px;font-weight:800}
+.file-pick-txt small{color:#8b97a6;font-size:10px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-pick input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;z-index:-1}
 .crypto-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.crypto-actions button{border:0;border-radius:10px;padding:10px 12px;font-weight:800;cursor:pointer}
 .crypto-list{display:grid;gap:8px;margin-top:12px}.crypto-row{display:flex;align-items:center;gap:10px;padding:9px;border:1px solid #263544;border-radius:12px;background:#0d151e}.crypto-row img{width:36px;height:36px;object-fit:contain;border-radius:50%}.crypto-info{min-width:0;flex:1}.crypto-info b,.crypto-info small{display:block}.crypto-info small{color:#8d99a8}.crypto-row button{border:0;border-radius:8px;padding:8px 9px;background:#29333e;color:#fff;font-size:11px;font-weight:800}.crypto-row .danger{background:#a92822}.coin-preview{width:36px;height:36px;object-fit:contain;border-radius:50%;background:#17212c;padding:3px;display:none}.coin-select-wrap{display:flex;align-items:center;gap:9px}.coin-select{flex:1}
 @media(max-width:560px){.crypto-panel .coin-form{grid-template-columns:1fr}.crypto-panel .coin-form .full{grid-column:auto}.crypto-row button{padding:7px}.crypto-overlay{padding:10px}}
@@ -290,7 +299,14 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
    <input id="coinName" placeholder="Nombre (ej. Bitcoin)">
    <input id="coinSymbol" placeholder="Símbolo (ej. BTC)" maxlength="12">
    <input id="coinIcon" class="full" placeholder="URL del icono o emoji, ej. 🟠">
-   <input id="coinIconFile" class="full" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+   <label class="file-pick full" for="coinIconFile">
+     <span class="file-pick-ico">🖼</span>
+     <span class="file-pick-txt">
+       <strong>Seleccionar archivo</strong>
+       <small id="coinIconFileName">PNG, JPG, WEBP o SVG</small>
+     </span>
+     <input id="coinIconFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+   </label>
   </div>
   <div class="crypto-actions">
    <button type="button" onclick="addCoin()">＋ AGREGAR / GUARDAR</button>
@@ -1211,9 +1227,17 @@ function addCoin(){
  if(duplicate>=0){alert('Ese símbolo ya existe. Usa EDITAR para modificarlo.');return;}
  const finish=(icon)=>{
    const obj={name,symbol,icon:icon||'🪙'};
-   const wasEdit=editingCoinIndex>=0;
-   if(wasEdit) coins[editingCoinIndex]=obj; else coins.push(obj);
-   saveCoins(); resetCoinForm(); renderCoinSelect(symbol); renderCoinAdmin();
+   if(editingCoinIndex>=0) coins[editingCoinIndex]=obj;
+   else {
+     coins.push(obj);
+     editingCoinIndex=coins.findIndex(c=>c.symbol.toUpperCase()===symbol);
+   }
+   saveCoins();
+   // Quedarse en la cripto guardada (no limpiar formulario)
+   document.getElementById('coinName').value=obj.name;
+   document.getElementById('coinSymbol').value=obj.symbol;
+   document.getElementById('coinIcon').value=obj.icon||'';
+   renderCoinSelect(symbol); renderCoinAdmin();
    setTimeout(()=>showToast('Guardo Exitosamente!', true), 30);
  };
  if(file){
@@ -1245,7 +1269,7 @@ function editCoin(i){
   requestAnimationFrame(()=>setTimeout(scrollUp, 30));
 }
 function deleteCoin(i){if(coins.length<=1){alert('Debes conservar al menos una moneda.');return;} const c=coins[i]; if(!confirm(`¿Borrar ${c.name} (${c.symbol}) del catálogo?`)) return; coins.splice(i,1); saveCoins(); renderCoinSelect(); renderCoinAdmin();}
-function resetCoinForm(){editingCoinIndex=-1; document.getElementById('coinName').value=''; document.getElementById('coinSymbol').value=''; document.getElementById('coinIcon').value=''; if(document.getElementById('coinIconFile')) document.getElementById('coinIconFile').value='';}
+function resetCoinForm(){editingCoinIndex=-1; document.getElementById('coinName').value=''; document.getElementById('coinSymbol').value=''; document.getElementById('coinIcon').value=''; if(document.getElementById('coinIconFile')) document.getElementById('coinIconFile').value=''; const lab=document.getElementById('coinIconFileName'); if(lab) lab.textContent='PNG, JPG, WEBP o SVG';}
 
 
 
@@ -2030,7 +2054,9 @@ function openCoinInvestMini(sym){
   const ops=investedOpsForCoin(s);
   const total=ops.reduce((a,r)=>a+Number(r.delta||0),0);
   if(totalEl){
-    totalEl.innerHTML='Invertido neto ≈ <strong>'+money(total)+'</strong><br><span style="font-weight:600;color:#8b97a6">Suma de compras/depósitos/staking − ventas/retiros/comisiones ± conversiones</span>';
+    const avg=avgBuyPriceMxn(s);
+    const avgLine=avg!=null?('<br><span style="font-weight:700;color:#ffd96b">Precio promedio ≈ '+money(avg)+' / '+esc(s)+'</span>'):'';
+    totalEl.innerHTML='Invertido neto ≈ <strong>'+money(total)+'</strong>'+avgLine+'<br><span style="font-weight:600;color:#8b97a6">Suma de compras/depósitos/staking − ventas/retiros/comisiones ± conversiones</span>';
   }
   if(list){
     if(!ops.length){
@@ -2165,6 +2191,30 @@ function valorFaceHtml(sym){
   }
   return `<span class="amt">${money(val)}</span>`;
 }
+/** Precio promedio de compra MXN/unidad = invertido / cantidad */
+function avgBuyPriceMxn(sym){
+  const s=String(sym||'').toUpperCase();
+  const q=qtyOf(s);
+  if(!(q>0)) return null;
+  const rows=investedByCoin();
+  const hit=rows.find(([k])=>k===s);
+  const invested=hit?Number(hit[1])||0:0;
+  if(!(invested>0.005)) return null;
+  return invested/q;
+}
+function avgFaceHtml(sym){
+  const avg=avgBuyPriceMxn(sym);
+  const q=qtyOf(sym);
+  if(avg==null){
+    return `<span class="amt muted">${q>0?'Sin invertido':'Sin cant.'}</span>`;
+  }
+  const usd=(usdtMxn>0)?(avg/usdtMxn):null;
+  const usdTxt=(usd!=null && Number.isFinite(usd))
+    ? (usd>=1?usd.toLocaleString('en-US',{maximumFractionDigits:2}):usd.toLocaleString('en-US',{maximumFractionDigits:6}))
+    : null;
+  return `<span class="amt">${money(avg)}<span style="color:#8b97a6;font-weight:700;font-size:10px"> /u</span></span>`
+    +(usdTxt?`<span class="chg flat">≈ $${usdTxt}</span>`:'');
+}
 function investModeClass(){
   const m=Number(investCycleMode)||0;
   return ' mode-'+m;
@@ -2173,12 +2223,12 @@ function renderInvestRowMxn([sym, amt]){
    const cc=coinBySymbol(sym);
    const icon=cc?.icon?iconValue(cc.icon):'';
    const name=cc?.name?`${esc(sym)} · ${esc(cc.name)}`:esc(sym);
-   return `<button type="button" class="invest-row" data-invest-sym="${esc(sym)}" title="Ver desglose de inversión"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="invest-val${investModeClass()}" data-sym="${esc(sym)}" data-amt="${Number(amt)||0}"><span class="face face-inv"><span class="amt">${money(amt)}</span></span><span class="face face-pnl price-cell">${pnlFaceHtml(sym, amt)}</span><span class="face face-val">${valorFaceHtml(sym)}</span></span></button>`;
+   return `<button type="button" class="invest-row" data-invest-sym="${esc(sym)}" title="Ver desglose de inversión"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="invest-val${investModeClass()}" data-sym="${esc(sym)}" data-amt="${Number(amt)||0}"><span class="face face-inv"><span class="amt">${money(amt)}</span></span><span class="face face-pnl price-cell">${pnlFaceHtml(sym, amt)}</span><span class="face face-val">${valorFaceHtml(sym)}</span><span class="face face-avg">${avgFaceHtml(sym)}</span></span></button>`;
 }
 function updateInvestCycleHint(){
   const el=document.getElementById('investCycleHint');
   if(!el) return;
-  const labels=['Invertido en MXN','Ganancia / pérdida','Valor actual MXN aprox'];
+  const labels=['Invertido en MXN','Ganancia / pérdida','Valor actual MXN aprox','Precio promedio compra'];
   el.style.transition='opacity .35s ease';
   el.style.opacity='0';
   setTimeout(()=>{
@@ -2188,7 +2238,7 @@ function updateInvestCycleHint(){
 }
 function applyInvestCycleMode(){
   document.querySelectorAll('#investByCoin .invest-val').forEach(el=>{
-    el.classList.remove('mode-0','mode-1','mode-2','show-pnl');
+    el.classList.remove('mode-0','mode-1','mode-2','mode-3','show-pnl');
     el.classList.add('mode-'+(Number(investCycleMode)||0));
   });
 }
@@ -2198,14 +2248,16 @@ function refreshInvestPnlFaces(){
     const amt=Number(el.dataset.amt)||0;
     const pnl=el.querySelector('.face-pnl');
     const val=el.querySelector('.face-val');
+    const avg=el.querySelector('.face-avg');
     if(pnl) pnl.innerHTML=pnlFaceHtml(sym, amt);
     if(val) val.innerHTML=valorFaceHtml(sym);
+    if(avg) avg.innerHTML=avgFaceHtml(sym);
   });
 }
 function ensureInvestCycle(){
   if(investCycleTimer) return;
   investCycleTimer=setInterval(()=>{
-    investCycleMode=(Number(investCycleMode)+1)%3;
+    investCycleMode=(Number(investCycleMode)+1)%4;
     updateInvestCycleHint();
     applyInvestCycleMode();
     if(investCycleMode!==0) refreshBinancePrices(false);
@@ -2576,6 +2628,12 @@ if('serviceWorker' in navigator && (location.protocol==='https:' || location.hos
 // Administrador visible.
 document.getElementById('cryptoAdminBtn')?.addEventListener('click',()=>document.getElementById('cryptoAdminOverlay')?.classList.add('show'));
 document.getElementById('closeCryptoAdmin')?.addEventListener('click',()=>document.getElementById('cryptoAdminOverlay')?.classList.remove('show'));
+document.getElementById('coinIconFile')?.addEventListener('change',e=>{
+  const f=e.target.files&&e.target.files[0];
+  const lab=document.getElementById('coinIconFileName');
+  if(lab) lab.textContent=f?f.name:'PNG, JPG, WEBP o SVG';
+});
+
 document.getElementById('cryptoAdminOverlay')?.addEventListener('click',e=>{if(e.target.id==='cryptoAdminOverlay')e.currentTarget.classList.remove('show');});
 render();
 </script>
