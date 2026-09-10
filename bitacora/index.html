@@ -782,22 +782,22 @@ function binanceSymbolUnderscore(sym){
   let base=pair, quote='USDT';
   if(pair.endsWith('USDT')){ base=pair.slice(0,-4); quote='USDT'; }
   else if(pair.endsWith('USDC')){ base=pair.slice(0,-4); quote='USDC'; }
+  else { quote='USDT'; }
+  // Siempre par ACTIVO/USDT (o USDC si ya venía así)
   return base+'_'+quote;
 }
 function binanceTradeUrl(sym){
   const s=binanceSymbolUnderscore(sym);
   if(!s) return '';
-  // Chart web (fallback si no abre la app)
-  return `https://www.binance.com/es/chart/${encodeURIComponent(s)}`;
+  // Par en la RUTA → Binance abre ese ACTIVO/USDT (no el último par visto)
+  return `https://www.binance.com/es/trade/${s}?type=spot`;
 }
-function binanceAppUrl(sym){
+function binanceChartUrl(sym){
   const s=binanceSymbolUnderscore(sym);
   if(!s) return '';
-  // Ruta estable en la app: trade spot (incluye gráfica). Evita /markets/tradingview (rompe en varias versiones).
-  return `bnc://app.binance.com/trade/trade?at=spot&symbol=${encodeURIComponent(s)}`;
+  return `https://www.binance.com/es/chart/${s}`;
 }
 function launchExternal(url){
-  // Evita window.open del PWA (suele abrir “navegador interno”)
   const a=document.createElement('a');
   a.href=url;
   a.target='_blank';
@@ -807,36 +807,33 @@ function launchExternal(url){
   a.remove();
 }
 function openBinanceChart(sym){
-  const web=binanceTradeUrl(sym);
-  const app=binanceAppUrl(sym);
-  if(!web && !app) return;
+  const s=binanceSymbolUnderscore(sym);
+  if(!s) return;
+  // HTTPS con el par en path (App Link). Más fiable que bnc://?symbol=… (a menudo ignora el símbolo → BNB/BTC).
+  const tradeHttps=`https://www.binance.com/es/trade/${s}?type=spot`;
+  const chartHttps=`https://www.binance.com/es/chart/${s}`;
   const ua=navigator.userAgent||'';
   const isAndroid=/Android/i.test(ua);
   const isIOS=/iPhone|iPad|iPod/i.test(ua);
-  if(isAndroid && app){
-    const s=binanceSymbolUnderscore(sym);
-    // Intent a trade spot (gráfica del par); fallback web /chart
-    const intent=`intent://app.binance.com/trade/trade?at=spot&symbol=${encodeURIComponent(s)}#Intent;scheme=bnc;package=com.binance.dev;S.browser_fallback_url=${encodeURIComponent(web)};end`;
+
+  if(isAndroid){
+    // Intent https → app Binance con el par exacto en la ruta
+    const intent=`intent://www.binance.com/trade/${s}#Intent;scheme=https;package=com.binance.dev;S.browser_fallback_url=${encodeURIComponent(chartHttps)};end`;
     window.location.href=intent;
     return;
   }
-  if(isIOS && app){
+  if(isIOS){
+    // Universal link con par en path; si no abre app, cae a chart web
     const start=Date.now();
-    const onHide=()=>document.removeEventListener('visibilitychange', onHide);
-    document.addEventListener('visibilitychange', ()=>{
-      if(document.visibilityState==='hidden') onHide();
-    });
-    window.location.href=app;
+    window.location.href=tradeHttps;
     setTimeout(()=>{
-      // Si seguimos en la PWA, la app no abrió → web (Safari/sistema)
       if(document.visibilityState==='visible' && Date.now()-start>500){
-        launchExternal(web);
+        launchExternal(chartHttps);
       }
     }, 900);
     return;
   }
-  // Escritorio u otros
-  launchExternal(web||app);
+  launchExternal(chartHttps);
 }
 function moneyUsd(n){
   const v=Number(n);
