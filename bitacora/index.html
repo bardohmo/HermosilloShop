@@ -30,13 +30,22 @@ h1{margin:0;font-size:23px;font-weight:950;letter-spacing:2px;text-transform:upp
 .label{font-size:11px;color:#9ca8b6;letter-spacing:1px;text-transform:uppercase}
 .big{font-size:30px;font-weight:950;margin-top:5px}
 .profit{font-size:16px;font-weight:850;color:var(--green);margin-top:5px}
-.invest-by-coin{display:grid;gap:4px;margin-top:6px}
+.invest-swipe{margin-top:6px;overflow:hidden;touch-action:pan-y;border-radius:12px}
+.invest-track{display:flex;width:200%;transition:transform .28s ease;will-change:transform}
+.invest-track.page1{transform:translateX(-50%)}
+.invest-pane{width:50%;padding:0 1px;box-sizing:border-box}
+.invest-pane-hint{font-size:10px;color:#8b97a6;font-weight:700;margin:0 0 5px;letter-spacing:.02em}
+.invest-by-coin{display:grid;gap:4px}
 .invest-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border-radius:10px;background:rgba(2,7,13,.68);border:1px solid rgba(245,184,63,.12)}
 .invest-row .left{display:inline-flex;align-items:center;gap:6px;min-width:0;font-weight:750;font-size:12px}
 .invest-row .left img{width:16px;height:16px;border-radius:50%;object-fit:contain;background:#0d1824;padding:1px;flex:0 0 auto}
 .invest-row .amt{font-weight:800;color:#ffd96b;white-space:nowrap;font-size:12px}
+.invest-row input.qty-input{width:110px;max-width:42%;border:1px solid rgba(245,184,63,.28);border-radius:8px;padding:5px 8px;background:#0b1420;color:#e8eef6;font-weight:800;font-size:12px;text-align:right}
 .invest-empty{padding:8px;text-align:center;color:var(--muted);font-size:11px}
 .invest-more{margin-top:2px;width:100%;border:1px solid rgba(245,184,63,.28);border-radius:10px;padding:7px 10px;background:rgba(16,25,35,.95);color:#ffd96b;font-weight:800;font-size:11px;cursor:pointer}
+.invest-dots{display:flex;justify-content:center;gap:6px;margin-top:8px}
+.invest-dots span{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.18)}
+.invest-dots span.on{background:#ffd96b}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .mini{padding:13px;border-radius:13px;background:rgba(2,7,13,.68);border:1px solid rgba(245,184,63,.15)}
 .mini b{display:block;font-size:17px;margin-top:4px}
@@ -133,8 +142,20 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
   <div class="card">
     <div class="label">Capital neto registrado</div>
     <div class="big" id="capital">$0.00 MXN</div>
-    <div class="label" style="margin-top:15px">Invertido por cripto</div>
-    <div class="invest-by-coin" id="investByCoin"><div class="invest-empty">Sin inversiones registradas</div></div>
+    <div class="label" style="margin-top:15px">Activos <span style="opacity:.65;font-weight:700;font-size:11px">(desliza ← cantidad)</span></div>
+    <div class="invest-swipe" id="investSwipe">
+      <div class="invest-track" id="investTrack">
+        <div class="invest-pane">
+          <div class="invest-pane-hint">INVERTIDO (MXN)</div>
+          <div class="invest-by-coin" id="investByCoin"><div class="invest-empty">Sin inversiones registradas</div></div>
+        </div>
+        <div class="invest-pane">
+          <div class="invest-pane-hint">CANTIDAD (EDITABLE)</div>
+          <div class="invest-by-coin" id="investByQty"><div class="invest-empty">Sin inversiones registradas</div></div>
+        </div>
+      </div>
+      <div class="invest-dots" id="investDots"><span class="on"></span><span></span></div>
+    </div>
     <div class="grid">
       <div class="mini"><span class="label">Operaciones</span><b id="ops">0</b></div>
       <div class="mini"><span class="label">Monedas</span><b id="coins">0</b></div>
@@ -233,7 +254,11 @@ const USER_KEYS={bardo:'cripto_bitacora_bardo_v1',liz:'cripto_bitacora_liz_v1'};
 const USER_LABELS={bardo:'CRIPTO BARDO',liz:'CRIPTO LIZ'};
 let activeUser=localStorage.getItem('bita_active_user')||'bardo';
 let KEY=USER_KEYS[activeUser];
+const BAL_KEYS={bardo:'cripto_bitacora_bal_bardo_v1',liz:'cripto_bitacora_bal_liz_v1'};
+let BAL_KEY=BAL_KEYS[activeUser];
+let balances=JSON.parse(localStorage.getItem(BAL_KEY)||'{}');
 let data=JSON.parse(localStorage.getItem(KEY)||'[]');
+let investPage=0;
 let editIndex=-1;
 const money=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(n);
 const TYPE_SYMBOLS={
@@ -439,6 +464,21 @@ async function syncFromSupabase(){
       await pushCoinsToCloud(coins);
     }
 
+    try {
+      const cloudBal = await pullBalancesFromCloud();
+      const localBal = JSON.parse(localStorage.getItem(BAL_KEY) || '{}');
+      if (cloudBal && Object.keys(cloudBal).length) {
+        balances = cloudBal;
+        persistBalancesLocal();
+      } else if (localBal && Object.keys(localBal).length) {
+        balances = localBal;
+        await pushAllBalancesToCloud(localBal);
+      } else {
+        balances = {};
+        persistBalancesLocal();
+      }
+    } catch (e) { console.warn('balances sync', e); }
+
     sbReady = true;
     toastSb('Respaldo en la nube activo');
     setTimeout(() => toastSb(''), 2500);
@@ -552,8 +592,12 @@ function switchUser(user){
   activeUser=user;
   localStorage.setItem('bita_active_user', activeUser);
   KEY=USER_KEYS[activeUser];
+  BAL_KEY=BAL_KEYS[activeUser];
   data=JSON.parse(localStorage.getItem(KEY)||'[]');
+  balances=JSON.parse(localStorage.getItem(BAL_KEY)||'{}');
   editIndex=-1;
+  investExpanded=false;
+  setInvestPage(0);
 
   document.querySelectorAll('.user-btn').forEach(btn=>{
     const on=btn.dataset.user===activeUser;
@@ -592,6 +636,85 @@ function localDateTimeValue(iso){
          time:`${pad(d.getHours())}:${pad(d.getMinutes())}`};
 }
 let investExpanded=false;
+function persistBalancesLocal(){ localStorage.setItem(BAL_KEY, JSON.stringify(balances||{})); }
+function qtyOf(sym){
+  const k=String(sym||'').toUpperCase();
+  const v=Number(balances[k]);
+  return Number.isFinite(v)?v:0;
+}
+function formatQty(n){
+  const v=Number(n)||0;
+  if(Math.abs(v)>=1000) return v.toLocaleString('es-MX',{maximumFractionDigits:4});
+  if(Math.abs(v)>=1) return v.toLocaleString('es-MX',{maximumFractionDigits:6});
+  return v.toLocaleString('es-MX',{maximumFractionDigits:10});
+}
+async function upsertBalanceCloud(sym, qty){
+  if(!sb) return;
+  const { error } = await sb.from('bitacora_balances').upsert({
+    user_key: activeUser,
+    symbol: String(sym||'').toUpperCase(),
+    qty: Number(qty)||0,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'user_key,symbol' });
+  if(error) console.warn('balance upsert', error);
+}
+async function pullBalancesFromCloud(){
+  if(!sb) return null;
+  const { data: rows, error } = await sb
+    .from('bitacora_balances')
+    .select('symbol,qty')
+    .eq('user_key', activeUser);
+  if(error) throw error;
+  if(!rows) return null;
+  const map={};
+  rows.forEach(r=>{ map[String(r.symbol||'').toUpperCase()]=Number(r.qty)||0; });
+  return map;
+}
+async function pushAllBalancesToCloud(map){
+  if(!sb) return;
+  const rows=Object.entries(map||{}).map(([symbol,qty])=>({
+    user_key: activeUser,
+    symbol: String(symbol).toUpperCase(),
+    qty: Number(qty)||0,
+    updated_at: new Date().toISOString()
+  }));
+  if(!rows.length) return;
+  const { error } = await sb.from('bitacora_balances').upsert(rows, { onConflict: 'user_key,symbol' });
+  if(error) throw error;
+}
+function setInvestPage(page){
+  investPage=page?1:0;
+  document.getElementById('investTrack')?.classList.toggle('page1', investPage===1);
+  const dots=document.querySelectorAll('#investDots span');
+  dots.forEach((d,i)=>d.classList.toggle('on', i===investPage));
+}
+function wireInvestSwipe(){
+  const el=document.getElementById('investSwipe'); if(!el||el.dataset.wired) return;
+  el.dataset.wired='1';
+  let x0=0,y0=0,locked=false,horiz=false;
+  el.addEventListener('touchstart',e=>{
+    const t=e.changedTouches[0]; x0=t.clientX; y0=t.clientY; locked=true; horiz=false;
+  },{passive:true});
+  el.addEventListener('touchmove',e=>{
+    if(!locked) return;
+    const t=e.changedTouches[0];
+    const dx=t.clientX-x0, dy=t.clientY-y0;
+    if(!horiz && Math.abs(dx)>10 && Math.abs(dx)>Math.abs(dy)) horiz=true;
+  },{passive:true});
+  el.addEventListener('touchend',e=>{
+    if(!locked) return; locked=false;
+    const t=e.changedTouches[0];
+    const dx=t.clientX-x0;
+    if(Math.abs(dx)<40) return;
+    if(dx<0) setInvestPage(1);
+    else setInvestPage(0);
+  },{passive:true});
+  document.getElementById('investDots')?.addEventListener('click',e=>{
+    const spans=[...document.querySelectorAll('#investDots span')];
+    const i=spans.indexOf(e.target);
+    if(i>=0) setInvestPage(i);
+  });
+}
 function investedByCoin(){
  const map={};
  const add=(sym, delta)=>{
@@ -615,33 +738,60 @@ function investedByCoin(){
    .filter(([,v])=>v>0.005)
    .sort((a,b)=>b[1]-a[1]);
 }
-function renderInvestRow([sym, amt]){
+function renderInvestRowMxn([sym, amt]){
    const cc=coinBySymbol(sym);
    const icon=cc?.icon?iconValue(cc.icon):'';
    const name=cc?.name?`${esc(sym)} · ${esc(cc.name)}`:esc(sym);
    return `<div class="invest-row"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="amt">${money(amt)}</span></div>`;
 }
+function renderInvestRowQty([sym]){
+   const cc=coinBySymbol(sym);
+   const icon=cc?.icon?iconValue(cc.icon):'';
+   const name=cc?.name?`${esc(sym)} · ${esc(cc.name)}`:esc(sym);
+   const q=qtyOf(sym);
+   return `<div class="invest-row"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><input class="qty-input" type="number" inputmode="decimal" step="any" data-sym="${esc(sym)}" value="${q}"></div>`;
+}
 function renderInvestByCoin(){
  const box=document.getElementById('investByCoin'); if(!box) return;
+ const qtyBox=document.getElementById('investByQty');
  const rows=investedByCoin();
- if(!rows.length){
-   box.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
-   return;
- }
  const limit=10;
  const visible=investExpanded?rows:rows.slice(0,limit);
  const hidden=Math.max(0, rows.length-limit);
- let html=visible.map(renderInvestRow).join('');
+ if(!rows.length){
+   box.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
+   if(qtyBox) qtyBox.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
+   return;
+ }
+ let html=visible.map(renderInvestRowMxn).join('');
+ let qhtml=visible.map(renderInvestRowQty).join('');
  if(hidden>0){
-   html+=investExpanded
+   const btn=investExpanded
      ?`<button type="button" class="invest-more" id="investToggleMore">Ver menos</button>`
      :`<button type="button" class="invest-more" id="investToggleMore">Ver ${hidden} más</button>`;
+   const btn2=investExpanded
+     ?`<button type="button" class="invest-more" id="investToggleMoreQty">Ver menos</button>`
+     :`<button type="button" class="invest-more" id="investToggleMoreQty">Ver ${hidden} más</button>`;
+   html+=btn; qhtml+=btn2;
  }
  box.innerHTML=html;
- document.getElementById('investToggleMore')?.addEventListener('click',()=>{
-   investExpanded=!investExpanded;
-   renderInvestByCoin();
+ if(qtyBox) qtyBox.innerHTML=qhtml;
+ const toggle=()=>{ investExpanded=!investExpanded; renderInvestByCoin(); };
+ document.getElementById('investToggleMore')?.addEventListener('click',toggle);
+ document.getElementById('investToggleMoreQty')?.addEventListener('click',toggle);
+ qtyBox?.querySelectorAll('input.qty-input').forEach(inp=>{
+   const commit=()=>{
+     const sym=String(inp.dataset.sym||'').toUpperCase();
+     const val=Number(inp.value);
+     balances[sym]=Number.isFinite(val)?val:0;
+     persistBalancesLocal();
+     upsertBalanceCloud(sym, balances[sym]);
+   };
+   inp.addEventListener('change',commit);
+   inp.addEventListener('blur',commit);
  });
+ wireInvestSwipe();
+ setInvestPage(investPage);
 }
 function render(){
  let net=0;
