@@ -787,12 +787,18 @@ function binanceSymbolUnderscore(sym){
 function binanceTradeUrl(sym){
   const s=binanceSymbolUnderscore(sym);
   if(!s) return '';
-  return `https://www.binance.com/es/trade/${encodeURIComponent(s)}?type=spot`;
+  // Página de gráfica (no solo el panel de trade)
+  return `https://www.binance.com/es/chart/${encodeURIComponent(s)}`;
 }
 function binanceAppUrl(sym){
   const s=binanceSymbolUnderscore(sym);
   if(!s) return '';
-  // Deep link nativo de Binance (gráfica/trade spot)
+  // TradingView / gráfica dentro de la app Binance
+  return `bnc://app.binance.com/markets/tradingview?symbol=${encodeURIComponent(s)}`;
+}
+function binanceAppTradeFallback(sym){
+  const s=binanceSymbolUnderscore(sym);
+  if(!s) return '';
   return `bnc://app.binance.com/trade/trade?at=spot&symbol=${encodeURIComponent(s)}`;
 }
 function launchExternal(url){
@@ -813,8 +819,9 @@ function openBinanceChart(sym){
   const isAndroid=/Android/i.test(ua);
   const isIOS=/iPhone|iPad|iPod/i.test(ua);
   if(isAndroid && app){
-    // Intent: abre la app si existe; si no, cae al trade web
-    const intent=`intent://app.binance.com/trade/trade?at=spot&symbol=${encodeURIComponent(binanceSymbolUnderscore(sym))}#Intent;scheme=bnc;package=com.binance.dev;S.browser_fallback_url=${encodeURIComponent(web)};end`;
+    const s=binanceSymbolUnderscore(sym);
+    // Intent directo a gráfica TradingView; si no, cae a chart web
+    const intent=`intent://app.binance.com/markets/tradingview?symbol=${encodeURIComponent(s)}#Intent;scheme=bnc;package=com.binance.dev;S.browser_fallback_url=${encodeURIComponent(web)};end`;
     window.location.href=intent;
     return;
   }
@@ -874,7 +881,7 @@ function renderInvestRowPrice([sym]){
     }
   }
   const canOpen=!!binanceTradeUrl(sym);
-  const tip=canOpen?'Ver gráfica en Binance':'';
+  const tip=canOpen?'Abrir gráfica en Binance':'';
   return `<div class="invest-row${canOpen?' price-link':''}" data-open-sym="${esc(sym)}" title="${esc(tip)}"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="price-cell"><span class="amt">${priceLabel}</span>${chgHtml}</span></div>`;
 }
 async function refreshBinancePrices(force){
