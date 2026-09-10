@@ -44,7 +44,11 @@ h1{margin:0;font-size:23px;font-weight:950;letter-spacing:2px;text-transform:upp
 .invest-edit-actions button.primary{background:linear-gradient(135deg,#e8a72d,#ffd96b);color:#11161b;border-color:transparent}
 .invest-edit-actions button.ghost{background:#29333e;color:#fff;border-color:transparent}
 .invest-by-coin{display:grid;gap:4px}
-.invest-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border-radius:10px;background:rgba(2,7,13,.68);border:1px solid rgba(245,184,63,.12)}
+.invest-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border-radius:10px;background:rgba(2,7,13,.68);border:1px solid rgba(245,184,63,.12);cursor:pointer;width:100%;font:inherit;color:inherit;text-align:left}
+.invest-row:hover,.invest-row:focus{border-color:rgba(245,184,63,.4);background:rgba(245,184,63,.08);outline:none}
+.invest-delta-pos{color:#8dffa8;font-weight:800}
+.invest-delta-neg{color:#ff8d8d;font-weight:800}
+.invest-op-meta{font-size:11px;color:#8b97a6;font-weight:700}
 .invest-row .left{display:inline-flex;align-items:center;gap:6px;min-width:0;font-weight:750;font-size:12px}
 .invest-row .left img{width:16px;height:16px;border-radius:50%;object-fit:contain;background:#0d1824;padding:1px;flex:0 0 auto}
 .invest-row{min-height:42px;box-sizing:border-box}
@@ -1859,6 +1863,77 @@ function assetsOnPlatform(platId){
   rows.sort((a,b)=>(b.mxn||0)-(a.mxn||0));
   return rows;
 }
+function investedOpsForCoin(sym){
+  const s=String(sym||'').toUpperCase();
+  const rows=[];
+  (data||[]).forEach(x=>{
+    const amt=Number(x.amount)||0;
+    let delta=0;
+    let detail='';
+    if(x.type==='Conversión'){
+      const pair=parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin);
+      const from=(pair?.from||'').toUpperCase();
+      const to=(pair?.to||'').toUpperCase();
+      if(from===s){ delta=-amt; detail='Conversión a '+(to||'?'); }
+      else if(to===s){ delta=+amt; detail='Conversión desde '+(from||'?'); }
+      else return;
+    } else {
+      const coin=String(x.coin||'').toUpperCase();
+      if(coin!==s) return;
+      if(['Compra','Depósito','Staking'].includes(x.type)){ delta=+amt; detail=x.type; }
+      else if(['Venta','Retiro','Comisión'].includes(x.type)){ delta=-amt; detail=x.type; }
+      else return;
+    }
+    const pl=platformById(x.platform);
+    rows.push({
+      id:x.id,
+      detail,
+      delta,
+      amount:amt,
+      platform: pl?.name || x.platform || '',
+      date:x.date,
+      note:x.note||''
+    });
+  });
+  // más recientes primero
+  rows.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  return rows;
+}
+function openCoinInvestMini(sym){
+  const s=String(sym||'').toUpperCase();
+  const mini=document.getElementById('platMini');
+  if(!mini) return;
+  const cc=coinBySymbol(s);
+  const icon=document.getElementById('platMiniIcon');
+  const name=document.getElementById('platMiniName');
+  const totalEl=document.getElementById('platMiniTotal');
+  const list=document.getElementById('platMiniList');
+  if(icon){
+    const src=iconValue(cc?.icon||'');
+    icon.src=src||'';
+    icon.style.display=src?'inline-block':'none';
+  }
+  if(name) name.textContent=(cc?.name?cc.name+' · ':'')+s+' (invertido)';
+  const ops=investedOpsForCoin(s);
+  const total=ops.reduce((a,r)=>a+Number(r.delta||0),0);
+  if(totalEl){
+    totalEl.innerHTML='Invertido neto ≈ <strong>'+money(total)+'</strong><br><span style="font-weight:600;color:#8b97a6">Suma de compras/depósitos/staking − ventas/retiros/comisiones ± conversiones</span>';
+  }
+  if(list){
+    if(!ops.length){
+      list.innerHTML='<div class="plat-mini-empty">Sin movimientos para este activo</div>';
+    } else {
+      list.innerHTML=ops.map(r=>{
+        const when=r.date?new Date(r.date).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'}):'';
+        const cls=r.delta>=0?'invest-delta-pos':'invest-delta-neg';
+        const sign=r.delta>=0?'+':'';
+        return `<div class="plat-asset-row"><span class="plat-asset-left"><span class="plat-asset-meta"><span class="sym">${esc(r.detail)}${r.platform?' · '+esc(r.platform):''}</span><span class="qty invest-op-meta">${esc(when)}${r.note?' · '+esc(r.note):''}</span></span></span><span class="${cls}">${sign}${money(Math.abs(r.delta))}</span></div>`;
+      }).join('');
+    }
+  }
+  mini.classList.add('show');
+  mini.setAttribute('aria-hidden','false');
+}
 function closePlatMini(){
   const el=document.getElementById('platMini');
   if(!el) return;
@@ -1909,6 +1984,14 @@ function renderPlatformBreakdown(){
   }).join('');
   el.querySelectorAll('.plat-row[data-plat]').forEach(btn=>{
     btn.addEventListener('click',()=>openPlatMini(btn.dataset.plat));
+  });
+}
+function bindInvestRowBreakdown(){
+  document.querySelectorAll('#investByCoin .invest-row[data-invest-sym]').forEach(btn=>{
+    btn.onclick=e=>{
+      e.preventDefault();
+      openCoinInvestMini(btn.getAttribute('data-invest-sym'));
+    };
   });
 }
 function bindPlatMiniOnce(){
@@ -1972,7 +2055,7 @@ function renderInvestRowMxn([sym, amt]){
    const cc=coinBySymbol(sym);
    const icon=cc?.icon?iconValue(cc.icon):'';
    const name=cc?.name?`${esc(sym)} · ${esc(cc.name)}`:esc(sym);
-   return `<div class="invest-row"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="invest-val${investModeClass()}" data-sym="${esc(sym)}" data-amt="${Number(amt)||0}"><span class="face face-inv"><span class="amt">${money(amt)}</span></span><span class="face face-pnl price-cell">${pnlFaceHtml(sym, amt)}</span><span class="face face-val">${valorFaceHtml(sym)}</span></span></div>`;
+   return `<button type="button" class="invest-row" data-invest-sym="${esc(sym)}" title="Ver desglose de inversión"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="invest-val${investModeClass()}" data-sym="${esc(sym)}" data-amt="${Number(amt)||0}"><span class="face face-inv"><span class="amt">${money(amt)}</span></span><span class="face face-pnl price-cell">${pnlFaceHtml(sym, amt)}</span><span class="face face-val">${valorFaceHtml(sym)}</span></span></button>`;
 }
 function updateInvestCycleHint(){
   const el=document.getElementById('investCycleHint');
@@ -2109,6 +2192,7 @@ function renderInvestByCoin(){
  }
  wireInvestSwipe();
  setInvestPage(investPage);
+ bindInvestRowBreakdown();
  updateInvestCycleHint();
  ensureInvestCycle();
  refreshBinancePrices(false);
