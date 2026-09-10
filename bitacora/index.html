@@ -1729,7 +1729,7 @@ function renderInvestPricesOnly(){
     priceBox.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
     return;
   }
-  const limit=10;
+  const limit=6;
   const visible=investExpanded?rows:rows.slice(0,limit);
   const hidden=Math.max(0, rows.length-limit);
   let html=visible.map(renderInvestRowPrice).join('');
@@ -2271,7 +2271,7 @@ function renderInvestByCoin(){
  const box=document.getElementById('investByCoin'); if(!box) return;
  const qtyBox=document.getElementById('investByQty');
  const rows=investedByCoin();
- const limit=10;
+ const limit=6;
  const visible=investExpanded?rows:rows.slice(0,limit);
  const hidden=Math.max(0, rows.length-limit);
  renderQtyActions();
