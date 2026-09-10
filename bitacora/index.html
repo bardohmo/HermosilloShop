@@ -88,7 +88,7 @@ button:active{transform:translateY(1px)}
 .item:last-child{border-bottom:0}.item strong{font-size:14px;font-weight:850}.item small{display:block;color:#8793a1;font-size:10px;margin-top:3px}.amt{text-align:right;font-weight:900}
 .modal{position:fixed;inset:0;display:none;align-items:flex-end;justify-content:center;padding:12px;background:rgba(0,0,0,.80);backdrop-filter:blur(8px)}
 .modal.show{display:flex}
-.sheet{width:min(620px,100%);padding:20px;border-radius:22px;border:1px solid rgba(245,184,63,.30);background:linear-gradient(145deg,rgba(9,18,30,.98),rgba(3,8,14,.99));box-shadow:0 -12px 48px rgba(0,0,0,.56)}
+.sheet{width:min(620px,100%);max-height:min(92vh,920px);overflow:auto;-webkit-overflow-scrolling:touch;padding:18px;border-radius:22px;border:1px solid rgba(245,184,63,.30);background:linear-gradient(145deg,rgba(9,18,30,.98),rgba(3,8,14,.99));box-shadow:0 -12px 48px rgba(0,0,0,.56)}
 .sheet h2{margin:0 0 15px}.field{margin:10px 0}.field label{display:block;margin-bottom:5px;color:#9da8b5;font-size:11px;text-transform:uppercase;letter-spacing:.7px}
 input,select{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(245,184,63,.18);background:#050b13;color:#fff;font-size:14px;outline:none}
 input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px rgba(245,184,63,.08)}
@@ -139,9 +139,13 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 #pwaInstallBtn.show{display:block}
 #cryptoAdminBtn{flex:0 0 auto;border:1px solid rgba(245,184,63,.42);border-radius:14px;padding:10px 14px;background:linear-gradient(180deg,rgba(245,184,63,.14),rgba(16,25,35,.95));color:#ffd96b;font-weight:800;font-size:12px;letter-spacing:.02em;cursor:pointer;white-space:nowrap}
 #cryptoAdminBtn:active{transform:scale(.98)}
-.type-row{display:flex;flex-wrap:wrap;gap:8px}
-.type-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:9px 11px;background:rgba(5,12,21,.84);color:#e8eef6;font-weight:800;font-size:12px;cursor:pointer}
+.type-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+@media (min-width:480px){.type-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.type-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.10);border-radius:11px;padding:8px 9px;background:rgba(5,12,21,.84);color:#e8eef6;font-weight:800;font-size:11px;cursor:pointer;min-width:0;width:100%;box-sizing:border-box}
 .type-chip.active{border-color:rgba(245,184,63,.55);background:rgba(245,184,63,.12);color:#ffd96b}
+.type-chip .type-icon{width:20px;height:20px;font-size:13px;flex-shrink:0}
+.qty-auto-clock{display:inline-flex;align-items:center;gap:4px;margin-left:8px;font-size:11px;font-weight:800;color:#f5b83f;font-variant-numeric:tabular-nums;white-space:nowrap}
+.qty-auto-clock.paused{color:#8b97a6}
 .type-chip .type-icon{margin-right:0}
 .item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .item-head strong{display:inline-flex;align-items:center;min-width:0}
@@ -301,7 +305,8 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
   <div class="field" id="qtyField"><label>Cantidad a recibir</label>
     <input id="qty" type="number" step="any" inputmode="decimal" placeholder="Se calcula con el monto">
     <span class="qty-have" id="qtyHaveHint"></span>
-    <small style="display:block;margin-top:6px;color:#8b97a6;font-size:11px">En Compra/Depósito se calcula con tu monto MXN y el precio de Binance (cada 5s). Puedes corregirla a mano.</small>
+    <span class="qty-auto-clock" id="qtyAutoClock" aria-live="polite"></span>
+    <small style="display:block;margin-top:6px;color:#8b97a6;font-size:11px">En Compra/Depósito se calcula con tu monto MXN y el precio de Binance. Si editas la cantidad, se pausa hasta que salgas del campo.</small>
   </div>
   <div class="field" id="qtyConvertField" hidden>
     <label>Cantidades de la conversión</label>
@@ -644,8 +649,38 @@ function updateQtyHaveHints(){
   }
 }
 let qtyAutoTimer=null;
+let qtyCountdownTimer=null;
+let qtyNextUpdateAt=0;
+const QTY_AUTO_MS=5000;
+
+function isQtyFieldFocused(){
+  return document.activeElement && document.activeElement.id==='qty';
+}
+
+function updateQtyAutoClock(){
+  const el=document.getElementById('qtyAutoClock');
+  if(!el) return;
+  const type=document.getElementById('type')?.value;
+  if(type!=='Compra' && type!=='Depósito'){
+    el.textContent='';
+    el.classList.remove('paused');
+    return;
+  }
+  if(isQtyFieldFocused()){
+    el.textContent='⏱ pausado';
+    el.classList.add('paused');
+    return;
+  }
+  el.classList.remove('paused');
+  const left=Math.max(0, Math.ceil((qtyNextUpdateAt - Date.now()) / 1000));
+  el.textContent='⏱ '+left+'s';
+}
+
 function stopQtyAutoTimer(){
   if(qtyAutoTimer){ clearInterval(qtyAutoTimer); qtyAutoTimer=null; }
+  if(qtyCountdownTimer){ clearInterval(qtyCountdownTimer); qtyCountdownTimer=null; }
+  const el=document.getElementById('qtyAutoClock');
+  if(el){ el.textContent=''; el.classList.remove('paused'); }
 }
 async function fetchBinancePriceFresh(pair){
   if(!pair) return null;
@@ -667,17 +702,43 @@ async function fetchUsdtMxnFresh(){
 }
 function startQtyAutoTimer(){
   stopQtyAutoTimer();
-  // Primera actualización al abrir, luego cada 5s con precio fresco
   const tick=()=>{
     const modal=document.getElementById('modal');
     if(!modal || !modal.classList.contains('show')){ stopQtyAutoTimer(); return; }
     const type=document.getElementById('type')?.value;
+    if(type!=='Compra' && type!=='Depósito'){
+      updateQtyAutoClock();
+      return;
+    }
+    if(isQtyFieldFocused()){
+      updateQtyAutoClock();
+      return;
+    }
+    estimateQtyFromAmountAuto(true);
+    qtyNextUpdateAt=Date.now()+QTY_AUTO_MS;
+    updateQtyAutoClock();
+  };
+  qtyNextUpdateAt=Date.now()+QTY_AUTO_MS;
+  tick();
+  qtyAutoTimer=setInterval(tick, QTY_AUTO_MS);
+  qtyCountdownTimer=setInterval(updateQtyAutoClock, 250);
+  updateQtyAutoClock();
+}
+
+function bindQtyFocusPause(){
+  const qtyEl=document.getElementById('qty');
+  if(!qtyEl || qtyEl.dataset.pauseBound==='1') return;
+  qtyEl.dataset.pauseBound='1';
+  qtyEl.addEventListener('focus', ()=>{ updateQtyAutoClock(); });
+  qtyEl.addEventListener('blur', ()=>{
+    updateQtyAutoClock();
+    const type=document.getElementById('type')?.value;
     if(type==='Compra' || type==='Depósito'){
       estimateQtyFromAmountAuto(true);
+      qtyNextUpdateAt=Date.now()+QTY_AUTO_MS;
+      updateQtyAutoClock();
     }
-  };
-  tick();
-  qtyAutoTimer=setInterval(tick, 5000);
+  });
 }
 async function estimateQtyFromAmountAuto(force){
   const type=document.getElementById('type')?.value;
@@ -1610,6 +1671,7 @@ function openModal(index=-1){
  document.getElementById('modal').classList.add('show');
  const t0=document.getElementById('type')?.value;
  if(t0==='Compra'||t0==='Depósito') estimateQtyFromAmountAuto(true);
+ bindQtyFocusPause();
  startQtyAutoTimer();
 }
 function editActivityById(id){
