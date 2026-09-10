@@ -783,21 +783,18 @@ function binanceSymbolUnderscore(sym){
   if(pair.endsWith('USDT')){ base=pair.slice(0,-4); quote='USDT'; }
   else if(pair.endsWith('USDC')){ base=pair.slice(0,-4); quote='USDC'; }
   else { quote='USDT'; }
-  // Siempre par ACTIVO/USDT (o USDC si ya venía así)
   return base+'_'+quote;
 }
 function binanceTradeUrl(sym){
   const s=binanceSymbolUnderscore(sym);
   if(!s) return '';
-  // Par en la RUTA → Binance abre ese ACTIVO/USDT (no el último par visto)
   return `https://www.binance.com/es/trade/${s}?type=spot`;
 }
-function binanceChartUrl(sym){
-  const s=binanceSymbolUnderscore(sym);
-  if(!s) return '';
-  return `https://www.binance.com/es/chart/${s}`;
-}
-function launchExternal(url){
+function openBinanceChart(sym){
+  const url=binanceTradeUrl(sym);
+  if(!url) return;
+  // Solo HTTPS con el par en la ruta (ETH_USDT, BTC_USDT…).
+  // Los esquemas bnc:// e intent:// disparan "Este enlace no funciona" en varias versiones.
   const a=document.createElement('a');
   a.href=url;
   a.target='_blank';
@@ -805,35 +802,6 @@ function launchExternal(url){
   document.body.appendChild(a);
   a.click();
   a.remove();
-}
-function openBinanceChart(sym){
-  const s=binanceSymbolUnderscore(sym);
-  if(!s) return;
-  // HTTPS con el par en path (App Link). Más fiable que bnc://?symbol=… (a menudo ignora el símbolo → BNB/BTC).
-  const tradeHttps=`https://www.binance.com/es/trade/${s}?type=spot`;
-  const chartHttps=`https://www.binance.com/es/chart/${s}`;
-  const ua=navigator.userAgent||'';
-  const isAndroid=/Android/i.test(ua);
-  const isIOS=/iPhone|iPad|iPod/i.test(ua);
-
-  if(isAndroid){
-    // Intent https → app Binance con el par exacto en la ruta
-    const intent=`intent://www.binance.com/trade/${s}#Intent;scheme=https;package=com.binance.dev;S.browser_fallback_url=${encodeURIComponent(chartHttps)};end`;
-    window.location.href=intent;
-    return;
-  }
-  if(isIOS){
-    // Universal link con par en path; si no abre app, cae a chart web
-    const start=Date.now();
-    window.location.href=tradeHttps;
-    setTimeout(()=>{
-      if(document.visibilityState==='visible' && Date.now()-start>500){
-        launchExternal(chartHttps);
-      }
-    }, 900);
-    return;
-  }
-  launchExternal(chartHttps);
 }
 function moneyUsd(n){
   const v=Number(n);
