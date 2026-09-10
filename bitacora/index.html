@@ -48,6 +48,11 @@ h1{margin:0;font-size:23px;font-weight:950;letter-spacing:2px;text-transform:upp
 .invest-row .left{display:inline-flex;align-items:center;gap:6px;min-width:0;font-weight:750;font-size:12px}
 .invest-row .left img{width:16px;height:16px;border-radius:50%;object-fit:contain;background:#0d1824;padding:1px;flex:0 0 auto}
 .invest-row .amt{font-weight:800;color:#ffd96b;white-space:nowrap;font-size:12px}
+.invest-row .price-cell{display:flex;flex-direction:column;align-items:flex-end;gap:2px;line-height:1.15}
+.invest-row .chg{font-size:11px;font-weight:800;white-space:nowrap}
+.invest-row .chg.up{color:#0ecb81}
+.invest-row .chg.down{color:#f6465d}
+.invest-row .chg.flat{color:#8b97a6}
 .invest-row .qty-locked{font-weight:800;color:#c9d4e0;white-space:nowrap;font-size:12px;padding:5px 8px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);min-width:72px;text-align:right;pointer-events:none;user-select:none}
 .invest-row input.qty-input{width:110px;max-width:42%;border:1px solid rgba(245,184,63,.45);border-radius:8px;padding:5px 8px;background:#0b1420;color:#e8eef6;font-weight:800;font-size:12px;text-align:right}
 .invest-empty{padding:8px;text-align:center;color:var(--muted);font-size:11px}
@@ -758,6 +763,7 @@ function wireInvestSwipe(){
   document.getElementById('priceRefreshBtn')?.addEventListener('click',()=>refreshBinancePrices(true));
 }
 let priceMap={};
+let changeMap={};
 let priceFetchedAt=0;
 let priceLoading=false;
 const STABLES=new Set(['USDT','USDC','BUSD','FDUSD','TUSD','DAI','USD']);
@@ -775,28 +781,42 @@ function moneyUsd(n){
   if(v>=1) return '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4});
   return '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:8});
 }
+function formatChgPct(n){
+  const v=Number(n);
+  if(!Number.isFinite(v)) return '';
+  const sign=v>0?'+':'';
+  return sign+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';
+}
 function renderInvestRowPrice([sym]){
   const cc=coinBySymbol(sym);
   const icon=cc?.icon?iconValue(cc.icon):'';
   const name=cc?.name?`${esc(sym)} · ${esc(cc.name)}`:esc(sym);
   const pair=binancePair(sym);
-  let label='—';
-  if(STABLES.has(String(sym||'').toUpperCase())) label='$1.00';
-  else if(!pair) label='—';
-  else if(priceLoading && priceMap[pair]==null) label='…';
-  else if(priceMap[pair]==null) label='N/D';
-  else label=moneyUsd(priceMap[pair]);
-  return `<div class="invest-row"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="amt">${label}</span></div>`;
+  let priceLabel='—';
+  let chgHtml='';
+  if(STABLES.has(String(sym||'').toUpperCase())){
+    priceLabel='$1.00';
+    chgHtml=`<span class="chg flat">0.00%</span>`;
+  } else if(!pair){
+    priceLabel='—';
+  } else if(priceLoading && priceMap[pair]==null){
+    priceLabel='…';
+  } else if(priceMap[pair]==null){
+    priceLabel='N/D';
+  } else {
+    priceLabel=moneyUsd(priceMap[pair]);
+    const chg=Number(changeMap[pair]);
+    if(Number.isFinite(chg)){
+      const cls=chg>0?'up':(chg<0?'down':'flat');
+      chgHtml=`<span class="chg ${cls}">${esc(formatChgPct(chg))}</span>`;
+    }
+  }
+  return `<div class="invest-row"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="price-cell"><span class="amt">${priceLabel}</span>${chgHtml}</span></div>`;
 }
 async function refreshBinancePrices(force){
   const rows=investedByCoin();
   const pairs=[...new Set(rows.map(([s])=>binancePair(s)).filter(Boolean))];
-  const box=document.getElementById('investByPrice');
   if(!pairs.length){
-    if(box){
-      const limit=10; const visible=investExpanded?rows:rows.slice(0,limit);
-      // still render rows if any
-    }
     renderInvestPricesOnly();
     return;
   }
@@ -808,29 +828,35 @@ async function refreshBinancePrices(force){
   priceLoading=true;
   renderInvestPricesOnly();
   try{
-    // Binance public market data (CORS-friendly mirror)
-    const url='https://data-api.binance.vision/api/v3/ticker/price';
+    // 24h ticker: lastPrice + priceChangePercent (CORS OK)
+    const url='https://data-api.binance.vision/api/v3/ticker/24hr';
     const res=await fetch(url,{cache:'no-store'});
     if(!res.ok) throw new Error('HTTP '+res.status);
     const all=await res.json();
     const want=new Set(pairs);
     (all||[]).forEach(row=>{
       const sym=String(row.symbol||'');
-      if(want.has(sym)) priceMap[sym]=Number(row.price);
+      if(!want.has(sym)) return;
+      const px=Number(row.lastPrice!=null?row.lastPrice:row.price);
+      if(Number.isFinite(px)) priceMap[sym]=px;
+      const chg=Number(row.priceChangePercent);
+      if(Number.isFinite(chg)) changeMap[sym]=chg;
     });
     priceFetchedAt=Date.now();
   }catch(e){
-    console.warn('Binance prices', e);
-    // fallback per-symbol
+    console.warn('Binance 24hr', e);
     for(const pair of pairs){
-      if(priceMap[pair]!=null && !force) continue;
       try{
-        const r=await fetch('https://data-api.binance.vision/api/v3/ticker/price?symbol='+encodeURIComponent(pair),{cache:'no-store'});
+        const r=await fetch('https://data-api.binance.vision/api/v3/ticker/24hr?symbol='+encodeURIComponent(pair),{cache:'no-store'});
         if(!r.ok) continue;
         const j=await r.json();
-        if(j && j.price!=null) priceMap[pair]=Number(j.price);
+        const px=Number(j.lastPrice!=null?j.lastPrice:j.price);
+        if(Number.isFinite(px)) priceMap[pair]=px;
+        const chg=Number(j.priceChangePercent);
+        if(Number.isFinite(chg)) changeMap[pair]=chg;
       }catch(_){}
     }
+    priceFetchedAt=Date.now();
   }finally{
     priceLoading=false;
     renderInvestPricesOnly();
