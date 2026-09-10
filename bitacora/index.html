@@ -31,9 +31,10 @@ h1{margin:0;font-size:23px;font-weight:950;letter-spacing:2px;text-transform:upp
 .big{font-size:30px;font-weight:950;margin-top:5px}
 .profit{font-size:16px;font-weight:850;color:var(--green);margin-top:5px}
 .invest-swipe{overflow:hidden;touch-action:pan-y;border-radius:12px}
-.invest-track{display:flex;align-items:flex-start;width:200%;transition:transform .28s ease;will-change:transform}
-.invest-track.page1{transform:translateX(-50%)}
-.invest-pane{width:50%;padding:0 1px;box-sizing:border-box}
+.invest-track{display:flex;align-items:flex-start;width:300%;transition:transform .28s ease;will-change:transform}
+.invest-track.page1{transform:translateX(-33.333333%)}
+.invest-track.page2{transform:translateX(-66.666666%)}
+.invest-pane{width:33.333333%;padding:0 1px;box-sizing:border-box;flex:0 0 33.333333%}
 .invest-pane-title{font-size:16px;font-weight:900;color:#ffd96b;letter-spacing:.04em;margin:0 0 8px}
 .invest-pane-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px}
 .invest-pane-head .invest-pane-title{margin:0}
@@ -50,9 +51,9 @@ h1{margin:0;font-size:23px;font-weight:950;letter-spacing:2px;text-transform:upp
 .invest-row input.qty-input{width:110px;max-width:42%;border:1px solid rgba(245,184,63,.45);border-radius:8px;padding:5px 8px;background:#0b1420;color:#e8eef6;font-weight:800;font-size:12px;text-align:right}
 .invest-empty{padding:8px;text-align:center;color:var(--muted);font-size:11px}
 .invest-more{margin-top:2px;width:100%;border:1px solid rgba(245,184,63,.28);border-radius:10px;padding:7px 10px;background:rgba(16,25,35,.95);color:#ffd96b;font-weight:800;font-size:11px;cursor:pointer}
-.invest-dots{display:flex;justify-content:center;gap:6px;margin-top:4px}
-.invest-dots span{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.18)}
-.invest-dots span.on{background:#ffd96b}
+.invest-dots{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:6px;min-height:14px}
+.invest-dots span{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.22);box-shadow:0 0 0 1px rgba(245,184,63,.15);cursor:pointer}
+.invest-dots span.on{background:#ffd96b;box-shadow:0 0 0 2px rgba(245,184,63,.28);transform:scale(1.15)}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .mini{padding:13px;border-radius:13px;background:rgba(2,7,13,.68);border:1px solid rgba(245,184,63,.15)}
 .mini b{display:block;font-size:17px;margin-top:4px}
@@ -162,8 +163,17 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
           </div>
           <div class="invest-by-coin" id="investByQty"><div class="invest-empty">Sin inversiones registradas</div></div>
         </div>
+        <div class="invest-pane" id="investPane2">
+          <div class="invest-pane-head">
+            <div class="invest-pane-title">Precio USD</div>
+            <div class="invest-edit-actions">
+              <button type="button" id="priceRefreshBtn">Actualizar</button>
+            </div>
+          </div>
+          <div class="invest-by-coin" id="investByPrice"><div class="invest-empty">Sin inversiones registradas</div></div>
+        </div>
       </div>
-      <div class="invest-dots" id="investDots"><span class="on"></span><span></span></div>
+      <div class="invest-dots" id="investDots"><span class="on"></span><span></span><span></span></div>
     </div>
     <div class="grid">
       <div class="mini"><span class="label">Operaciones</span><b id="ops">0</b></div>
@@ -695,20 +705,24 @@ async function pushAllBalancesToCloud(map){
 }
 function syncInvestHeight(){
   const swipe=document.getElementById('investSwipe');
-  const track=document.getElementById('investTrack');
   const dots=document.getElementById('investDots');
-  const pane=document.getElementById(investPage===1?'investPane1':'investPane0');
-  if(!swipe||!track||!pane) return;
-  const h=pane.offsetHeight + (dots?dots.offsetHeight+4:0);
+  const pane=document.getElementById('investPane'+investPage);
+  if(!swipe||!pane) return;
+  const h=pane.offsetHeight + (dots?dots.offsetHeight+6:0);
   swipe.style.height=h+'px';
 }
 function setInvestPage(page){
-  investPage=page?1:0;
-  if(investPage===0) qtyEditing=false;
-  document.getElementById('investTrack')?.classList.toggle('page1', investPage===1);
+  investPage=Math.max(0, Math.min(2, Number(page)||0));
+  if(investPage!==1) qtyEditing=false;
+  const track=document.getElementById('investTrack');
+  if(track){
+    track.classList.toggle('page1', investPage===1);
+    track.classList.toggle('page2', investPage===2);
+  }
   const dots=document.querySelectorAll('#investDots span');
   dots.forEach((d,i)=>d.classList.toggle('on', i===investPage));
-  requestAnimationFrame(syncInvestHeight);
+  if(investPage===2) refreshBinancePrices();
+  requestAnimationFrame(()=>{ syncInvestHeight(); requestAnimationFrame(syncInvestHeight); });
 }
 function wireInvestSwipe(){
   const el=document.getElementById('investSwipe'); if(!el||el.dataset.wired) return;
@@ -728,13 +742,115 @@ function wireInvestSwipe(){
     const t=e.changedTouches[0];
     const dx=t.clientX-x0;
     if(Math.abs(dx)<40) return;
-    if(dx<0) setInvestPage(1);
-    else setInvestPage(0);
+    if(dx<0) setInvestPage(investPage+1);
+    else setInvestPage(investPage-1);
   },{passive:true});
   document.getElementById('investDots')?.addEventListener('click',e=>{
     const spans=[...document.querySelectorAll('#investDots span')];
     const i=spans.indexOf(e.target);
     if(i>=0) setInvestPage(i);
+  });
+  document.getElementById('priceRefreshBtn')?.addEventListener('click',()=>refreshBinancePrices(true));
+}
+let priceMap={};
+let priceFetchedAt=0;
+let priceLoading=false;
+const STABLES=new Set(['USDT','USDC','BUSD','FDUSD','TUSD','DAI','USD']);
+function binancePair(sym){
+  const s=String(sym||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(!s) return '';
+  if(STABLES.has(s)) return '';
+  if(s.endsWith('USDT')||s.endsWith('USDC')) return s;
+  return s+'USDT';
+}
+function moneyUsd(n){
+  const v=Number(n);
+  if(!Number.isFinite(v)) return '—';
+  if(v>=1000) return '$'+v.toLocaleString('en-US',{maximumFractionDigits:2});
+  if(v>=1) return '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4});
+  return '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:8});
+}
+function renderInvestRowPrice([sym]){
+  const cc=coinBySymbol(sym);
+  const icon=cc?.icon?iconValue(cc.icon):'';
+  const name=cc?.name?`${esc(sym)} · ${esc(cc.name)}`:esc(sym);
+  const pair=binancePair(sym);
+  let label='—';
+  if(STABLES.has(String(sym||'').toUpperCase())) label='$1.00';
+  else if(!pair) label='—';
+  else if(priceLoading && priceMap[pair]==null) label='…';
+  else if(priceMap[pair]==null) label='N/D';
+  else label=moneyUsd(priceMap[pair]);
+  return `<div class="invest-row"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="amt">${label}</span></div>`;
+}
+async function refreshBinancePrices(force){
+  const rows=investedByCoin();
+  const pairs=[...new Set(rows.map(([s])=>binancePair(s)).filter(Boolean))];
+  const box=document.getElementById('investByPrice');
+  if(!pairs.length){
+    if(box){
+      const limit=10; const visible=investExpanded?rows:rows.slice(0,limit);
+      // still render rows if any
+    }
+    renderInvestPricesOnly();
+    return;
+  }
+  const fresh=Date.now()-priceFetchedAt<45000;
+  if(!force && fresh && pairs.every(p=>priceMap[p]!=null)){
+    renderInvestPricesOnly();
+    return;
+  }
+  priceLoading=true;
+  renderInvestPricesOnly();
+  try{
+    // Binance public market data (CORS-friendly mirror)
+    const url='https://data-api.binance.vision/api/v3/ticker/price';
+    const res=await fetch(url,{cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const all=await res.json();
+    const want=new Set(pairs);
+    (all||[]).forEach(row=>{
+      const sym=String(row.symbol||'');
+      if(want.has(sym)) priceMap[sym]=Number(row.price);
+    });
+    priceFetchedAt=Date.now();
+  }catch(e){
+    console.warn('Binance prices', e);
+    // fallback per-symbol
+    for(const pair of pairs){
+      if(priceMap[pair]!=null && !force) continue;
+      try{
+        const r=await fetch('https://data-api.binance.vision/api/v3/ticker/price?symbol='+encodeURIComponent(pair),{cache:'no-store'});
+        if(!r.ok) continue;
+        const j=await r.json();
+        if(j && j.price!=null) priceMap[pair]=Number(j.price);
+      }catch(_){}
+    }
+  }finally{
+    priceLoading=false;
+    renderInvestPricesOnly();
+    requestAnimationFrame(syncInvestHeight);
+  }
+}
+function renderInvestPricesOnly(){
+  const priceBox=document.getElementById('investByPrice'); if(!priceBox) return;
+  const rows=investedByCoin();
+  if(!rows.length){
+    priceBox.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
+    return;
+  }
+  const limit=10;
+  const visible=investExpanded?rows:rows.slice(0,limit);
+  const hidden=Math.max(0, rows.length-limit);
+  let html=visible.map(renderInvestRowPrice).join('');
+  if(hidden>0){
+    html+=investExpanded
+      ?`<button type="button" class="invest-more" id="investToggleMorePrice">Ver menos</button>`
+      :`<button type="button" class="invest-more" id="investToggleMorePrice">Ver ${hidden} más</button>`;
+  }
+  priceBox.innerHTML=html;
+  document.getElementById('investToggleMorePrice')?.addEventListener('click',()=>{
+    investExpanded=!investExpanded; renderInvestByCoin();
   });
 }
 function investedByCoin(){
@@ -814,9 +930,11 @@ function renderInvestByCoin(){
  const visible=investExpanded?rows:rows.slice(0,limit);
  const hidden=Math.max(0, rows.length-limit);
  renderQtyActions();
+ const priceBox=document.getElementById('investByPrice');
  if(!rows.length){
    box.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
    if(qtyBox) qtyBox.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
+   if(priceBox) priceBox.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
    wireInvestSwipe();
    setInvestPage(investPage);
    return;
@@ -834,6 +952,7 @@ function renderInvestByCoin(){
  }
  box.innerHTML=html;
  if(qtyBox) qtyBox.innerHTML=qhtml;
+ renderInvestPricesOnly();
  const toggle=()=>{ investExpanded=!investExpanded; renderInvestByCoin(); };
  document.getElementById('investToggleMore')?.addEventListener('click',toggle);
  document.getElementById('investToggleMoreQty')?.addEventListener('click',toggle);
