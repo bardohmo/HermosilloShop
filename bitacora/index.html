@@ -294,7 +294,10 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
     </div>
    </div>
   </div>
-  <div class="field"><label>Monto en MXN</label><input id="amount" type="number" step="0.01" inputmode="decimal" placeholder="5000"></div>
+  <div class="field"><label>Monto en MXN <span style="opacity:.7;font-weight:600">(auto)</span></label>
+    <input id="amount" type="number" step="0.01" inputmode="decimal" placeholder="auto">
+    <span class="qty-have" id="amountAutoHint">Se sugiere con precio × cantidad × USDT/MXN</span>
+  </div>
   <div class="field" id="qtyField"><label>Cantidad del activo</label>
     <div class="qty-line">
       <input id="qty" type="number" step="any" inputmode="decimal" placeholder="Ej. 0.015">
@@ -678,6 +681,64 @@ function loadConvertFeePct(){
   }catch(_){}
   el.value=String(v);
 }
+async function ensureUsdtMxnRate(){
+  if(usdtMxn>0) return usdtMxn;
+  try{
+    if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false);
+  }catch(_){}
+  if(!(usdtMxn>0)){
+    try{
+      const r=await fetch('https://data-api.binance.vision/api/v3/ticker/price?symbol=USDTMXN',{cache:'no-store'});
+      if(r.ok){ const j=await r.json(); const px=Number(j.price); if(px>0) usdtMxn=px; }
+    }catch(_){}
+  }
+  return usdtMxn;
+}
+async function estimateAmountMxnAuto(force){
+  const amtInp=document.getElementById('amount');
+  const hint=document.getElementById('amountAutoHint');
+  if(!amtInp) return;
+  if(!force && amtInp.dataset.manual==='1' && String(amtInp.value||'').trim()!=='') return;
+  const type=document.getElementById('type')?.value;
+  try{ await ensureUsdtMxnRate(); }catch(_){}
+  if(!(usdtMxn>0)){
+    if(hint) hint.textContent='Sin tipo de cambio USDT/MXN aún';
+    return;
+  }
+  let usdNotional=null;
+  let note='';
+  if(type==='Conversión'){
+    const from=(document.getElementById('coinFrom')?.value||'').trim().toUpperCase();
+    const qFrom=parseFloat(document.getElementById('qtyFrom')?.value);
+    if(!from || !(qFrom>0)){
+      if(hint) hint.textContent='Se sugiere con precio × cantidad × USDT/MXN';
+      return;
+    }
+    try{ if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false); }catch(_){}
+    const px=usdPriceOfSym(from);
+    if(!(px>0)){ if(hint) hint.textContent='Sin precio Binance del activo De'; return; }
+    // Notional del lado que entregas (el fee suele salir de Cant. A)
+    usdNotional=qFrom*px;
+    note=`auto ≈ De × precio × ${usdtMxn.toFixed(2)} MXN/USDT`;
+  } else {
+    const coin=(document.getElementById('coin')?.value||'').trim().toUpperCase();
+    const q=parseFloat(document.getElementById('qty')?.value);
+    if(!coin || !(q>0)){
+      if(hint) hint.textContent='Se sugiere con precio × cantidad × USDT/MXN';
+      return;
+    }
+    try{ if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false); }catch(_){}
+    const px=usdPriceOfSym(coin);
+    if(!(px>0)){ if(hint) hint.textContent='Sin precio Binance del activo'; return; }
+    usdNotional=q*px;
+    note=`auto ≈ cant. × precio × ${usdtMxn.toFixed(2)} MXN/USDT`;
+  }
+  const mxn=usdNotional*usdtMxn;
+  const out=Math.round(mxn*100)/100;
+  amtInp.value=String(out);
+  amtInp.dataset.manual='0';
+  if(hint) hint.textContent=note+' → '+money(out);
+}
 async function estimateQtyToAuto(force){
   const from=(document.getElementById('coinFrom')?.value||'').trim().toUpperCase();
   const to=(document.getElementById('coinTo')?.value||'').trim().toUpperCase();
@@ -714,6 +775,7 @@ async function estimateQtyToAuto(force){
     const cut=gross-est;
     hint.textContent=`Auto ≈ ${formatQty(out)} ${to} (fee ${feePct}% ≈ ${formatQty(cut)} ${to})`;
   }
+  await estimateAmountMxnAuto(force);
 }
 function updateTypeFields(){
  const type=document.getElementById('type')?.value;
@@ -728,6 +790,7 @@ function updateTypeFields(){
  if(qtyConv) qtyConv.hidden=!isConvert;
  updateQtyHaveHints();
  if(isConvert) estimateQtyToAuto(false);
+ else estimateAmountMxnAuto(false);
 }
 function renderCoinSelect(selected='', fromSel='', toSel=''){
  fillCoinSelect(document.getElementById('coin'), selected);
@@ -809,13 +872,16 @@ document.querySelectorAll('.user-btn').forEach(btn=>{
   btn.addEventListener('click',()=>switchUser(btn.dataset.user));
 });
 
-document.getElementById('coin')?.addEventListener('change',()=>{updateCoinPreview();updateQtyHaveHints();});
+document.getElementById('coin')?.addEventListener('change',()=>{updateCoinPreview();updateQtyHaveHints();estimateAmountMxnAuto(true);});
 document.getElementById('platform')?.addEventListener('change',updatePlatformPreview);
 document.getElementById('coinFrom')?.addEventListener('change',()=>{updateConvertPreviews();updateQtyHaveHints();estimateQtyToAuto(true);});
 document.getElementById('coinTo')?.addEventListener('change',()=>{updateConvertPreviews();estimateQtyToAuto(true);});
-document.getElementById('qtyMaxBtn')?.addEventListener('click',fillQtyMax);
+document.getElementById('qtyMaxBtn')?.addEventListener('click',()=>{fillQtyMax();estimateAmountMxnAuto(true);});
 document.getElementById('qtyFromMaxBtn')?.addEventListener('click',fillQtyFromMax);
+document.getElementById('qty')?.addEventListener('input',()=>estimateAmountMxnAuto(true));
 document.getElementById('qtyFrom')?.addEventListener('input',()=>estimateQtyToAuto(true));
+document.getElementById('amount')?.addEventListener('input',e=>{ e.target.dataset.manual='1'; });
+
 document.getElementById('convertFeePct')?.addEventListener('input',()=>estimateQtyToAuto(true));
 document.getElementById('convertFeePct')?.addEventListener('change',()=>estimateQtyToAuto(true));
 document.getElementById('feeSpotBtn')?.addEventListener('click',()=>{
@@ -1412,6 +1478,7 @@ function openModal(index=-1){
    renderCoinSelect(x.coin||'', x.coinFrom||'', x.coinTo||'');
    renderPlatformSelect(x.platform||'binance');
    document.getElementById('amount').value=x.amount??'';
+   if(document.getElementById('amount')) document.getElementById('amount').dataset.manual=(x.amount!=null&&x.amount!=='')?'1':'0';
    document.getElementById('qty').value=(x.qty!=null && Number(x.qty)>0)?x.qty:'';
    document.getElementById('qtyFrom').value=(x.qty!=null && Number(x.qty)>0)?x.qty:'';
    document.getElementById('qtyTo').value=(x.qtyTo!=null && Number(x.qtyTo)>0)?x.qtyTo:'';
@@ -1432,6 +1499,7 @@ function openModal(index=-1){
    document.getElementById('note').value='';
  }
  document.getElementById('qtyTo')&&(document.getElementById('qtyTo').dataset.manual='0');
+ document.getElementById('amount')&&(document.getElementById('amount').dataset.manual='0');
  loadConvertFeePct();
  updateTypeFields();
  updateQtyHaveHints();
