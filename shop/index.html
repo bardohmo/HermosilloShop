@@ -2448,7 +2448,8 @@
               const netGain = realizedGain + unrealizedGain;
 
               const roi = hasPurchaseCost ? ((sale - purchase) / purchase) * 100 : 0;
-              const potential = (sale - purchase) * stock;
+              // Potencial = suma a precio de venta (sin descontar inversión).
+              const potential = sale * stock;
 
               return `<details class="investment-details">
   <summary class="investment-detail-summary">
@@ -2471,7 +2472,7 @@
     </div>` : ""}
     ${stock > 0 ? `<div class="investment-row potential-row">
       <span>Ganancia potencial · ${stock} uds.</span>
-      <strong>${money(hasPurchaseCost ? potential : (sale * stock))} MXN</strong>
+      <strong>${money(potential)} MXN</strong>
     </div>` : ""}
     ${hasPurchaseCost ? `<div class="investment-row net-gain-row ${netGain >= 0 ? "net-positive" : "net-negative"}">
       <span>
@@ -2721,7 +2722,8 @@
       const stock = Number(els.stock.value) || 0;
       const gain = sale - purchase;
       const roi = hasPurchase ? (gain / purchase) * 100 : 0;
-      const potential = hasPurchase ? gain * stock : 0;
+      // Potencial bruto del stock (sin descontar inversión).
+      const potential = sale * stock;
 
       [els.profitUnitBox, els.profitPercentBox, els.profitStockBox].forEach((el) => {
         if (el) el.hidden = !hasPurchase;
