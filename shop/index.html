@@ -4914,7 +4914,7 @@
       if (action === "delete") {
         pendingDelivDelete = row;
         del.deleteText.textContent = row.status === "done"
-          ? "Se quitará a " + row.name + " de la lista de entregas. La venta histórica y el inventario se conservarán porque la entrega ya fue realizada."
+          ? "Se quitará a " + row.name + " de la lista de entregas. La venta histórica y el inventario se conservarán."
           : "Se quitará a " + row.name + " de la lista de entregas. Como aún está pendiente, el stock del catálogo no se modifica.";
         del.deleteOverlay.classList.add("open");
       }
