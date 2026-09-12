@@ -2803,9 +2803,14 @@
         const { error } = await supabaseClient.from("articles").upsert(row);
         if (error) throw error;
         saveArticleCategories(id, getSelectedArticleCategories());
+        // Primer alta: registrar entrada en historial de inversiones
+        if (isNew && typeof window.recordInvestment === "function") {
+          window.recordInvestment(row, "in");
+        }
         toast(els.editId.value ? "Artículo actualizado" : "Artículo agregado");
         closeModal();
         await loadArticles();
+        if (typeof window.renderInvestments === "function") window.renderInvestments();
       } catch (err) {
         console.error(err);
         toast(err.message || "Error al guardar");
