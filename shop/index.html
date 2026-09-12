@@ -2442,8 +2442,10 @@
               
               const realizedGain = productSales.profit;
 
-              // Resultado acumulado después de descontar la inversión de compra.
-              const netGain = productSales.profit - (hasPurchaseCost ? (purchase * stock) : 0);
+              // Neta = margen ya vendido + margen potencial del stock que queda.
+              // (Antes restaba purchase*stock completo y con 0 ventas salía siempre negativo.)
+              const unrealizedGain = hasPurchaseCost ? (sale - purchase) * stock : 0;
+              const netGain = realizedGain + unrealizedGain;
 
               const roi = hasPurchaseCost ? ((sale - purchase) / purchase) * 100 : 0;
               const potential = (sale - purchase) * stock;
@@ -2474,7 +2476,7 @@
     ${hasPurchaseCost ? `<div class="investment-row net-gain-row ${netGain >= 0 ? "net-positive" : "net-negative"}">
       <span>
         <span class="net-gain-label">Ganancia neta</span>
-        <small>(ganancias después de inversión)</small>
+        <small>(vendido + potencial del stock)</small>
       </span>
       <strong>${netGain > 0 ? "+ " : netGain < 0 ? "- " : ""}${money(Math.abs(netGain))} MXN</strong>
     </div>` : ""}
