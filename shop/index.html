@@ -289,10 +289,10 @@
     }
     .card:hover .card-media {
       transform: scale(1.04);
+      border-color: rgba(var(--neon-rgb, 0, 245, 255), 1);
       box-shadow:
-        0 0 26px rgba(var(--glow-rgb, 0, 245, 255), 0.72),
-        0 0 48px rgba(var(--glow-rgb, 0, 245, 255), 0.4),
-        0 0 72px rgba(var(--glow-rgb, 0, 245, 255), 0.22);
+        0 0 0 1px rgba(var(--neon-rgb, 0, 245, 255), 0.55),
+        0 0 14px rgba(var(--neon-rgb, 0, 245, 255), 0.55);
     }
     .drag-handle {
       flex: 0 0 28px; display: grid; place-items: center; color: var(--muted);
@@ -306,45 +306,33 @@
     }
     .card-media {
       position: relative; width: 88px; height: 88px; aspect-ratio: 1 / 1;
-      --glow-rgb: 0, 245, 255;
+      --neon-rgb: 0, 245, 255;
       background: linear-gradient(135deg, rgba(0, 245, 255, 0.08), rgba(255, 43, 214, 0.06)), var(--bg-2);
-      overflow: visible; border-radius: 16px; border: 1px solid rgba(0,245,255,0.15);
+      overflow: hidden; border-radius: 16px;
+      border: 2px solid rgb(var(--neon-rgb));
       box-shadow:
-        0 0 20px rgba(var(--glow-rgb), 0.62),
-        0 0 42px rgba(var(--glow-rgb), 0.36),
-        0 0 64px rgba(var(--glow-rgb), 0.18);
-      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+        0 0 0 1px rgba(var(--neon-rgb), 0.35),
+        0 0 10px rgba(var(--neon-rgb), 0.55),
+        inset 0 0 10px rgba(var(--neon-rgb), 0.18);
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease, border-color 0.35s ease;
     }
-    .card-media::before {
-      content: "";
-      position: absolute; inset: -28%;
-      border-radius: 32px;
-      background: radial-gradient(circle at 50% 50%, rgba(var(--glow-rgb), 0.78) 0%, rgba(var(--glow-rgb), 0.28) 40%, transparent 72%);
-      filter: blur(14px);
-      z-index: 0;
-      pointer-events: none;
-      opacity: 1;
-    }
-    /* Agotados: sin resplandor */
+    /* Agotados: sin marco neon */
     .card.sold-out .card-media {
+      border: 1px solid rgba(255,255,255,0.14);
       box-shadow: none;
     }
-    .card.sold-out .card-media::before {
-      display: none;
-      opacity: 0;
-    }
     .card.sold-out:hover .card-media {
+      border-color: rgba(255,255,255,0.14);
       box-shadow: none;
     }
     @media (min-width: 640px) {
       .card-media { width: 96px; height: 96px; }
     }
     .card-media img {
-      position: relative; z-index: 1;
       width: 100%; height: 100%; object-fit: cover; display: block;
-      border-radius: 16px;
+      border-radius: 14px;
     }
-    .card-media .placeholder { position: relative; z-index: 1; border-radius: 16px; }
+    .card-media .placeholder { border-radius: 14px; }
     .card-media .placeholder {
       width: 100%; height: 100%; display: grid; place-items: center; color: var(--muted);
       font-size: 0.65rem; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; padding: 4px;
@@ -2535,7 +2523,7 @@
           const media=img.closest(".card-media");
           if(!media) return;
           if(img.closest(".card.sold-out")){
-            media.style.removeProperty("--glow-rgb");
+            media.style.removeProperty("--neon-rgb");
             return;
           }
           try{
@@ -2554,20 +2542,20 @@
               if(mx<24 || mn>235) continue; // evita puro negro/blanco
               r+=rr; g+=gg; b+=bb; n++;
             }
-            if(!n){ media.style.setProperty("--glow-rgb","0, 245, 255"); return; }
+            if(!n){ media.style.setProperty("--neon-rgb","0, 245, 255"); return; }
             r=Math.round(r/n); g=Math.round(g/n); b=Math.round(b/n);
             // un poco más vivo para el resplandor
             const boost=(x)=>Math.max(0, Math.min(255, Math.round(x*1.12)));
-            media.style.setProperty("--glow-rgb", boost(r)+", "+boost(g)+", "+boost(b));
+            media.style.setProperty("--neon-rgb", boost(r)+", "+boost(g)+", "+boost(b));
           }catch(_){
-            media.style.setProperty("--glow-rgb","0, 245, 255");
+            media.style.setProperty("--neon-rgb","0, 245, 255");
           }
         };
         if(img.complete && img.naturalWidth) paint();
         else img.addEventListener("load", paint, {once:true});
         img.addEventListener("error", ()=>{
           const media=img.closest(".card-media");
-          if(media) media.style.setProperty("--glow-rgb","0, 245, 255");
+          if(media) media.style.setProperty("--neon-rgb","0, 245, 255");
         }, {once:true});
       });
     }
