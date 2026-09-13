@@ -290,8 +290,9 @@
     .card:hover .card-media {
       transform: scale(1.04);
       box-shadow:
-        0 0 18px rgba(var(--glow-rgb, 0, 245, 255), 0.45),
-        0 0 34px rgba(var(--glow-rgb, 0, 245, 255), 0.22);
+        0 0 26px rgba(var(--glow-rgb, 0, 245, 255), 0.72),
+        0 0 48px rgba(var(--glow-rgb, 0, 245, 255), 0.4),
+        0 0 72px rgba(var(--glow-rgb, 0, 245, 255), 0.22);
     }
     .drag-handle {
       flex: 0 0 28px; display: grid; place-items: center; color: var(--muted);
@@ -309,19 +310,31 @@
       background: linear-gradient(135deg, rgba(0, 245, 255, 0.08), rgba(255, 43, 214, 0.06)), var(--bg-2);
       overflow: visible; border-radius: 16px; border: 1px solid rgba(0,245,255,0.15);
       box-shadow:
-        0 0 14px rgba(var(--glow-rgb), 0.38),
-        0 0 28px rgba(var(--glow-rgb), 0.18);
+        0 0 20px rgba(var(--glow-rgb), 0.62),
+        0 0 42px rgba(var(--glow-rgb), 0.36),
+        0 0 64px rgba(var(--glow-rgb), 0.18);
       transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
     }
     .card-media::before {
       content: "";
-      position: absolute; inset: -18%;
-      border-radius: 28px;
-      background: radial-gradient(circle at 50% 50%, rgba(var(--glow-rgb), 0.55) 0%, rgba(var(--glow-rgb), 0.12) 42%, transparent 70%);
-      filter: blur(10px);
+      position: absolute; inset: -28%;
+      border-radius: 32px;
+      background: radial-gradient(circle at 50% 50%, rgba(var(--glow-rgb), 0.78) 0%, rgba(var(--glow-rgb), 0.28) 40%, transparent 72%);
+      filter: blur(14px);
       z-index: 0;
       pointer-events: none;
-      opacity: 0.9;
+      opacity: 1;
+    }
+    /* Agotados: sin resplandor */
+    .card.sold-out .card-media {
+      box-shadow: none;
+    }
+    .card.sold-out .card-media::before {
+      display: none;
+      opacity: 0;
+    }
+    .card.sold-out:hover .card-media {
+      box-shadow: none;
     }
     @media (min-width: 640px) {
       .card-media { width: 96px; height: 96px; }
@@ -2521,6 +2534,10 @@
         const paint=()=>{
           const media=img.closest(".card-media");
           if(!media) return;
+          if(img.closest(".card.sold-out")){
+            media.style.removeProperty("--glow-rgb");
+            return;
+          }
           try{
             const w=32,h=32;
             const c=document.createElement("canvas");
@@ -2868,10 +2885,16 @@
         if (isNew && typeof window.recordInvestment === "function") {
           window.recordInvestment(row, "in");
         }
+        // Mantener foto en entregas/ventas/inversiones si se cambió o quitó
+        if (!isNew && (pendingPhotoDataUrl || removePhoto || oldPhoto !== photo_url)) {
+          syncArticleMediaInStores(id, photo_url, name);
+        }
         toast(els.editId.value ? "Artículo actualizado" : "Artículo agregado");
         closeModal();
         await loadArticles();
         if (typeof window.renderInvestments === "function") window.renderInvestments();
+        if (typeof renderDeliveries === "function") renderDeliveries();
+        if (typeof renderSales === "function") renderSales();
       } catch (err) {
         console.error(err);
         toast(err.message || "Error al guardar");
@@ -3741,6 +3764,80 @@
       const ini = escapeHtml((name || "?").trim().slice(0, 1).toUpperCase() || "?");
       return `<span class="deliv-item-ph">${ini}</span>`;
     }
+    /** Foto vigente del catálogo (evita URL rota si se reemplazó/borró la anterior). */
+    function liveItemPhoto(it) {
+      if (!it) return null;
+      const art = (typeof articles !== "undefined" && Array.isArray(articles))
+        ? articles.find((a) => String(a.id) === String(it.id))
+        : null;
+      if (art && art.photo_url) return art.photo_url;
+      return it.photo_url || it.photo || null;
+    }
+    function liveItemName(it) {
+      if (!it) return "Artículo";
+      const art = (typeof articles !== "undefined" && Array.isArray(articles))
+        ? articles.find((a) => String(a.id) === String(it.id))
+        : null;
+      return (art && art.name) || it.name || "Artículo";
+    }
+    function syncArticleMediaInStores(articleId, photo_url, name) {
+      const aid = String(articleId || "");
+      if (!aid) return;
+      try {
+        loadDelivStore();
+        let dChanged = false;
+        deliveries = (deliveries || []).map((row) => {
+          const items = normalizeDeliveryItems(row.items);
+          let touched = false;
+          const next = items.map((it) => {
+            if (String(it.id) !== aid) return it;
+            touched = true;
+            return { ...it, photo_url: photo_url || null, name: name || it.name };
+          });
+          if (!touched) return row;
+          dChanged = true;
+          return { ...row, items: next };
+        });
+        if (dChanged) saveDelivStore();
+      } catch (_) {}
+      try {
+        loadSalesStore();
+        let sChanged = false;
+        sales = (sales || []).map((row) => {
+          const items = normalizeLineItems(row.items, true);
+          let touched = false;
+          const next = items.map((it) => {
+            if (String(it.id) !== aid) return it;
+            touched = true;
+            return { ...it, photo_url: photo_url || null, name: name || it.name };
+          });
+          if (!touched) return row;
+          sChanged = true;
+          return { ...row, items: next };
+        });
+        if (sChanged) saveSalesStore();
+      } catch (_) {}
+      try {
+        if (typeof window.renderInvestments === "function") {
+          const KEY = "hs_investments_v1";
+          let records = [];
+          try { records = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (_) { records = []; }
+          if (Array.isArray(records) && records.length) {
+            let changed = false;
+            records = records.map((r) => {
+              if (String(r.articleId || "") !== aid && String((r.articleSnapshot && r.articleSnapshot.id) || "") !== aid) return r;
+              changed = true;
+              const snap = r.articleSnapshot ? { ...r.articleSnapshot, photo_url: photo_url || null, name: name || r.articleSnapshot.name } : r.articleSnapshot;
+              return { ...r, name: name || r.name, photo_url: photo_url || null, articleSnapshot: snap };
+            });
+            if (changed) {
+              localStorage.setItem(KEY, JSON.stringify(records));
+              window.renderInvestments();
+            }
+          }
+        }
+      } catch (_) {}
+    }
     function normalizeLineItems(raw, withPrice) {
       if (!Array.isArray(raw)) return [];
       return raw.map((it) => {
@@ -4100,7 +4197,7 @@
             </div>`;
         return `<div class="deliv-sel-row" data-item-id="${escapeHtml(it.id)}">
           <div class="deliv-sel-main">
-            ${itemThumb(it.photo_url, it.name)}
+            ${itemThumb(liveItemPhoto(it), liveItemName(it))}
             <div class="meta"><strong>${escapeHtml(it.name)}</strong><small>${withPrice ? money(it.price) + " c/u" : ""}</small></div>
             <button type="button" class="ghost" data-remove-item="${escapeHtml(it.id)}">Quitar</button>
           </div>
@@ -4218,7 +4315,7 @@
         const paymentChange = payment.changeToReturn != null ? payment.changeToReturn : (payment.method === "cash" && paymentAmount != null ? Math.max(0, paymentAmount - paymentTotal) : null);
         const paymentHtml = `<div class="deliv-payment-summary">💳 <strong>Pago</strong><span>${escapeHtml(paymentMethodLabel)}</span>${payment.method === "cash" && paymentAmount != null ? `<span>Recibir: <b>${money(paymentAmount)}</b></span>` : ""}<span>Total: <b>${money(paymentTotal)}</b></span>${paymentChange != null ? `<span class="change">Cambio: <b>${money(paymentChange)}</b></span>` : ""}</div>`;
         const itemsHtml = items.length
-          ? `<div class="deliv-items">${items.map((it) => `<span class="deliv-item-chip">${itemThumb(it.photo_url, it.name)}<span>${escapeHtml(it.name)}</span><span class="qty">×${it.qty}</span></span>`).join("")}</div>`
+          ? `<div class="deliv-items">${items.map((it) => `<span class="deliv-item-chip">${itemThumb(liveItemPhoto(it), liveItemName(it))}<span>${escapeHtml(it.name)}</span><span class="qty">×${it.qty}</span></span>`).join("")}</div>`
           : "";
         const badge = row.status === "done"
           ? '<span class="badge ok">Entrega realizada</span>'
@@ -5344,7 +5441,7 @@
       }
       saleEls.grid.innerHTML = list.map((row) => {
         const itemsHtml = row.items.length
-          ? `<div class="deliv-items">${row.items.map((it) => `<span class="deliv-item-chip">${itemThumb(it.photo_url, it.name)}<span>${escapeHtml(it.name)}</span><span class="qty">×${it.qty}</span></span>`).join("")}</div>`
+          ? `<div class="deliv-items">${row.items.map((it) => `<span class="deliv-item-chip">${itemThumb(liveItemPhoto(it), liveItemName(it))}<span>${escapeHtml(it.name)}</span><span class="qty">×${it.qty}</span></span>`).join("")}</div>`
           : "";
         const badge = row.source === "delivery" ? '<span class="badge ok">Entrega</span>' : '<span class="badge low">Manual</span>';
         return `<article class="card deliv-card" data-sale-id="${escapeHtml(row.id)}">
