@@ -261,7 +261,7 @@
       display: flex; flex-direction: row; align-items: stretch; border-radius: 18px;
       border: 1px solid rgba(0, 245, 255, 0.2);
       background: rgba(8, 12, 28, 0.82);
-      overflow: hidden;
+      overflow: visible;
       box-shadow:
         0 6px 22px rgba(0, 0, 0, 0.42),
         0 0 0 1px rgba(255, 255, 255, 0.03),
@@ -287,12 +287,11 @@
       border-color: var(--cyan);
       box-shadow: 0 0 0 2px rgba(0,245,255,0.4), 0 0 24px rgba(0,245,255,0.25);
     }
-    .card-media {
-      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease;
-    }
     .card:hover .card-media {
       transform: scale(1.04);
-      box-shadow: 0 0 16px rgba(0, 245, 255, 0.25);
+      box-shadow:
+        0 0 18px rgba(var(--glow-rgb, 0, 245, 255), 0.45),
+        0 0 34px rgba(var(--glow-rgb, 0, 245, 255), 0.22);
     }
     .drag-handle {
       flex: 0 0 28px; display: grid; place-items: center; color: var(--muted);
@@ -302,16 +301,37 @@
     .card-media-wrap {
       flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px;
       margin: 8px 0 8px 4px; align-self: center;
+      overflow: visible;
     }
     .card-media {
       position: relative; width: 88px; height: 88px; aspect-ratio: 1 / 1;
+      --glow-rgb: 0, 245, 255;
       background: linear-gradient(135deg, rgba(0, 245, 255, 0.08), rgba(255, 43, 214, 0.06)), var(--bg-2);
-      overflow: hidden; border-radius: 16px; border: 1px solid rgba(0,245,255,0.15);
+      overflow: visible; border-radius: 16px; border: 1px solid rgba(0,245,255,0.15);
+      box-shadow:
+        0 0 14px rgba(var(--glow-rgb), 0.38),
+        0 0 28px rgba(var(--glow-rgb), 0.18);
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+    }
+    .card-media::before {
+      content: "";
+      position: absolute; inset: -18%;
+      border-radius: 28px;
+      background: radial-gradient(circle at 50% 50%, rgba(var(--glow-rgb), 0.55) 0%, rgba(var(--glow-rgb), 0.12) 42%, transparent 70%);
+      filter: blur(10px);
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.9;
     }
     @media (min-width: 640px) {
       .card-media { width: 96px; height: 96px; }
     }
-    .card-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .card-media img {
+      position: relative; z-index: 1;
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      border-radius: 16px;
+    }
+    .card-media .placeholder { position: relative; z-index: 1; border-radius: 16px; }
     .card-media .placeholder {
       width: 100%; height: 100%; display: grid; place-items: center; color: var(--muted);
       font-size: 0.65rem; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; padding: 4px;
@@ -2396,7 +2416,7 @@
       els.grid.innerHTML = list.map((a) => {
         const badge = stockBadge(a.stock);
         const media = a.photo_url
-          ? `<img src="${escapeHtml(a.photo_url)}" alt="${escapeHtml(a.name)}" loading="lazy" />`
+          ? `<img src="${escapeHtml(a.photo_url)}" alt="${escapeHtml(a.name)}" loading="lazy" crossorigin="anonymous" decoding="async" />`
           : `<div class="placeholder">Sin<br>foto</div>`;
         const dragAttr = isUnlocked ? ' draggable="true"' : "";
         const handle = isUnlocked ? `<div class="drag-handle" title="Arrastrar">⋮⋮</div>` : "";
@@ -2492,6 +2512,47 @@
         </article>`;
 
       }).join("");
+      applyCardImageGlows(els.grid);
+    }
+
+    function applyCardImageGlows(root){
+      if(!root) return;
+      root.querySelectorAll(".card-media img").forEach((img)=>{
+        const paint=()=>{
+          const media=img.closest(".card-media");
+          if(!media) return;
+          try{
+            const w=32,h=32;
+            const c=document.createElement("canvas");
+            c.width=w; c.height=h;
+            const ctx=c.getContext("2d",{willReadFrequently:true});
+            if(!ctx || !img.naturalWidth) return;
+            ctx.drawImage(img,0,0,w,h);
+            const data=ctx.getImageData(0,0,w,h).data;
+            let r=0,g=0,b=0,n=0;
+            for(let i=0;i<data.length;i+=4){
+              if(data[i+3]<180) continue;
+              const rr=data[i], gg=data[i+1], bb=data[i+2];
+              const mx=Math.max(rr,gg,bb), mn=Math.min(rr,gg,bb);
+              if(mx<24 || mn>235) continue; // evita puro negro/blanco
+              r+=rr; g+=gg; b+=bb; n++;
+            }
+            if(!n){ media.style.setProperty("--glow-rgb","0, 245, 255"); return; }
+            r=Math.round(r/n); g=Math.round(g/n); b=Math.round(b/n);
+            // un poco más vivo para el resplandor
+            const boost=(x)=>Math.max(0, Math.min(255, Math.round(x*1.12)));
+            media.style.setProperty("--glow-rgb", boost(r)+", "+boost(g)+", "+boost(b));
+          }catch(_){
+            media.style.setProperty("--glow-rgb","0, 245, 255");
+          }
+        };
+        if(img.complete && img.naturalWidth) paint();
+        else img.addEventListener("load", paint, {once:true});
+        img.addEventListener("error", ()=>{
+          const media=img.closest(".card-media");
+          if(media) media.style.setProperty("--glow-rgb","0, 245, 255");
+        }, {once:true});
+      });
     }
 
     window.renderArticles = render;
