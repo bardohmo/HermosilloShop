@@ -2256,6 +2256,144 @@
       ? window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY)
       : null;
 
+    const SHOP_STATE_PATH = "app-state/shop-state.json";
+    let shopStatePushTimer = 0;
+
+    function readShopStateLocal() {
+      let categories = [];
+      let article_categories = {};
+      let investments = [];
+      try {
+        const c = JSON.parse(localStorage.getItem("hs_catalog_categories_v1") || "null");
+        if (Array.isArray(c)) categories = c;
+      } catch (_) {}
+      try {
+        const a = JSON.parse(localStorage.getItem("hs_article_categories_v1") || "{}");
+        if (a && typeof a === "object") article_categories = a;
+      } catch (_) {}
+      try {
+        const i = JSON.parse(localStorage.getItem("hs_investments_v1") || "[]");
+        if (Array.isArray(i)) investments = i;
+      } catch (_) {}
+      return { categories, article_categories, investments, updatedAt: new Date().toISOString() };
+    }
+
+    function writeShopStateLocal(state, { silent } = {}) {
+      if (!state || typeof state !== "object") return;
+      try {
+        if (Array.isArray(state.categories) && state.categories.length) {
+          localStorage.setItem("hs_catalog_categories_v1", JSON.stringify(state.categories));
+          localStorage.setItem("hs_categories_v1", JSON.stringify(state.categories));
+        }
+        if (state.article_categories && typeof state.article_categories === "object") {
+          localStorage.setItem("hs_article_categories_v1", JSON.stringify(state.article_categories));
+        }
+        if (Array.isArray(state.investments)) {
+          localStorage.setItem("hs_investments_v1", JSON.stringify(state.investments));
+        }
+      } catch (err) {
+        console.warn("writeShopStateLocal", err);
+      }
+      if (!silent) {
+        try { if (typeof window.reloadCatalogCategoriesFromStorage === "function") window.reloadCatalogCategoriesFromStorage(); } catch (_) {}
+        try { if (typeof window.reloadInvestmentsFromStorage === "function") window.reloadInvestmentsFromStorage(); } catch (_) {}
+      }
+    }
+
+    async function pullShopStateFromCloud() {
+      if (!supabaseClient) return null;
+      try {
+        const { data, error } = await supabaseClient.storage.from(CONFIG.BUCKET).download(SHOP_STATE_PATH);
+        if (error || !data) return null;
+        const text = await data.text();
+        const state = JSON.parse(text);
+        return state && typeof state === "object" ? state : null;
+      } catch (err) {
+        console.warn("pullShopStateFromCloud", err);
+        return null;
+      }
+    }
+
+    async function pushShopStateToCloud(state) {
+      if (!supabaseClient) return false;
+      try {
+        const payload = state || readShopStateLocal();
+        const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+        const { error } = await supabaseClient.storage.from(CONFIG.BUCKET).upload(SHOP_STATE_PATH, blob, {
+          contentType: "application/json",
+          upsert: true,
+        });
+        if (error) {
+          console.warn("pushShopStateToCloud", error.message || error);
+          return false;
+        }
+        return true;
+      } catch (err) {
+        console.warn("pushShopStateToCloud", err);
+        return false;
+      }
+    }
+
+    function schedulePushShopState() {
+      clearTimeout(shopStatePushTimer);
+      shopStatePushTimer = setTimeout(() => {
+        pushShopStateToCloud().catch(() => {});
+      }, 400);
+    }
+
+    async function syncShopStateOnBoot() {
+      if (!supabaseClient) return;
+      const local = readShopStateLocal();
+      const cloud = await pullShopStateFromCloud();
+      const localHas =
+        (local.categories && local.categories.length) ||
+        (local.investments && local.investments.length) ||
+        (local.article_categories && Object.keys(local.article_categories).length);
+      const cloudHas =
+        cloud &&
+        ((Array.isArray(cloud.categories) && cloud.categories.length) ||
+          (Array.isArray(cloud.investments) && cloud.investments.length) ||
+          (cloud.article_categories && Object.keys(cloud.article_categories).length));
+
+      if (cloudHas) {
+        const merged = {
+          categories: Array.isArray(cloud.categories) ? cloud.categories.slice() : [],
+          article_categories: Object.assign({}, cloud.article_categories || {}),
+          investments: Array.isArray(cloud.investments) ? cloud.investments.slice() : [],
+          updatedAt: new Date().toISOString(),
+        };
+        if (localHas) {
+          const haveCat = new Set(merged.categories.map((c) => c && c.id));
+          (local.categories || []).forEach((c) => {
+            if (c && c.id && !haveCat.has(c.id)) {
+              merged.categories.push(c);
+              haveCat.add(c.id);
+            }
+          });
+          Object.keys(local.article_categories || {}).forEach((id) => {
+            if (!merged.article_categories[id]) merged.article_categories[id] = local.article_categories[id];
+          });
+          const haveInv = new Set(merged.investments.map((r) => r && r.id));
+          (local.investments || []).forEach((r) => {
+            if (r && r.id && !haveInv.has(r.id)) {
+              merged.investments.push(r);
+              haveInv.add(r.id);
+            }
+          });
+        }
+        writeShopStateLocal(merged, { silent: true });
+        await pushShopStateToCloud(merged);
+      } else if (localHas) {
+        await pushShopStateToCloud(local);
+      }
+    }
+
+    window.schedulePushShopState = schedulePushShopState;
+    window.pushShopStateToCloud = pushShopStateToCloud;
+    window.pullShopStateFromCloud = pullShopStateFromCloud;
+    window.readShopStateLocal = readShopStateLocal;
+    window.writeShopStateLocal = writeShopStateLocal;
+
     const els = {
       grid: document.getElementById("grid"),
       search: document.getElementById("search"),
@@ -3011,17 +3149,33 @@
             cloud[table] = data || [];
           }
         }
+        if (typeof pullShopStateFromCloud === "function") {
+          try {
+            const cloudState = await pullShopStateFromCloud();
+            if (cloudState) writeShopStateLocal(cloudState, { silent: true });
+          } catch (_) {}
+        }
         let categoryMap = {};
         let investmentHistory = [];
         try { categoryMap = JSON.parse(localStorage.getItem("hs_article_categories_v1") || "{}"); } catch (_) {}
         try { investmentHistory = JSON.parse(localStorage.getItem("hs_investments_v1") || "[]"); } catch (_) { investmentHistory = []; }
+        let categoriesExport = Array.isArray(window.catalogCategories) ? window.catalogCategories : [];
+        try {
+          const c = JSON.parse(localStorage.getItem("hs_catalog_categories_v1") || "null");
+          if (Array.isArray(c) && c.length) categoriesExport = c;
+        } catch (_) {}
         const payload = {
-          app: "HermosilloShop", version: 5, exportedAt: new Date().toISOString(),
+          app: "HermosilloShop", version: 6, exportedAt: new Date().toISOString(),
           articles: cloud.articles, observations: cloud.observations, deliveries: cloud.deliveries, sales: cloud.sales,
           deleted_articles: cloud.deleted_articles,
-          categories: Array.isArray(window.catalogCategories) ? window.catalogCategories : [],
+          categories: categoriesExport,
           article_categories: categoryMap,
-          investments: Array.isArray(investmentHistory) ? investmentHistory : []
+          investments: Array.isArray(investmentHistory) ? investmentHistory : [],
+          shop_state: {
+            categories: categoriesExport,
+            article_categories: categoryMap,
+            investments: Array.isArray(investmentHistory) ? investmentHistory : []
+          }
         };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -3060,6 +3214,7 @@
               localStorage.setItem("hs_article_categories_v1", JSON.stringify(data.article_categories));
             }
           } catch (_) {}
+          try { if (typeof pushShopStateToCloud === "function") await pushShopStateToCloud(); } catch (_) {}
           toast("Categorías restauradas");
           setTimeout(() => location.reload(), 400);
           return;
@@ -3112,6 +3267,12 @@
           if (Array.isArray(data.investments) && data.investments.length > 0) {
             try { localStorage.setItem("hs_investments_v1", JSON.stringify(data.investments)); } catch (_) {}
           }
+          if (data.shop_state && typeof data.shop_state === "object") {
+            try { writeShopStateLocal(data.shop_state, { silent: true }); } catch (_) {}
+          }
+          try {
+            if (typeof pushShopStateToCloud === "function") await pushShopStateToCloud();
+          } catch (_) {}
         }
         toast(isFullBackup ? "Respaldo completo restaurado" : "Importación lista");
         await loadArticles();
@@ -4312,7 +4473,7 @@
       else if (isObs) loadObservations();
       else if (isDeleted) loadDeletedArticles();
         else if (isBackup) {}
-       else if (isInversiones) renderInvestments();
+       else if (isInversiones) { if (typeof window.renderInvestments === "function") window.renderInvestments(); }
        else if (isQuote) renderQuote();
       else render();
       if (window.syncMobileFloatNav) window.syncMobileFloatNav();
@@ -5706,20 +5867,25 @@
     })(); // Sin celular — delivNoPhone
 
     applyAuthMode();
-    if (currentView) showView(currentView);
-    loadArticles();
-    loadDeletedArticles();
-    // Cargar ventas y entregas desde Supabase al iniciar.
     loadDelivStore();
     loadSalesStore();
-    if (supabaseClient) {
-      (async () => {
-        await migrateLegacyLocalDataToSupabase();
-        await Promise.all([syncDeliveriesFromSupabase(), syncSalesFromSupabase()]);
-      })().catch((err) => {
-        console.warn("Error sincronizando ventas/entregas:", err);
-      });
-    }
+    (async () => {
+      try {
+        if (supabaseClient) {
+          await syncShopStateOnBoot();
+          try { if (typeof window.reloadCatalogCategoriesFromStorage === "function") window.reloadCatalogCategoriesFromStorage(); } catch (_) {}
+          try { if (typeof window.reloadInvestmentsFromStorage === "function") window.reloadInvestmentsFromStorage(); } catch (_) {}
+          await migrateLegacyLocalDataToSupabase();
+          await Promise.all([syncDeliveriesFromSupabase(), syncSalesFromSupabase()]);
+        }
+      } catch (err) {
+        console.warn("Error sincronizando estado/ventas/entregas:", err);
+      }
+      if (currentView) showView(currentView);
+      else showView("catalog");
+      loadArticles();
+      loadDeletedArticles();
+    })();
   
     /* Gráfica de líneas de ventas: día / semana / mes / año */
     let salesChartPeriod = "day";
@@ -6053,7 +6219,7 @@
   const moneyInv=n=>new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",minimumFractionDigits:2}).format(Number(n)||0);
   const escInv=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
   const read=()=>{try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(_){return[]}};
-  const write=()=>{records.sort((a,b)=>String(b.date+" "+b.time).localeCompare(String(a.date+" "+a.time)));localStorage.setItem(KEY,JSON.stringify(records));};
+  const write=()=>{records.sort((a,b)=>String(b.date+" "+b.time).localeCompare(String(a.date+" "+a.time)));localStorage.setItem(KEY,JSON.stringify(records));try{if(typeof window.schedulePushShopState==="function")window.schedulePushShopState()}catch(_){}};
   const nowParts=()=>{const d=new Date();return{date:d.toISOString().slice(0,10),time:d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false})}};
   const total=r=>(Number(r.qty)||0)*(Number(r.unitCost)||0);
   const imgHtml=(url,name)=>url?'<img src="'+escInv(url)+'" alt="'+escInv(name)+'">':'<span aria-hidden="true">📦</span>';
@@ -6182,6 +6348,7 @@
     render();
     if(typeof toast==="function") toast("Compra registrada en el historial");
   }
+  window.reloadInvestmentsFromStorage=function(){records=read();render();};
   window.renderInvestments=render;
   window.recordInvestment=recordInvestment;
   $("investmentSearch")?.addEventListener("input",render);
@@ -6204,6 +6371,11 @@
     render();
   });
   records=read();
+  try { $("investmentOverlay")?.classList.remove("open"); $("investmentAddOverlay")?.classList.remove("open"); } catch(_){}
+  try {
+    const v = sessionStorage.getItem("hs_current_view") || "";
+    if (v === "inversiones") render();
+  } catch(_){}
 })();
 </script>
 
@@ -6275,7 +6447,7 @@ tool:'<path d="m14 6 4-4 4 4-4 4z"/><path d="m13 7-9 9a2 2 0 0 0 3 3l9-9"/>',
 box:'<path d="m4 7 8-4 8 4-8 4z"/><path d="M4 7v10l8 4 8-4V7M12 11v10"/>',
 tag:'<path d="M3 5v6l9 9 8-8-9-9H5a2 2 0 0 0-2 2Z"/><circle cx="7" cy="7" r="1"/>',audio:'<path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/>',plug:'<path d="M8 12h8M10 8v4M14 8v4M6 12a6 6 0 0 0 12 0M9 4v4M15 4v4"/>',car:'<path d="M5 17h14l-1-6-2-4H8l-2 4-1 6Z"/><path d="M7 17v2M17 17v2M5 13h14"/><circle cx="8" cy="15" r="1"/><circle cx="16" cy="15" r="1"/>',shield:'<path d="M12 3 20 6v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-3Z"/><path d="m9 12 2 2 4-4"/>',home:'<path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/>',phone:'<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/>',coin:'<circle cx="12" cy="12" r="9"/><path d="M15 8h-4a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9M12 6v12"/>',shirt:'<path d="m8 4 4 3 4-3 5 3-3 5-2-1v9H8v-9l-2 1-3-5 5-3Z"/>',activity:'<path d="M3 12h4l2-7 4 14 2-7h6"/>',gamepad:'<path d="M6 8h12a5 5 0 0 1 4 6l-1 4a2 2 0 0 1-3 1l-3-3H9l-3 3a2 2 0 0 1-3-1l-1-4a5 5 0 0 1 4-6Z"/><path d="M7 11v4M5 13h4M16 12h.01M19 14h.01"/>',briefcase:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/>',wifi:'<path d="M5 12.5a11 11 0 0 1 14 0M8 16a6.5 6.5 0 0 1 8 0M11 19a2 2 0 0 1 2 0"/>'};
 return '<svg viewBox="0 0 24 24">'+(p[i]||p.tag)+'</svg>'}
-function save(){localStorage.setItem(KEY,JSON.stringify(cats));window.catalogCategories=cats;try{window.renderCatalogCategories&&window.renderCatalogCategories()}catch(_){}}
+function save(){localStorage.setItem(KEY,JSON.stringify(cats));try{localStorage.setItem("hs_categories_v1",JSON.stringify(cats))}catch(_){}window.catalogCategories=cats;try{window.renderCatalogCategories&&window.renderCatalogCategories()}catch(_){}try{if(typeof window.schedulePushShopState==="function")window.schedulePushShopState()}catch(_){}}
 function articles(){return Array.isArray(window.articles)?window.articles:[]}
 function has(a,c){return Array.isArray(a.categories)?a.categories.includes(c):a.category===c}
 function render(){
@@ -6401,10 +6573,11 @@ function compressCategoryImage(file){
  });
 }
 function readArticleCategoryMap(){try{const x=JSON.parse(localStorage.getItem("hs_article_categories_v1")||"{}");return x&&typeof x==="object"?x:{}}catch(_){return {}}}
-function writeArticleCategoryMap(m){try{localStorage.setItem("hs_article_categories_v1",JSON.stringify(m))}catch(_) {}}
+function writeArticleCategoryMap(m){try{localStorage.setItem("hs_article_categories_v1",JSON.stringify(m))}catch(_) {} try{if(typeof window.schedulePushShopState==="function")window.schedulePushShopState()}catch(_){}}
 function getSelectedArticleCategories(){return [...document.querySelectorAll("#articleCategories input[type=checkbox]:checked")].map(x=>x.value)}
 function renderArticleCategoryChecks(selected){const box=document.getElementById("articleCategories");if(!box)return;const set=new Set(Array.isArray(selected)?selected:[]);const available=cats.filter(c=>c.id!=="all");if(!available.length){box.innerHTML='<div class="article-category-empty">No hay categorías creadas. Puedes agregarlas desde Menú → Categorías.</div>';return}box.innerHTML=available.map(c=>'<label class="article-category-check" title="'+esc(c.name)+'"><input type="checkbox" value="'+esc(c.id)+'" '+(set.has(c.id)?"checked":"")+'><span class="article-cat-icon">'+icon(c.icon)+'</span><span class="article-cat-name">'+esc(c.name)+'</span><span class="article-cat-selected" aria-hidden="true">✓</span></label>').join("")}
 function saveArticleCategories(id,categories){const m=readArticleCategoryMap();if(Array.isArray(categories)&&categories.length)m[id]=categories;else delete m[id];writeArticleCategoryMap(m);}
+window.reloadCatalogCategoriesFromStorage=function(){try{let x=JSON.parse(localStorage.getItem(KEY));if(!(Array.isArray(x)&&x.length)){try{const legacy=JSON.parse(localStorage.getItem("hs_categories_v1")||"null");if(Array.isArray(legacy)&&legacy.length)x=legacy;}catch(_){}}if(!(Array.isArray(x)&&x.length))x=defaults.slice();const have=new Set(x.map(c=>c&&c.id));for(const c of RECOVER_CATEGORIES){if(c&&c.id&&!have.has(c.id)){x.push(c);have.add(c.id);}}cats=x;window.catalogCategories=cats;render();renderArticleCategoryChecks([]);}catch(e){console.warn(e);}};
 window.renderCatalogCategories=render;window.renderArticleCategoryChecks=renderArticleCategoryChecks;window.getSelectedArticleCategories=getSelectedArticleCategories;window.saveArticleCategories=saveArticleCategories;window.catalogCategories=cats;window.getActiveCatalogCategory=()=>active;renderArticleCategoryChecks([]);render();
 })();
 </script>
