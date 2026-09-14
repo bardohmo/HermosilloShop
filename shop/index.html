@@ -3049,6 +3049,21 @@
       try {
         const text = await file.text();
         const data = JSON.parse(text);
+        const categoriesOnly = !Array.isArray(data) && (data.restore === "categories_only" || (Array.isArray(data.categories) && data.categories.length > 0 && (!Array.isArray(data.articles) || data.articles.length === 0) && !data.deliveries && !data.sales));
+        if (categoriesOnly) {
+          if (!Array.isArray(data.categories) || !data.categories.length) { toast("El archivo no tiene categorías"); return; }
+          if (!confirm("Se restaurarán solo " + data.categories.length + " categoría(s) en este dispositivo. No se tocarán artículos ni la nube. ¿Continuar?")) return;
+          try {
+            localStorage.setItem("hs_catalog_categories_v1", JSON.stringify(data.categories));
+            localStorage.setItem("hs_categories_v1", JSON.stringify(data.categories));
+            if (data.article_categories && typeof data.article_categories === "object") {
+              localStorage.setItem("hs_article_categories_v1", JSON.stringify(data.article_categories));
+            }
+          } catch (_) {}
+          toast("Categorías restauradas");
+          setTimeout(() => location.reload(), 400);
+          return;
+        }
         const list = Array.isArray(data) ? data : data.articles;
         if (!Array.isArray(list) || list.length === 0) { toast("El archivo no tiene artículos válidos"); return; }
         const isFullBackup = !Array.isArray(data) && (data.version >= 4 || data.categories || data.deliveries || data.sales || data.deleted_articles || data.article_categories || data.investments);
