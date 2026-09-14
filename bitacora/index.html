@@ -2696,9 +2696,8 @@ function normalizeCoinSymbol(v){
   let s=String(v||'').trim().toUpperCase().replace(/\s+/g,'');
   // Normaliza formatos antiguos que pueden existir en el historial/cloud.
   s=s.replace(/[-_\/]/g,'');
-  // BTCUSDT→BTC, pero USDT/USDC solos se conservan
-  if(s!=='USDT' && s.length>4 && s.endsWith('USDT')) s=s.slice(0,-4);
-  if(s!=='USDC' && s.length>4 && s.endsWith('USDC')) s=s.slice(0,-4);
+  if(s.endsWith('USDT')) s=s.slice(0,-4);
+  if(s.endsWith('USDC')) s=s.slice(0,-4);
   const aliases={
     PEPE:'PEPE', 'PEPECOIN':'PEPE',
     SHIB:'SHIB', 'SHIBAINU':'SHIB',
