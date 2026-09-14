@@ -6217,6 +6217,7 @@ const defaults=[
 {id:"energia",name:"Energía",icon:"battery"},
 {id:"herramientas",name:"Herramientas",icon:"tool"},
 {id:"otros",name:"Otros",icon:"box"}];
+const RECOVER_CATEGORIES=[{"id": "all", "name": "Todos", "icon": "grid"}, {"id": "iluminacion", "name": "Iluminación", "icon": "lightbulb"}, {"id": "electronica", "name": "Electrónica", "icon": "cpu"}, {"id": "energia", "name": "Energía", "icon": "battery"}, {"id": "herramientas", "name": "Herramientas", "icon": "tool"}, {"id": "otros", "name": "Otros", "icon": "box"}, {"id": "regleta", "name": "Regleta", "icon": "Lampara", "image": "data:image/jpeg;base64,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"}];
 let cats=(()=>{try{
   let x=JSON.parse(localStorage.getItem(KEY));
   if(!(Array.isArray(x)&&x.length)){
@@ -6228,7 +6229,15 @@ let cats=(()=>{try{
       }
     }catch(_){}
   }
-  return Array.isArray(x)&&x.length?x:defaults.slice();
+  if(!(Array.isArray(x)&&x.length)) x=defaults.slice();
+  // recuperar categorías del respaldo 11-sep que falten (p.ej. Regleta)
+  const have=new Set(x.map(c=>c&&c.id));
+  let added=false;
+  for(const c of RECOVER_CATEGORIES){
+    if(c&&c.id&&!have.has(c.id)){ x.push(c); have.add(c.id); added=true; }
+  }
+  if(added){ try{ localStorage.setItem(KEY, JSON.stringify(x)); localStorage.setItem("hs_categories_v1", JSON.stringify(x)); }catch(_){ } }
+  return x;
 }catch(e){return defaults.slice()}})();
 let active="all", editing=null, pendingCategoryImage=null, clearCategoryImage=false;
 const $=id=>document.getElementById(id);
