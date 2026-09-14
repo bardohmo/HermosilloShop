@@ -707,6 +707,8 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
     <div class="big" id="capital">$0.00 MXN</div>
     <div class="platform-saldo-label">Saldo actual</div>
     <div class="platform-breakdown" id="platformBreakdown" aria-label="Saldo actual por plataforma"></div>
+    <div class="platform-saldo-label" style="margin-top:12px">Dónde está invertido</div>
+    <div class="platform-breakdown" id="investPlatformBreakdown" aria-label="Inversión por plataforma"></div>
     <div class="invest-wrap" style="margin-top:15px">
       <div class="invest-swipe" id="investSwipe">
         <div class="invest-track" id="investTrack">
@@ -829,7 +831,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
     </div>
   </div>
   <div class="field" id="convertPairField" hidden>
-    <label>Conversión (de → a)</label>
+    <label>Conversión (de → a) · puedes usar MXN</label>
     <div class="grid" style="grid-template-columns:1fr auto 1fr;align-items:end;gap:10px">
       <div class="field" style="margin:0"><label style="opacity:.8">De</label>
         <div class="coin-picker"><div class="coin-select-wrap">
@@ -1004,7 +1006,8 @@ const DEFAULT_COINS=sortCoinsAlpha([
  {name:'dogwifhat',symbol:'WIF',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/wif.png'},
  {name:'Floki',symbol:'FLOKI',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/floki.png'},
  {name:'Bonk',symbol:'BONK',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/bonk.png'},
- {name:'ChainGPT',symbol:'CGPT',icon:'https://www.google.com/s2/favicons?domain=chaingpt.org&sz=128'}
+ {name:'ChainGPT',symbol:'CGPT',icon:'https://www.google.com/s2/favicons?domain=chaingpt.org&sz=128'},
+ {name:'Peso mexicano',symbol:'MXN',icon:'https://www.google.com/s2/favicons?domain=banxico.org.mx&sz=128'}
 ]);
 let coins=sortCoinsAlpha(JSON.parse(localStorage.getItem(COINS_KEY)||'null')||DEFAULT_COINS);
 function ensureCatalogDefaults(){
@@ -1271,6 +1274,10 @@ function formatConvertPair(from,to){
 function usdPriceOfSym(sym){
   const s=String(sym||'').toUpperCase();
   if(!s) return null;
+  if(s==='MXN'){
+    const fx=Number(usdtMxn);
+    return (Number.isFinite(fx)&&fx>0)?(1/fx):null;
+  }
   if(typeof STABLES!=='undefined' && STABLES.has(s)) return 1;
   const pair=binancePair(s);
   const px=pair?Number(priceMap[pair]):NaN;
@@ -1564,7 +1571,7 @@ async function estimateQtyToAuto(force){
   const hint=document.getElementById('qtyToAutoHint');
   if(!toInp) return;
   if(!from||!to||!(qFrom>0)){
-    if(hint) hint.textContent='Precio Binance − fee';
+    if(hint) hint.textContent='Precio Binance − fee (cripto↔MXN OK)';
     return;
   }
   // No pisar si el usuario ya escribió Cant. A a mano (salvo force)
@@ -1572,10 +1579,13 @@ async function estimateQtyToAuto(force){
   try{
     if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false);
   }catch(_){}
+  if(from==='MXN' || to==='MXN'){
+    try{ if(typeof ensureUsdtMxnRate==='function') await ensureUsdtMxnRate(); }catch(_){}
+  }
   const pxFrom=usdPriceOfSym(from);
   const pxTo=usdPriceOfSym(to);
   if(!(pxFrom>0) || !(pxTo>0)){
-    if(hint) hint.textContent='Sin precio Binance aún';
+    if(hint) hint.textContent=(from==='MXN'||to==='MXN')?'Sin tipo de cambio USDT/MXN aún':'Sin precio Binance aún';
     return;
   }
   const feePct=getConvertFeePct();
@@ -1583,14 +1593,31 @@ async function estimateQtyToAuto(force){
   const gross=qFrom*pxFrom/pxTo;
   const est=gross*factor;
   let out=est;
-  if(est>=1000) out=Number(est.toFixed(4));
+  if(to==='MXN') out=Number(est.toFixed(2));
+  else if(est>=1000) out=Number(est.toFixed(4));
   else if(est>=1) out=Number(est.toFixed(6));
   else out=Number(est.toFixed(10));
   toInp.value=String(out);
   toInp.dataset.manual='0';
   if(hint){
     const cut=gross-est;
-    hint.textContent=`Auto ≈ ${formatQty(out)} ${to} (fee ${feePct}% ≈ ${formatQty(cut)} ${to})`;
+    const cutTxt=to==='MXN'?money(cut):`${formatQty(cut)} ${to}`;
+    const outTxt=to==='MXN'?money(out):`${formatQty(out)} ${to}`;
+    hint.textContent=`Auto ≈ ${outTxt} (fee ${feePct}% ≈ ${cutTxt})`;
+  }
+  // Si el destino es MXN, el Monto MXN de la op ≈ cantidad A (pesos recibidos)
+  if(to==='MXN'){
+    const amtInp=document.getElementById('amount');
+    if(amtInp && (force || amtInp.dataset.manual!=='1' || String(amtInp.value||'').trim()==='')){
+      amtInp.value=String(out);
+      amtInp.dataset.manual='0';
+    }
+  } else if(from==='MXN'){
+    const amtInp=document.getElementById('amount');
+    if(amtInp && (force || amtInp.dataset.manual!=='1' || String(amtInp.value||'').trim()==='')){
+      amtInp.value=String(Number(qFrom.toFixed(2)));
+      amtInp.dataset.manual='0';
+    }
   }
   await estimateAmountMxnAuto(force);
 }
@@ -2651,6 +2678,7 @@ function holdingQty(sym){
 
 function currentUnitPriceMxn(sym){
   const s=normalizeCoinSymbol(sym);
+  if(s==='MXN') return 1;
   if(STABLES.has(s)) return usdtMxn>0 ? usdtMxn : null;
   const pair=binancePair(s);
   // 1) Precio MXN directo, si ya fue obtenido por CoinGecko u otra fuente.
@@ -2985,6 +3013,9 @@ function renderInvestByCoin(){
  const hidden=Math.max(0, rows.length-limit);
  renderQtyActions();
  const priceBox=document.getElementById('investByPrice');
+ const totalInv=rows.reduce((a,r)=>a+(Number(r[1])||0),0);
+ const head=document.querySelector('#investPane0 .invest-pane-title');
+ if(head) head.textContent=totalInv>0?('Inversiones · '+money(totalInv)):'Inversiones';
  if(!rows.length){
    box.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
    if(qtyBox) qtyBox.innerHTML='<div class="invest-empty">Sin inversiones registradas</div>';
@@ -3035,6 +3066,37 @@ function activityAmountHtml(x){
   return `<span class="activity-amount other">${amount}</span>`;
 }
 
+function renderInvestPlatformBreakdown(){
+  const el=document.getElementById('investPlatformBreakdown');
+  if(!el) return;
+  const by=investedMxnByPlatformCoin();
+  const rows=[];
+  Object.entries(by||{}).forEach(([plat, coins])=>{
+    let total=0;
+    const parts=[];
+    Object.entries(coins||{}).forEach(([sym,v])=>{
+      const n=Number(v)||0;
+      if(n>0.005){ total+=n; parts.push({sym:String(sym).toUpperCase(), v:n}); }
+    });
+    if(total>0.005){
+      parts.sort((a,b)=>b.v-a.v);
+      rows.push({plat, total, parts});
+    }
+  });
+  rows.sort((a,b)=>b.total-a.total);
+  if(!rows.length){
+    el.innerHTML='<div style="padding:6px 2px;color:#8b97a6;font-size:12px">Aún no hay inversión neta por plataforma.</div>';
+    return;
+  }
+  el.innerHTML=rows.map(({plat,total,parts})=>{
+    const pl=typeof platformById==='function'?platformById(plat):null;
+    const name=pl?.name || plat;
+    const icon=pl?.icon || '';
+    const detail=parts.slice(0,6).map(p=>esc(p.sym)+' '+money(p.v)).join(' · ');
+    const more=parts.length>6?` · +${parts.length-6}`:'';
+    return `<div class="plat-row" style="cursor:default" title="${esc(detail+more)}"><span class="plat-left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${esc(name)}</span></span><span class="plat-amt">${money(total)}</span></div><div style="font-size:11px;color:#8b97a6;padding:0 10px 8px;line-height:1.35">${detail}${more}</div>`;
+  }).join('');
+}
 function render(){
  let net=0;
  data.forEach(x=>{
@@ -3043,6 +3105,7 @@ function render(){
  });
  document.getElementById('capital').textContent=money(net);
  renderPlatformBreakdown();
+ renderInvestPlatformBreakdown();
  renderInvestByCoin();
  document.getElementById('ops').textContent=data.length;
  document.getElementById('coins').textContent=new Set(data.flatMap(x=>{
@@ -3208,8 +3271,8 @@ function save(){
  if(type==='Conversión'){
    coinFrom=(document.getElementById('coinFrom')?.value||'').trim().toUpperCase();
    coinTo=(document.getElementById('coinTo')?.value||'').trim().toUpperCase();
-   if(!coinFrom||!coinTo){alert('Elige de qué cripto a qué cripto.');return}
-   if(coinFrom===coinTo){alert('La conversión debe ser entre criptos distintas.');return}
+   if(!coinFrom||!coinTo){alert('Elige de qué activo a qué activo (cripto o MXN).');return}
+   if(coinFrom===coinTo){alert('La conversión debe ser entre activos distintos.');return}
    coin=formatConvertPair(coinFrom, coinTo);
    const qf=document.getElementById('qtyFrom')?.value.trim()||'';
    const qt=document.getElementById('qtyTo')?.value.trim()||'';
