@@ -1,5 +1,5 @@
 /* Cripto Bitácora PWA (scope: ./bitacora/) */
-const CACHE = 'cripto-bitacora-v1';
+const CACHE = 'cripto-bitacora-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -28,6 +28,23 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
+  // HTML siempre red primero para no quedar atrapado en versión vieja
+  const isHTML = req.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/bitacora/') || url.pathname.endsWith('/bitacora');
+  if (isHTML) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((cache) => cache.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(req).then((cached) => {
       const fetched = fetch(req)
@@ -39,7 +56,7 @@ self.addEventListener('fetch', (event) => {
           return res;
         })
         .catch(() => cached);
-      return cached || fetched;
+      return fetched || cached;
     })
   );
 });

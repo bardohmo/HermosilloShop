@@ -1007,7 +1007,7 @@ const DEFAULT_COINS=sortCoinsAlpha([
  {name:'Floki',symbol:'FLOKI',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/floki.png'},
  {name:'Bonk',symbol:'BONK',icon:'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/bonk.png'},
  {name:'ChainGPT',symbol:'CGPT',icon:'https://www.google.com/s2/favicons?domain=chaingpt.org&sz=128'},
- {name:'Peso mexicano',symbol:'MXN',icon:'https://www.google.com/s2/favicons?domain=banxico.org.mx&sz=128'}
+ {name:'Peso mexicano',symbol:'MXN',icon:'https://flagcdn.com/w80/mx.png'}
 ]);
 let coins=sortCoinsAlpha(JSON.parse(localStorage.getItem(COINS_KEY)||'null')||DEFAULT_COINS);
 function ensureCatalogDefaults(){
@@ -1177,7 +1177,7 @@ function fillCoinSelect(sel, selected=''){
  if(sel.id==='coinFrom' || sel.id==='coinTo'){
    const hasMxn=list.some(c=>String(c.symbol||'').toUpperCase()==='MXN');
    if(!hasMxn){
-     list=[{name:'Peso mexicano',symbol:'MXN',icon:'https://www.google.com/s2/favicons?domain=banxico.org.mx&sz=128'}, ...list];
+     list=[{name:'Peso mexicano',symbol:'MXN',icon:'https://flagcdn.com/w80/mx.png'}, ...list];
    } else {
      // poner MXN arriba para que se vea fácil
      const mxn=list.find(c=>String(c.symbol||'').toUpperCase()==='MXN');
@@ -1226,7 +1226,7 @@ function ensureCoinCombobox(sel){
     if(sel.id==='coinFrom' || sel.id==='coinTo'){
       const hasMxn=list.some(c=>String(c.symbol||'').toUpperCase()==='MXN');
       if(!hasMxn){
-        list=[{name:'Peso mexicano',symbol:'MXN',icon:'https://www.google.com/s2/favicons?domain=banxico.org.mx&sz=128'}, ...list];
+        list=[{name:'Peso mexicano',symbol:'MXN',icon:'https://flagcdn.com/w80/mx.png'}, ...list];
       } else {
         const mxn=list.find(c=>String(c.symbol||'').toUpperCase()==='MXN');
         list=[mxn, ...list.filter(c=>String(c.symbol||'').toUpperCase()!=='MXN')];
@@ -1247,7 +1247,7 @@ function ensureCoinCombobox(sel){
     const want=String(sym||'').toUpperCase();
     let found=coins.find(c=>c.symbol.toUpperCase()===want);
     if(!found && want==='MXN'){
-      found={name:'Peso mexicano',symbol:'MXN',icon:'https://www.google.com/s2/favicons?domain=banxico.org.mx&sz=128'};
+      found={name:'Peso mexicano',symbol:'MXN',icon:'https://flagcdn.com/w80/mx.png'};
       coins.push(found);
       try{ coins=sortCoinsAlpha(coins); ensureCatalogDefaults(); saveCoinsLocalOnly&&saveCoinsLocalOnly(); }catch(_){}
       try{ if(typeof pushCoinsToCloud==='function') pushCoinsToCloud(coins); }catch(_){}
