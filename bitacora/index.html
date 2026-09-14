@@ -704,11 +704,13 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 
   <div class="card">
     <div class="label">Capital neto registrado</div>
-    <div class="big" id="capital">$0.00 MXN</div>
+    <div class="big" id="capital" role="button" tabindex="0" title="Ver dónde está invertido" style="cursor:pointer">$0.00 MXN</div>
     <div class="platform-saldo-label">Saldo actual</div>
     <div class="platform-breakdown" id="platformBreakdown" aria-label="Saldo actual por plataforma"></div>
-    <div class="platform-saldo-label" style="margin-top:12px">Dónde está invertido</div>
-    <div class="platform-breakdown" id="investPlatformBreakdown" aria-label="Inversión por plataforma"></div>
+    <div id="investWhereWrap" hidden>
+      <div class="platform-saldo-label" style="margin-top:12px">Dónde está invertido</div>
+      <div class="platform-breakdown" id="investPlatformBreakdown" aria-label="Inversión por plataforma"></div>
+    </div>
     <div class="invest-wrap" style="margin-top:15px">
       <div class="invest-swipe" id="investSwipe">
         <div class="invest-track" id="investTrack">
@@ -2696,8 +2698,9 @@ function normalizeCoinSymbol(v){
   let s=String(v||'').trim().toUpperCase().replace(/\s+/g,'');
   // Normaliza formatos antiguos que pueden existir en el historial/cloud.
   s=s.replace(/[-_\/]/g,'');
-  if(s.endsWith('USDT')) s=s.slice(0,-4);
-  if(s.endsWith('USDC')) s=s.slice(0,-4);
+  // BTCUSDT→BTC, pero USDT/USDC solos se conservan
+  if(s!=='USDT' && s.length>4 && s.endsWith('USDT')) s=s.slice(0,-4);
+  if(s!=='USDC' && s.length>4 && s.endsWith('USDC')) s=s.slice(0,-4);
   const aliases={
     PEPE:'PEPE', 'PEPECOIN':'PEPE',
     SHIB:'SHIB', 'SHIBAINU':'SHIB',
@@ -3124,6 +3127,23 @@ function activityAmountHtml(x){
   return `<span class="activity-amount other">${amount}</span>`;
 }
 
+function toggleInvestWherePanel(){
+  const wrap=document.getElementById('investWhereWrap');
+  if(!wrap) return;
+  wrap.hidden=!wrap.hidden;
+  if(!wrap.hidden){
+    try{ renderInvestPlatformBreakdown(); }catch(_){}
+  }
+}
+function bindCapitalInvestWhere(){
+  const el=document.getElementById('capital');
+  if(!el || el.dataset.investWhereBound==='1') return;
+  el.dataset.investWhereBound='1';
+  el.addEventListener('click', (e)=>{ e.preventDefault(); toggleInvestWherePanel(); });
+  el.addEventListener('keydown', (e)=>{
+    if(e.key==='Enter' || e.key===' '){ e.preventDefault(); toggleInvestWherePanel(); }
+  });
+}
 function renderInvestPlatformBreakdown(){
   const el=document.getElementById('investPlatformBreakdown');
   if(!el) return;
@@ -3162,8 +3182,10 @@ function render(){
    if(['Venta','Retiro','Comisión'].includes(x.type)) net -= Number(x.amount);
  });
  document.getElementById('capital').textContent=money(net);
+ bindCapitalInvestWhere();
  renderPlatformBreakdown();
- renderInvestPlatformBreakdown();
+ // Solo refrescar el desglose si el panel está abierto
+ if(!document.getElementById('investWhereWrap')?.hidden) renderInvestPlatformBreakdown();
  renderInvestByCoin();
  document.getElementById('ops').textContent=data.length;
  document.getElementById('coins').textContent=new Set(data.flatMap(x=>{
