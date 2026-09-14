@@ -1733,7 +1733,7 @@
       </div>
       <div class="toolbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <div class="search" style="flex:1;min-width:180px"><input type="search" id="investmentSearch" placeholder="Buscar por artículo, fecha o movimiento..." autocomplete="off" /></div>
-        <button type="button" class="ghost" id="investmentRebuildBtn" title="Si el historial está vacío, crea entradas desde el catálogo actual">Reconstruir desde catálogo</button>
+        <button type="button" class="primary" id="investmentAddBtn">+ Agregar compra</button>
       </div>
       <div class="investment-grid" id="investmentGrid" aria-live="polite"></div>
     </section>
@@ -1748,6 +1748,33 @@
           <label><span>Costo de compra por unidad</span><input type="number" id="investmentUnitCost" min="0" step="0.01" required /></label>
           <div class="investment-thumb" id="investmentEditPhotoPreview" style="width:84px;height:84px"></div>
           <div class="form-actions"><button type="button" class="ghost" id="investmentCancelBtn">Cancelar</button><button type="submit" class="primary">Guardar cambios</button></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="overlay" id="investmentAddOverlay" role="dialog" aria-modal="true">
+      <div class="modal">
+        <h2>Agregar compra</h2>
+        <p style="margin:0 0 10px;color:var(--muted);font-size:.78rem;line-height:1.35">Elige un artículo del catálogo que aún no esté en el historial, indica cantidad, fecha y hora.</p>
+        <form id="investmentAddForm" class="form-grid" novalidate>
+          <label><span>Artículo del catálogo</span>
+            <select id="investmentAddArticle" required>
+              <option value="">Selecciona un artículo…</option>
+            </select>
+          </label>
+          <div class="investment-thumb" id="investmentAddPhotoPreview" style="width:84px;height:84px"></div>
+          <div class="row-2">
+            <label><span>Fecha</span><input type="date" id="investmentAddDate" required /></label>
+            <label><span>Hora</span><input type="time" id="investmentAddTime" required /></label>
+          </div>
+          <div class="row-2">
+            <label><span>Cantidad</span><input type="number" id="investmentAddQty" min="1" step="1" value="1" required /></label>
+            <label><span>Costo por unidad (MXN)</span><input type="number" id="investmentAddUnitCost" min="0" step="0.01" required /></label>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="ghost" id="investmentAddCancelBtn">Cancelar</button>
+            <button type="submit" class="primary">Registrar compra</button>
+          </div>
         </form>
       </div>
     </div>
@@ -6012,7 +6039,7 @@
   const nowParts=()=>{const d=new Date();return{date:d.toISOString().slice(0,10),time:d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false})}};
   const total=r=>(Number(r.qty)||0)*(Number(r.unitCost)||0);
   const imgHtml=(url,name)=>url?'<img src="'+escInv(url)+'" alt="'+escInv(name)+'">':'<span aria-hidden="true">📦</span>';
-  function render(){records=read();const q=(($("investmentSearch")?.value)||"").trim().toLowerCase();const list=records.filter(r=>!q||[r.name,r.date,r.time,r.type].some(v=>String(v||"").toLowerCase().includes(q)));const ins=records.filter(r=>r.type!=="out"),outs=records.filter(r=>r.type==="out");const it=ins.reduce((a,r)=>a+total(r),0),ot=outs.reduce((a,r)=>a+total(r),0);$("investmentStatus")&&($("investmentStatus").textContent=records.length+" movimiento"+(records.length===1?"":"s")+" · "+moneyInv(it-ot));$("investmentEntries")&&($("investmentEntries").textContent=ins.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(it));$("investmentExits")&&($("investmentExits").textContent=outs.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(ot));$("investmentTotal")&&($("investmentTotal").textContent=moneyInv(it-ot)+" MXN");const grid=$("investmentGrid");if(!grid)return;if(!list.length){grid.innerHTML='<div class="investment-empty">'+(records.length?'No hay movimientos que coincidan con la búsqueda.':'Aún no hay movimientos. Al agregar un artículo nuevo queda registrado aquí. Si se perdió el historial, usa “Reconstruir desde catálogo”.')+'</div>';return}grid.innerHTML=list.map(r=>{const out=r.type==="out";return '<article class="investment-card" data-investment-id="'+escInv(r.id)+'"><div class="investment-thumb">'+imgHtml(r.photo_url,r.name)+'</div><div class="investment-main"><div class="investment-title">'+escInv(r.name)+' <span class="investment-badge '+(out?'out':'')+'">'+(out?'SALIDA':'ENTRADA')+'</span></div><div class="investment-meta"><span>📅 '+escInv(r.date)+'</span><span>🕒 '+escInv(r.time)+'</span><span>📦 '+(Number(r.qty)||0)+' uds.</span><span>💵 '+moneyInv(r.unitCost)+' / ud.</span></div><div class="investment-total">'+(out?'Salida registrada':'Inversión registrada')+': '+moneyInv(total(r))+' MXN</div></div><div class="investment-actions"><button type="button" class="ghost" data-investment-action="edit">Editar</button><button type="button" class="ghost" data-investment-action="delete">Eliminar</button></div></article>'}).join("")}
+  function render(){records=read();const q=(($("investmentSearch")?.value)||"").trim().toLowerCase();const list=records.filter(r=>!q||[r.name,r.date,r.time,r.type].some(v=>String(v||"").toLowerCase().includes(q)));const ins=records.filter(r=>r.type!=="out"),outs=records.filter(r=>r.type==="out");const it=ins.reduce((a,r)=>a+total(r),0),ot=outs.reduce((a,r)=>a+total(r),0);$("investmentStatus")&&($("investmentStatus").textContent=records.length+" movimiento"+(records.length===1?"":"s")+" · "+moneyInv(it-ot));$("investmentEntries")&&($("investmentEntries").textContent=ins.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(it));$("investmentExits")&&($("investmentExits").textContent=outs.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(ot));$("investmentTotal")&&($("investmentTotal").textContent=moneyInv(it-ot)+" MXN");const grid=$("investmentGrid");if(!grid)return;if(!list.length){grid.innerHTML='<div class="investment-empty">'+(records.length?'No hay movimientos que coincidan con la búsqueda.':'Aún no hay movimientos. Usa “+ Agregar compra” para registrar una entrada desde el catálogo, o se registrará al agregar un artículo nuevo.')+'</div>';return}grid.innerHTML=list.map(r=>{const out=r.type==="out";return '<article class="investment-card" data-investment-id="'+escInv(r.id)+'"><div class="investment-thumb">'+imgHtml(r.photo_url,r.name)+'</div><div class="investment-main"><div class="investment-title">'+escInv(r.name)+' <span class="investment-badge '+(out?'out':'')+'">'+(out?'SALIDA':'ENTRADA')+'</span></div><div class="investment-meta"><span>📅 '+escInv(r.date)+'</span><span>🕒 '+escInv(r.time)+'</span><span>📦 '+(Number(r.qty)||0)+' uds.</span><span>💵 '+moneyInv(r.unitCost)+' / ud.</span></div><div class="investment-total">'+(out?'Salida registrada':'Inversión registrada')+': '+moneyInv(total(r))+' MXN</div></div><div class="investment-actions"><button type="button" class="ghost" data-investment-action="edit">Editar</button><button type="button" class="ghost" data-investment-action="delete">Eliminar</button></div></article>'}).join("")}
   function openEdit(id){const r=records.find(x=>x.id===id);if(!r)return;editingId=id;$("investmentEditId").value=id;$("investmentDate").value=r.date||"";$("investmentTime").value=r.time||"";$("investmentName").value=r.name||"";$("investmentType").value=r.type||"in";$("investmentQty").value=Number(r.qty)||0;$("investmentUnitCost").value=Number(r.unitCost)||0;$("investmentEditPhotoPreview").innerHTML=imgHtml(r.photo_url,r.name);$("investmentOverlay").classList.add("open")}
   function closeEdit(){$("investmentOverlay")?.classList.remove("open");editingId=null}
   function recordInvestment(article,type){
@@ -6043,90 +6070,120 @@
     write();
     render();
   }
-  /** Reconstruye ENTRADAS desde el catálogo actual (no recupera salidas históricas). */
-  function rebuildInvestmentsFromCatalog(force){
+  function registeredArticleIds(){
     records=read();
-    if(records.length && !force){
-      if(typeof toast==="function") toast("El historial ya tiene movimientos");
-      return false;
-    }
-    const arts=Array.isArray(window.articles)?window.articles:[];
-    if(!arts.length){
-      if(typeof toast==="function") toast("No hay artículos en el catálogo para reconstruir");
-      return false;
-    }
-    const n=nowParts();
-    const rebuilt=[];
-    arts.forEach((article)=>{
-      const stock=Math.max(0,Math.floor(Number(article?.stock)||0));
-      const unitCost=Number(article?.purchase_price);
-      const hasCost=Number.isFinite(unitCost)&&unitCost>=0;
-      // Incluir si hay stock o costo de compra registrado (aunque stock 0 = compra ya vendida/salida no registrada)
-      if(stock<=0 && !hasCost) return;
-      if(stock<=0 && hasCost && unitCost===0) return;
-      const qty=stock>0?stock:1;
-      const snapshot={
-        id:article?.id||null,
-        name:String(article?.name||"Artículo"),
-        description:String(article?.description||""),
-        price:Number(article?.price)||0,
-        purchase_price:hasCost?unitCost:0,
-        stock:qty,
-        photo_url:article?.photo_url||null,
-        categories:Array.isArray(article?.categories)?[...article.categories]:[]
-      };
-      rebuilt.push({
-        id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),
-        date:n.date,time:n.time,name:snapshot.name,type:"in",
-        qty:snapshot.stock,unitCost:snapshot.purchase_price,
-        photo_url:snapshot.photo_url,articleId:snapshot.id,
-        articleSnapshot:snapshot,
-        createdAt:new Date().toISOString(),
-        updatedAt:new Date().toISOString(),
-        rebuilt:true
-      });
+    const ids=new Set();
+    records.forEach((r)=>{
+      const id=String(r.articleId || (r.articleSnapshot && r.articleSnapshot.id) || "").trim();
+      if(id) ids.add(id);
     });
-    if(!rebuilt.length){
-      if(typeof toast==="function") toast("No se pudo reconstruir: faltan costos/stock en el catálogo");
-      return false;
+    return ids;
+  }
+  function catalogArticlesForPurchase(){
+    const arts=Array.isArray(window.articles)?window.articles:[];
+    const already=registeredArticleIds();
+    // Solo artículos del catálogo que aún no están en el historial.
+    return arts.filter((a)=>a && a.id && !already.has(String(a.id)))
+      .slice()
+      .sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"es",{sensitivity:"base"}));
+  }
+  function fillAddArticleSelect(){
+    const sel=$("investmentAddArticle");
+    if(!sel) return;
+    const list=catalogArticlesForPurchase();
+    sel.innerHTML='<option value="">Selecciona un artículo…</option>'+list.map((a)=>{
+      return '<option value="'+escInv(a.id)+'">'+escInv(a.name||"Artículo")+'</option>';
+    }).join("");
+    $("investmentAddPhotoPreview")&&($("investmentAddPhotoPreview").innerHTML='<span aria-hidden="true">📦</span>');
+    return list.length;
+  }
+  function openAddPurchase(){
+    const n=nowParts();
+    const available=fillAddArticleSelect();
+    if(!available){
+      if(typeof toast==="function") toast("Todos los artículos del catálogo ya están en el historial");
+      return;
     }
-    records=rebuilt;
+    if($("investmentAddDate")) $("investmentAddDate").value=n.date;
+    if($("investmentAddTime")) $("investmentAddTime").value=n.time;
+    if($("investmentAddQty")) $("investmentAddQty").value="1";
+    if($("investmentAddUnitCost")) $("investmentAddUnitCost").value="";
+    $("investmentAddOverlay")?.classList.add("open");
+  }
+  function closeAddPurchase(){
+    $("investmentAddOverlay")?.classList.remove("open");
+  }
+  function onAddArticleChange(){
+    const id=$("investmentAddArticle")?.value||"";
+    const art=(Array.isArray(window.articles)?window.articles:[]).find((a)=>String(a.id)===String(id));
+    $("investmentAddPhotoPreview")&&($("investmentAddPhotoPreview").innerHTML=imgHtml(art?.photo_url, art?.name));
+    const cost=Number(art?.purchase_price);
+    if($("investmentAddUnitCost")){
+      $("investmentAddUnitCost").value=(Number.isFinite(cost)&&cost>=0)?String(cost):"";
+    }
+  }
+  function submitAddPurchase(e){
+    e.preventDefault();
+    if(typeof requireEdit==="function"&&!requireEdit()) return;
+    const id=$("investmentAddArticle")?.value||"";
+    const art=(Array.isArray(window.articles)?window.articles:[]).find((a)=>String(a.id)===String(id));
+    if(!art){ if(typeof toast==="function") toast("Selecciona un artículo del catálogo"); return; }
+    const date=$("investmentAddDate")?.value||"";
+    const time=$("investmentAddTime")?.value||"";
+    const qty=Math.max(1, Math.floor(Number($("investmentAddQty")?.value)||0));
+    const unitCost=Math.max(0, Number($("investmentAddUnitCost")?.value));
+    if(!date || !time){ if(typeof toast==="function") toast("Completa fecha y hora"); return; }
+    if(!(qty>0)){ if(typeof toast==="function") toast("Cantidad inválida"); return; }
+    if(!Number.isFinite(unitCost) || unitCost<0){ if(typeof toast==="function") toast("Costo inválido"); return; }
+    records=read();
+    const snapshot={
+      id:art.id,
+      name:String(art.name||"Artículo"),
+      description:String(art.description||""),
+      price:Number(art.price)||0,
+      purchase_price:unitCost,
+      stock:qty,
+      photo_url:art.photo_url||null,
+      categories:Array.isArray(art.categories)?[...art.categories]:[]
+    };
+    records.push({
+      id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),
+      date, time,
+      name:snapshot.name,
+      type:"in",
+      qty,
+      unitCost,
+      photo_url:snapshot.photo_url,
+      articleId:snapshot.id,
+      articleSnapshot:snapshot,
+      createdAt:new Date().toISOString(),
+      updatedAt:new Date().toISOString()
+    });
     write();
+    closeAddPurchase();
     render();
-    if(typeof toast==="function") toast("Historial reconstruido: "+rebuilt.length+" entrada"+(rebuilt.length===1?"":"s"));
-    return true;
+    if(typeof toast==="function") toast("Compra registrada en el historial");
   }
   window.renderInvestments=render;
   window.recordInvestment=recordInvestment;
-  window.rebuildInvestmentsFromCatalog=rebuildInvestmentsFromCatalog;
   $("investmentSearch")?.addEventListener("input",render);
   $("investmentCancelBtn")?.addEventListener("click",closeEdit);
   $("investmentOverlay")?.addEventListener("click",e=>{if(e.target===$("investmentOverlay"))closeEdit()});
   $("investmentForm")?.addEventListener("submit",e=>{e.preventDefault();if(!editingId)return;if(typeof requireEdit==="function"&&!requireEdit())return;const r=records.find(x=>x.id===editingId);if(!r)return;r.date=$("investmentDate").value;r.time=$("investmentTime").value;r.name=$("investmentName").value.trim();r.type=$("investmentType").value;r.qty=Math.max(0,Math.floor(Number($("investmentQty").value)||0));r.unitCost=Math.max(0,Number($("investmentUnitCost").value)||0);r.updatedAt=new Date().toISOString();write();closeEdit();render();if(typeof toast==="function")toast("Inversión actualizada")});
   $("investmentGrid")?.addEventListener("click",e=>{const b=e.target.closest("[data-investment-action]");if(!b)return;const id=b.closest("[data-investment-id]")?.getAttribute("data-investment-id");if(!id)return;if(typeof requireEdit==="function"&&!requireEdit())return;if(b.dataset.investmentAction==="edit")openEdit(id);else if(confirm("¿Eliminar este movimiento del historial de inversiones?")){records=read().filter(r=>r.id!==id);write();render();if(typeof toast==="function")toast("Movimiento eliminado")}});
-  $("investmentRebuildBtn")?.addEventListener("click",()=>{
+  $("investmentAddBtn")?.addEventListener("click",()=>{
     if(typeof requireEdit==="function"&&!requireEdit())return;
-    const cur=read();
-    if(cur.length){
-      if(!confirm("Ya hay "+cur.length+" movimiento(s). ¿Reemplazarlos con una reconstrucción desde el catálogo actual?\n\nEsto no recupera salidas históricas eliminadas.")) return;
-      rebuildInvestmentsFromCatalog(true);
-    } else {
-      rebuildInvestmentsFromCatalog(true);
-    }
+    openAddPurchase();
   });
+  $("investmentAddCancelBtn")?.addEventListener("click",closeAddPurchase);
+  $("investmentAddOverlay")?.addEventListener("click",e=>{if(e.target===$("investmentAddOverlay"))closeAddPurchase()});
+  $("investmentAddArticle")?.addEventListener("change",onAddArticleChange);
+  $("investmentAddForm")?.addEventListener("submit",submitAddPurchase);
   $("btnInversiones")?.addEventListener("click",e=>{
     e.preventDefault();e.stopPropagation();
     if(typeof requireEdit==="function"&&!requireEdit())return;
     if(typeof showView==="function")showView("inversiones");
-    // Si está vacío, intenta reconstruir una vez desde el catálogo
-    setTimeout(()=>{
-      const cur=read();
-      if(!cur.length && Array.isArray(window.articles) && window.articles.length){
-        rebuildInvestmentsFromCatalog(false);
-      } else {
-        render();
-      }
-    }, 50);
+    render();
   });
   records=read();
 })();
