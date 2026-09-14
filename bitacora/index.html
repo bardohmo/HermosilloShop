@@ -1109,6 +1109,21 @@ async function pushAllBalancesToCloud(map){
   if(!rows.length)return;
   await sbRest('bitacora_balances?on_conflict=user_key,symbol',{method:'POST',headers:sbHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(rows)});
 }
+async function upsertBalanceCloud(sym, qty){
+  const row={
+    user_key: activeUser,
+    symbol: String(sym||'').toUpperCase(),
+    qty: Number(qty)||0,
+    updated_at: new Date().toISOString()
+  };
+  if(!row.symbol) return;
+  await sbRest('bitacora_balances?on_conflict=user_key,symbol',{
+    method:'POST',
+    headers:sbHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),
+    body:JSON.stringify(row)
+  });
+}
+
 
 async function syncFromSupabase(){
   if(sbSyncing)return;
@@ -1950,40 +1965,6 @@ function formatQty(n){
   if(Math.abs(v)>=1000) return v.toLocaleString('es-MX',{maximumFractionDigits:4});
   if(Math.abs(v)>=1) return v.toLocaleString('es-MX',{maximumFractionDigits:6});
   return v.toLocaleString('es-MX',{maximumFractionDigits:10});
-}
-async function upsertBalanceCloud(sym, qty){
-  if(!sb) return;
-  const { error } = await sb.from('bitacora_balances').upsert({
-    user_key: activeUser,
-    symbol: String(sym||'').toUpperCase(),
-    qty: Number(qty)||0,
-    updated_at: new Date().toISOString()
-  }, { onConflict: 'user_key,symbol' });
-  if(error) console.warn('balance upsert', error);
-}
-async function pullBalancesFromCloud(){
-  if(!sb) return null;
-  const { data: rows, error } = await sb
-    .from('bitacora_balances')
-    .select('symbol,qty')
-    .eq('user_key', activeUser);
-  if(error) throw error;
-  if(!rows) return null;
-  const map={};
-  rows.forEach(r=>{ map[String(r.symbol||'').toUpperCase()]=Number(r.qty)||0; });
-  return map;
-}
-async function pushAllBalancesToCloud(map){
-  if(!sb) return;
-  const rows=Object.entries(map||{}).map(([symbol,qty])=>({
-    user_key: activeUser,
-    symbol: String(symbol).toUpperCase(),
-    qty: Number(qty)||0,
-    updated_at: new Date().toISOString()
-  }));
-  if(!rows.length) return;
-  const { error } = await sb.from('bitacora_balances').upsert(rows, { onConflict: 'user_key,symbol' });
-  if(error) throw error;
 }
 function syncInvestHeight(){
   const swipe=document.getElementById('investSwipe');
