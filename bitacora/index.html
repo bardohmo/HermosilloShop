@@ -1170,8 +1170,20 @@ function iconValue(v){
 function coinBySymbol(symbol){return coins.find(c=>c.symbol.toUpperCase()===String(symbol||'').toUpperCase());}
 function fillCoinSelect(sel, selected=''){
  if(!sel) return;
+ try{ ensureCatalogDefaults(); }catch(_){}
  const old=selected||sel.value;
- const list=sortCoinsAlpha(coins);
+ let list=sortCoinsAlpha(coins||[]);
+ // MXN siempre disponible en conversiones (De / A), aunque no esté aún en el catálogo de la nube
+ if(sel.id==='coinFrom' || sel.id==='coinTo'){
+   const hasMxn=list.some(c=>String(c.symbol||'').toUpperCase()==='MXN');
+   if(!hasMxn){
+     list=[{name:'Peso mexicano',symbol:'MXN',icon:'https://www.google.com/s2/favicons?domain=banxico.org.mx&sz=128'}, ...list];
+   } else {
+     // poner MXN arriba para que se vea fácil
+     const mxn=list.find(c=>String(c.symbol||'').toUpperCase()==='MXN');
+     list=[mxn, ...list.filter(c=>String(c.symbol||'').toUpperCase()!=='MXN')];
+   }
+ }
  sel.innerHTML=list.map(c=>`<option value="${esc(c.symbol)}">${esc(c.name)} (${esc(c.symbol)})</option>`).join('')||'<option value="Cripto">Cripto</option>';
  const found=list.find(c=>c.symbol.toUpperCase()===String(old).toUpperCase());
  sel.value=found?found.symbol:(list[0]?.symbol||'Cripto');
@@ -1203,12 +1215,23 @@ function ensureCoinCombobox(sel){
   wrap.appendChild(drop);
 
   const syncLabel=()=>{
-    const c=coinBySymbol(sel.value);
+    let c=coinBySymbol(sel.value);
+    if(!c && String(sel.value||'').toUpperCase()==='MXN') c={name:'Peso mexicano',symbol:'MXN'};
     input.value=c ? (c.name+' ('+c.symbol+')') : (sel.value||'');
   };
 
   const openDrop=(q)=>{
-    const list=sortCoinsAlpha(coins);
+    try{ ensureCatalogDefaults(); }catch(_){}
+    let list=sortCoinsAlpha(coins||[]);
+    if(sel.id==='coinFrom' || sel.id==='coinTo'){
+      const hasMxn=list.some(c=>String(c.symbol||'').toUpperCase()==='MXN');
+      if(!hasMxn){
+        list=[{name:'Peso mexicano',symbol:'MXN',icon:'https://www.google.com/s2/favicons?domain=banxico.org.mx&sz=128'}, ...list];
+      } else {
+        const mxn=list.find(c=>String(c.symbol||'').toUpperCase()==='MXN');
+        list=[mxn, ...list.filter(c=>String(c.symbol||'').toUpperCase()!=='MXN')];
+      }
+    }
     const query=String(q||'').trim().toLowerCase();
     const filtered=!query ? list : list.filter(c=>{
       const hay=((c.name||'')+' '+(c.symbol||'')).toLowerCase();
@@ -1221,9 +1244,23 @@ function ensureCoinCombobox(sel){
   };
 
   const pick=sym=>{
-    const found=coins.find(c=>c.symbol.toUpperCase()===String(sym||'').toUpperCase());
+    const want=String(sym||'').toUpperCase();
+    let found=coins.find(c=>c.symbol.toUpperCase()===want);
+    if(!found && want==='MXN'){
+      found={name:'Peso mexicano',symbol:'MXN',icon:'https://www.google.com/s2/favicons?domain=banxico.org.mx&sz=128'};
+      coins.push(found);
+      try{ coins=sortCoinsAlpha(coins); ensureCatalogDefaults(); saveCoinsLocalOnly&&saveCoinsLocalOnly(); }catch(_){}
+      try{ if(typeof pushCoinsToCloud==='function') pushCoinsToCloud(coins); }catch(_){}
+    }
     if(found) sel.value=found.symbol;
     else sel.value=sym;
+    // asegurar option en el select nativo
+    if(![...sel.options].some(o=>String(o.value).toUpperCase()===want)){
+      const opt=document.createElement('option');
+      opt.value=found?found.symbol:sym;
+      opt.textContent=found?(found.name+' ('+found.symbol+')'):String(sym);
+      sel.appendChild(opt);
+    }
     sel.dispatchEvent(new Event('change',{bubbles:true}));
     syncLabel();
     drop.hidden=true;
@@ -1635,7 +1672,12 @@ function updateTypeFields(){
  updateQtyHaveHints();
  const amtHint=document.getElementById('amountAutoHint');
  if(isConvert){
-   if(amtHint) amtHint.textContent='En conversión puedes dejar el monto sugerido o editarlo';
+   try{ ensureCatalogDefaults(); }catch(_){}
+   // Refrescar De/A para que MXN aparezca siempre
+   fillCoinSelect(document.getElementById('coinFrom'), document.getElementById('coinFrom')?.value||'');
+   fillCoinSelect(document.getElementById('coinTo'), document.getElementById('coinTo')?.value||'');
+   updateConvertPreviews();
+   if(amtHint) amtHint.textContent='En conversión puedes usar cripto o MXN (pesos)';
    estimateQtyToAuto(false);
  } else if(type==='Compra'||type==='Depósito'){
    if(amtHint) amtHint.textContent='Escribe cuánto pagas en MXN; abajo verás cuánto recibes';
