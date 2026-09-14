@@ -3085,8 +3085,11 @@
             const result = await supabaseClient.from(table).upsert(rowsToImport);
             if (result.error) throw result.error;
           }
-          if (Array.isArray(data.categories)) {
-            try { localStorage.setItem("hs_categories_v1", JSON.stringify(data.categories)); } catch (_) {}
+          if (Array.isArray(data.categories) && data.categories.length > 0) {
+            try {
+              localStorage.setItem("hs_catalog_categories_v1", JSON.stringify(data.categories));
+              localStorage.setItem("hs_categories_v1", JSON.stringify(data.categories));
+            } catch (_) {}
           }
           if (data.article_categories && typeof data.article_categories === "object") {
             try { localStorage.setItem("hs_article_categories_v1", JSON.stringify(data.article_categories)); } catch (_) {}
@@ -6199,7 +6202,19 @@ const defaults=[
 {id:"energia",name:"Energía",icon:"battery"},
 {id:"herramientas",name:"Herramientas",icon:"tool"},
 {id:"otros",name:"Otros",icon:"box"}];
-let cats=(()=>{try{const x=JSON.parse(localStorage.getItem(KEY));return Array.isArray(x)&&x.length?x:defaults.slice()}catch(e){return defaults.slice()}})();
+let cats=(()=>{try{
+  let x=JSON.parse(localStorage.getItem(KEY));
+  if(!(Array.isArray(x)&&x.length)){
+    try{
+      const legacy=JSON.parse(localStorage.getItem("hs_categories_v1")||"null");
+      if(Array.isArray(legacy)&&legacy.length){
+        localStorage.setItem(KEY, JSON.stringify(legacy));
+        x=legacy;
+      }
+    }catch(_){}
+  }
+  return Array.isArray(x)&&x.length?x:defaults.slice();
+}catch(e){return defaults.slice()}})();
 let active="all", editing=null, pendingCategoryImage=null, clearCategoryImage=false;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
