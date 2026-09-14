@@ -831,7 +831,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
     </div>
   </div>
   <div class="field" id="convertPairField" hidden>
-    <label>Conversión (de → a) · puedes usar MXN</label>
+    <label>Conversión (de → a) · MXN = pesos en la misma plataforma (ej. Binance)</label>
     <div class="grid" style="grid-template-columns:1fr auto 1fr;align-items:end;gap:10px">
       <div class="field" style="margin:0"><label style="opacity:.8">De</label>
         <div class="coin-picker"><div class="coin-select-wrap">
@@ -2356,6 +2356,8 @@ function valueMxnOfQty(sym, qty){
   const s=String(sym||'').toUpperCase();
   const q=Number(qty)||0;
   if(!(q>0)) return null;
+  // Pesos en plataforma: 1 unidad MXN = 1 peso
+  if(s==='MXN') return q;
   if(typeof STABLES!=='undefined' && STABLES.has(s)) return usdtMxn>0 ? q*usdtMxn : null;
   const pair=binancePair(s);
   const px=pair!=null ? Number(priceMap[pair]) : NaN;
@@ -3339,6 +3341,30 @@ function save(){
      // Conservar cantidades previas si solo cambias plataforma/nota/fecha/monto
      qty=Number(prev.qty)||0;
      qtyTo=Number(prev.qtyTo)||0;
+   }
+   // ETH→MXN (u otra→MXN): sin cantidades, usar Monto MXN como pesos recibidos
+   // y estimar cripto vendida con el precio, para que Binance/Ledger muevan saldo.
+   if((!(qty>0) || !(qtyTo>0)) && amount>0){
+     if(coinTo==='MXN' && !(qtyTo>0)) qtyTo=amount;
+     if(coinFrom==='MXN' && !(qty>0)) qty=amount;
+     if(coinTo==='MXN' && !(qty>0)){
+       try{
+         const px=usdPriceOfSym(coinFrom);
+         const fx=Number(usdtMxn);
+         if(px>0 && fx>0) qty=amount/(px*fx);
+       }catch(_){}
+     }
+     if(coinFrom==='MXN' && !(qtyTo>0)){
+       try{
+         const px=usdPriceOfSym(coinTo);
+         const fx=Number(usdtMxn);
+         if(px>0 && fx>0) qtyTo=amount/(px*fx);
+       }catch(_){}
+     }
+   }
+   if(!(qty>0) || !(qtyTo>0)){
+     alert('Para que se refleje en la plataforma, escribe Cant. De y Cant. A (o el Monto MXN).');
+     return;
    }
  } else {
    const qRaw=document.getElementById('qty')?.value.trim()||'';
