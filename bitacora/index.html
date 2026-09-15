@@ -2509,11 +2509,11 @@ function qtyHeldByPlatformForSymbol(sym){
     else if((Number(mxnMap[p]?.[s])||0)>0) mxnPlats.push(p);
   });
 
-  // Cantidad (balances) es la fuente de verdad del total.
-  // Las ops solo sirven como pesos para repartir entre plataformas.
+  // Cantidad = total en todas las plataformas.
+  // Las ops solo definen el peso de cada wallet (no “comerse” Ledger).
   if(qtyPlats.length){
-    let weightSum=0;
     const weights={};
+    let weightSum=0;
     qtyPlats.forEach(p=>{
       const w=Math.max(0, Number(qtyMap[p]?.[s])||0);
       weights[p]=w;
@@ -2521,10 +2521,10 @@ function qtyHeldByPlatformForSymbol(sym){
     });
     if(weightSum>0){
       qtyPlats.forEach(p=>{ out[p]=bal*(weights[p]/weightSum); });
-    } else {
-      const each=bal/qtyPlats.length;
-      qtyPlats.forEach(p=>{ out[p]=each; });
+      return out;
     }
+    const each=bal/qtyPlats.length;
+    qtyPlats.forEach(p=>{ out[p]=each; });
     return out;
   }
 
@@ -2542,10 +2542,10 @@ function qtyHeldByPlatformForSymbol(sym){
     return out;
   }
 
-  // Sin ops de plataforma: todo el saldo manual va a Binance para que Saldo actual coincida con Cantidad.
   out.binance=bal;
   return out;
 }
+
 function currentSaldoByPlatform(){
   const qtyMap=qtyByPlatformFromOps();
   const mxnMap=investedMxnByPlatformCoin();
