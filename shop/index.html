@@ -758,6 +758,63 @@
       border-radius: var(--radius); padding: 16px 18px; margin-bottom: 20px; color: #ffe6b0; font-size: 0.9rem; line-height: 1.5;
     }
     .setup code { background: rgba(0,0,0,0.35); padding: 1px 6px; border-radius: 6px; color: var(--cyan); font-size: 0.85em; }
+
+    /* ===== Respaldo completo ===== */
+    .backup-hero{padding:12px 0 24px}
+    .backup-hero-card{
+      position:relative; overflow:hidden;
+      border-radius:22px; border:1px solid rgba(0,245,255,.32);
+      background:linear-gradient(160deg, rgba(8,14,32,.94), rgba(12,8,28,.9));
+      box-shadow:0 0 0 1px rgba(0,245,255,.08), 0 18px 40px rgba(0,0,0,.45), 0 0 28px rgba(0,245,255,.12);
+      padding:22px 20px 20px; display:grid; gap:18px;
+    }
+    .backup-hero-glow{
+      pointer-events:none; position:absolute; inset:-40% -20% auto auto; width:280px; height:280px;
+      background:radial-gradient(circle, rgba(0,245,255,.22), transparent 68%);
+      filter:blur(8px);
+    }
+    .backup-hero-copy{position:relative; z-index:1; display:grid; gap:8px; max-width:42rem}
+    .backup-kicker{
+      margin:0; font-size:.68rem; letter-spacing:.14em; text-transform:uppercase;
+      color:var(--cyan); font-weight:800;
+    }
+    .backup-hero-copy h2{margin:0; font-size:1.35rem; font-weight:900; letter-spacing:.01em}
+    .backup-hero-copy p{margin:0; color:var(--muted); font-size:.86rem; line-height:1.45}
+    .backup-actions{
+      position:relative; z-index:1; display:flex; flex-wrap:wrap; gap:10px;
+    }
+    .backup-actions .backup-btn-create,
+    .backup-actions .backup-btn-load{
+      min-height:46px; border-radius:999px; padding:0 18px; font-weight:800; font-size:.88rem;
+    }
+    .backup-actions .backup-btn-load{
+      border-color:rgba(0,245,255,.4);
+      background:rgba(0,245,255,.06);
+    }
+    .backup-result{
+      position:relative; z-index:1;
+      border-radius:16px; border:1px solid rgba(0,245,255,.22);
+      background:rgba(0,0,0,.28); padding:14px 14px 12px;
+    }
+    .backup-result-title{
+      font-weight:800; font-size:.9rem; margin-bottom:8px; color:var(--text);
+    }
+    .backup-result-list{
+      list-style:none; margin:0; padding:0; display:grid; gap:6px;
+    }
+    .backup-result-list li{
+      display:flex; justify-content:space-between; gap:12px; align-items:baseline;
+      font-size:.8rem; color:var(--muted);
+      border-bottom:1px solid rgba(255,255,255,.06); padding-bottom:5px;
+    }
+    .backup-result-list li:last-child{border-bottom:0; padding-bottom:0}
+    .backup-result-list li strong{color:var(--cyan); font-variant-numeric:tabular-nums}
+    @media (max-width:560px){
+      .backup-actions{flex-direction:column}
+      .backup-actions .backup-btn-create,
+      .backup-actions .backup-btn-load{width:100%}
+    }
+
     .toast {
       position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); z-index: 80;
       padding: 12px 18px; border-radius: 999px; border: 1px solid var(--line-strong);
@@ -1723,15 +1780,23 @@
     <footer>HermosilloShop · catálogo en la nube · entregas y ventas en este dispositivo</footer>
     </div>
     <div id="viewRespaldo" hidden>
-      <div class="status-bar"><span class="status-dot ok"></span><span>Respaldo del catálogo</span></div>
-      <section class="catalog-list-bar edit-only" id="backupControls">
-        <div>
-          <h2>Respaldo del catálogo</h2>
-          <p>Importa o exporta todos los artículos del catálogo.</p>
-        </div>
-        <div class="io-group" role="group" aria-label="Archivo del catálogo">
-          <button type="button" class="ghost" id="btnImport"><span>Importar</span></button>
-          <button type="button" class="ghost" id="btnExport"><span>Exportar</span></button>
+      <div class="status-bar"><span class="status-dot ok"></span><span>Respaldo completo</span></div>
+      <section class="backup-hero edit-only" id="backupControls">
+        <div class="backup-hero-card">
+          <div class="backup-hero-glow" aria-hidden="true"></div>
+          <div class="backup-hero-copy">
+            <p class="backup-kicker">HermosilloShop</p>
+            <h2>Respaldo completo</h2>
+            <p>Guarda o restaura catálogo, categorías, entregas, ventas, observaciones, eliminados e inversiones en un solo archivo JSON.</p>
+          </div>
+          <div class="backup-actions" role="group" aria-label="Respaldo completo">
+            <button type="button" class="primary backup-btn-create" id="btnExport"><span>Crear respaldo completo</span></button>
+            <button type="button" class="ghost backup-btn-load" id="btnImport"><span>Cargar respaldo completo</span></button>
+          </div>
+          <div class="backup-result" id="backupResult" hidden>
+            <div class="backup-result-title" id="backupResultTitle"></div>
+            <ul class="backup-result-list" id="backupResultList"></ul>
+          </div>
         </div>
       </section>
     </div>
@@ -2552,11 +2617,52 @@
       els.statusText.textContent = text;
     }
 
-    function toast(msg) {
+    function toast(msg, ms) {
       els.toast.textContent = msg;
       els.toast.classList.add("show");
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => els.toast.classList.remove("show"), 2400);
+      toastTimer = setTimeout(() => els.toast.classList.remove("show"), Number(ms) > 0 ? Number(ms) : 2800);
+    }
+
+    function backupCountLabel(n, one, many) {
+      const c = Array.isArray(n) ? n.length : (Number(n) || 0);
+      return c + " " + (c === 1 ? one : many);
+    }
+
+    function showBackupResult(title, lines) {
+      const box = document.getElementById("backupResult");
+      const tit = document.getElementById("backupResultTitle");
+      const list = document.getElementById("backupResultList");
+      if (!box || !tit || !list) return;
+      tit.textContent = title || "";
+      list.innerHTML = (lines || []).map((row) => {
+        const label = String(row.label || "");
+        const value = String(row.value || "");
+        return "<li><span>" + label + "</span><strong>" + value + "</strong></li>";
+      }).join("");
+      box.hidden = !(lines && lines.length);
+    }
+
+    function backupSummaryLines(payload, { includeEmpty } = {}) {
+      if (!payload || typeof payload !== "object") return [];
+      const cats = Array.isArray(payload.categories) ? payload.categories.length
+        : (payload.shop_state && Array.isArray(payload.shop_state.categories) ? payload.shop_state.categories.length : 0);
+      const map = payload.article_categories && typeof payload.article_categories === "object"
+        ? Object.keys(payload.article_categories).length
+        : (payload.shop_state && payload.shop_state.article_categories && typeof payload.shop_state.article_categories === "object"
+          ? Object.keys(payload.shop_state.article_categories).length : 0);
+      const rows = [
+        { label: "Artículos", value: backupCountLabel(payload.articles, "artículo", "artículos") },
+        { label: "Categorías", value: backupCountLabel(cats, "categoría", "categorías") },
+        { label: "Artículos con categoría", value: backupCountLabel(map, "asignación", "asignaciones") },
+        { label: "Entregas", value: backupCountLabel(payload.deliveries, "entrega", "entregas") },
+        { label: "Ventas", value: backupCountLabel(payload.sales, "venta", "ventas") },
+        { label: "Observaciones", value: backupCountLabel(payload.observations, "observación", "observaciones") },
+        { label: "Eliminados", value: backupCountLabel(payload.deleted_articles, "eliminado", "eliminados") },
+        { label: "Inversiones", value: backupCountLabel(payload.investments || (payload.shop_state && payload.shop_state.investments), "movimiento", "movimientos") },
+      ];
+      if (includeEmpty) return rows;
+      return rows.filter((r) => !String(r.value).startsWith("0 "));
     }
 
     function uid() {
@@ -3163,6 +3269,7 @@
     els.btnExport.addEventListener("click", async () => {
       if (!requireEdit()) return;
       try {
+        toast("Creando respaldo completo…", 4000);
         let cloud = { articles: Array.isArray(articles) ? articles : [], observations: Array.isArray(observations) ? observations : [], deliveries: Array.isArray(deliveries) ? deliveries : [], sales: Array.isArray(sales) ? sales : [], deleted_articles: [] };
         if (supabaseClient) {
           const tables = ["articles","observations","deliveries","sales","deleted_articles"];
@@ -3205,7 +3312,9 @@
         const a = document.createElement("a");
         a.href = url; a.download = "hermosillo-shop-respaldo-completo.json"; a.click();
         URL.revokeObjectURL(url);
-        toast("Respaldo completo exportado");
+        const lines = backupSummaryLines(payload, { includeEmpty: true });
+        showBackupResult("Se respaldó y descargó:", lines);
+        toast("Respaldo creado descargado con éxito", 3600);
       } catch (err) {
         console.error(err);
         toast("No se pudo crear el respaldo completo");
@@ -3238,8 +3347,14 @@
             }
           } catch (_) {}
           try { if (typeof pushShopStateToCloud === "function") await pushShopStateToCloud(); } catch (_) {}
-          toast("Categorías restauradas");
-          setTimeout(() => location.reload(), 400);
+          showBackupResult("Se cargó del archivo:", [
+            { label: "Categorías", value: backupCountLabel(data.categories, "categoría", "categorías") },
+            ...(data.article_categories && typeof data.article_categories === "object"
+              ? [{ label: "Artículos con categoría", value: backupCountLabel(Object.keys(data.article_categories), "asignación", "asignaciones") }]
+              : [])
+          ]);
+          toast("Respaldo cargado con éxito", 3600);
+          setTimeout(() => location.reload(), 900);
           return;
         }
         const list = Array.isArray(data) ? data : data.articles;
@@ -3297,11 +3412,29 @@
             if (typeof pushShopStateToCloud === "function") await pushShopStateToCloud();
           } catch (_) {}
         }
-        toast(isFullBackup ? "Respaldo completo restaurado" : "Importación lista");
+        if (isFullBackup) {
+          showBackupResult("Se cargó del archivo:", backupSummaryLines({
+            articles: rows,
+            observations: data.observations,
+            deliveries: data.deliveries,
+            sales: data.sales,
+            deleted_articles: data.deleted_articles,
+            categories: data.categories,
+            article_categories: data.article_categories,
+            investments: data.investments,
+            shop_state: data.shop_state
+          }, { includeEmpty: true }));
+          toast("Respaldo cargado con éxito", 3600);
+        } else {
+          showBackupResult("Se cargó del archivo:", [
+            { label: "Artículos", value: backupCountLabel(rows, "artículo", "artículos") }
+          ]);
+          toast("Respaldo cargado con éxito", 3600);
+        }
         await loadArticles();
         if (typeof loadObservations === "function") await loadObservations();
         if (typeof loadDeletedArticles === "function") await loadDeletedArticles();
-        if (isFullBackup) setTimeout(() => location.reload(), 400);
+        if (isFullBackup) setTimeout(() => location.reload(), 1100);
       } catch (err) {
         console.error(err);
         toast("No se pudo importar");
