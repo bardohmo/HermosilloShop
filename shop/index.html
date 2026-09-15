@@ -1470,6 +1470,20 @@
 .investment-stat span{display:block;color:var(--muted);font-size:.65rem;font-weight:600}.investment-stat strong{display:block;margin-top:4px;font-size:1rem}
 .investment-grid{display:grid;gap:10px}.investment-card{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:16px;background:rgba(8,12,28,.72);box-shadow:var(--shadow)}
 .investment-thumb{width:64px;height:64px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:1.35rem}.investment-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.invest-article-picker{display:grid;gap:8px;max-height:220px;overflow:auto;padding:2px;margin-top:6px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.25)}
+.invest-article-opt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px;border-radius:10px;border:1px solid transparent;background:rgba(255,255,255,.04);color:inherit;font:inherit;cursor:pointer}
+.invest-article-opt:hover,.invest-article-opt:focus{border-color:rgba(0,245,255,.35);background:rgba(0,245,255,.08);outline:none}
+.invest-article-opt.is-selected{border-color:rgba(0,245,255,.55);background:rgba(0,245,255,.14);box-shadow:0 0 0 1px rgba(0,245,255,.2)}
+.invest-article-opt .thumb{width:52px;height:52px;border-radius:10px;overflow:hidden;flex:0 0 auto;border:1px solid var(--line);background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center}
+.invest-article-opt .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.invest-article-opt .info{min-width:0;display:grid;gap:2px}
+.invest-article-opt .info strong{font-size:.86rem;line-height:1.2}
+.invest-article-opt .info span{font-size:.72rem;color:var(--muted)}
+.investment-add-preview-row{display:flex;align-items:center;gap:12px;margin:4px 0 2px}
+.investment-add-preview-row .investment-thumb{width:96px;height:96px;border-radius:14px;flex:0 0 auto}
+.investment-add-meta{font-size:.82rem;color:var(--muted);line-height:1.35}
+.investment-add-meta b{color:var(--text);display:block;font-size:.95rem;margin-bottom:2px}
+
 .investment-main{min-width:0}.investment-title{font-weight:800;font-size:.85rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap}.investment-badge{font-size:.58rem;font-weight:800;border:1px solid var(--line);border-radius:999px;padding:3px 7px;color:var(--cyan)}.investment-badge.out{color:#ff8f8f;border-color:rgba(255,143,143,.35)}
 .investment-meta{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:5px;color:var(--muted);font-size:.64rem}.investment-total{margin-top:5px;font-size:.72rem;font-weight:800}.investment-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.investment-actions button{min-height:36px}
 .investment-empty{padding:28px 16px;text-align:center;border:1px dashed var(--line);border-radius:16px;color:var(--muted);font-size:.72rem}
@@ -1758,11 +1772,13 @@
         <p style="margin:0 0 10px;color:var(--muted);font-size:.78rem;line-height:1.35">Elige un artículo del catálogo que aún no esté en el historial, indica cantidad, fecha y hora.</p>
         <form id="investmentAddForm" class="form-grid" novalidate>
           <label><span>Artículo del catálogo</span>
-            <select id="investmentAddArticle" required>
-              <option value="">Selecciona un artículo…</option>
-            </select>
+            <input type="hidden" id="investmentAddArticle" value="" required />
+            <div class="invest-article-picker" id="investmentAddArticlePicker" role="listbox" aria-label="Elegir artículo"></div>
           </label>
-          <div class="investment-thumb" id="investmentAddPhotoPreview" style="width:84px;height:84px"></div>
+          <div class="investment-add-preview-row">
+            <div class="investment-thumb" id="investmentAddPhotoPreview" aria-hidden="true"></div>
+            <div class="investment-add-meta" id="investmentAddArticleMeta">Selecciona un artículo para ver su foto</div>
+          </div>
           <div class="row-2">
             <label><span>Fecha</span><input type="date" id="investmentAddDate" required /></label>
             <label><span>Hora</span><input type="time" id="investmentAddTime" required /></label>
@@ -6282,12 +6298,39 @@
   }
   function fillAddArticleSelect(){
     const sel=$("investmentAddArticle");
+    const picker=$("investmentAddArticlePicker");
     if(!sel) return;
     const list=catalogArticlesForPurchase();
-    sel.innerHTML='<option value="">Selecciona un artículo…</option>'+list.map((a)=>{
-      return '<option value="'+escInv(a.id)+'">'+escInv(a.name||"Artículo")+'</option>';
-    }).join("");
+    sel.value="";
+    if(picker){
+      if(!list.length){
+        picker.innerHTML='<div class="investment-empty" style="padding:10px">No hay artículos disponibles</div>';
+      } else {
+        picker.innerHTML=list.map((a)=>{
+          const thumb=a.photo_url
+            ? '<img src="'+escInv(a.photo_url)+'" alt="" loading="lazy" decoding="async" crossorigin="anonymous">'
+            : '<span aria-hidden="true">📦</span>';
+          const stock=Math.max(0, Math.floor(Number(a.stock)||0));
+          const cost=Number(a.purchase_price);
+          const costTxt=Number.isFinite(cost)&&cost>=0?moneyInv(cost)+' / ud.':'Sin costo';
+          return '<button type="button" class="invest-article-opt" role="option" data-article-id="'+escInv(a.id)+'">'
+            +'<span class="thumb">'+thumb+'</span>'
+            +'<span class="info"><strong>'+escInv(a.name||"Artículo")+'</strong>'
+            +'<span>Stock '+stock+' · '+costTxt+'</span></span></button>';
+        }).join("");
+        picker.querySelectorAll(".invest-article-opt[data-article-id]").forEach((btn)=>{
+          btn.addEventListener("click",()=>{
+            picker.querySelectorAll(".invest-article-opt.is-selected").forEach((x)=>x.classList.remove("is-selected"));
+            btn.classList.add("is-selected");
+            sel.value=btn.getAttribute("data-article-id")||"";
+            onAddArticleChange();
+          });
+        });
+      }
+    }
     $("investmentAddPhotoPreview")&&($("investmentAddPhotoPreview").innerHTML='<span aria-hidden="true">📦</span>');
+    const meta=$("investmentAddArticleMeta");
+    if(meta) meta.innerHTML="Selecciona un artículo para ver su foto";
     return list.length;
   }
   function openAddPurchase(){
@@ -6310,6 +6353,17 @@
     const id=$("investmentAddArticle")?.value||"";
     const art=(Array.isArray(window.articles)?window.articles:[]).find((a)=>String(a.id)===String(id));
     $("investmentAddPhotoPreview")&&($("investmentAddPhotoPreview").innerHTML=imgHtml(art?.photo_url, art?.name));
+    const meta=$("investmentAddArticleMeta");
+    if(meta){
+      if(!art){
+        meta.innerHTML="Selecciona un artículo para ver su foto";
+      } else {
+        const stock=Math.max(0, Math.floor(Number(art.stock)||0));
+        const cost=Number(art.purchase_price);
+        const costTxt=Number.isFinite(cost)&&cost>=0?moneyInv(cost)+" / ud.":"Sin costo";
+        meta.innerHTML="<b>"+escInv(art.name||"Artículo")+"</b>Stock "+stock+" · "+costTxt+(art.description?("<br>"+escInv(art.description)):"") ;
+      }
+    }
     const cost=Number(art?.purchase_price);
     if($("investmentAddUnitCost")){
       $("investmentAddUnitCost").value=(Number.isFinite(cost)&&cost>=0)?String(cost):"";
