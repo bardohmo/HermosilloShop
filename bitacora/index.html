@@ -2296,26 +2296,89 @@ function renderInvestPricesOnly(){
     row.addEventListener('click',()=>openBinanceChart(row.dataset.openSym||''));
   });
 }
+function isStableOrMxn(sym){
+  const s=normalizeCoinSymbol(sym);
+  return s==='MXN' || (typeof STABLES!=='undefined' && STABLES.has(s));
+}
 function investedByCoin(){
  const map={};
+ const qtyTrack={};
  const add=(sym, delta)=>{
    const key=normalizeCoinSymbol(sym);
    if(!key) return;
    map[key]=(map[key]||0)+Number(delta||0);
  };
- data.forEach(x=>{
+ const addQty=(sym, delta)=>{
+   const key=normalizeCoinSymbol(sym);
+   if(!key) return;
+   qtyTrack[key]=(qtyTrack[key]||0)+Number(delta||0);
+ };
+ const ops=[...(data||[])].slice().sort((a,b)=>{
+   const ta=Date.parse(a?.date||a?.updated_at||'')||0;
+   const tb=Date.parse(b?.date||b?.updated_at||'')||0;
+   return ta-tb;
+ });
+ ops.forEach(x=>{
    const amt=Number(x.amount)||0;
    const pair=parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin);
    if(x.type==='Conversión' && pair && pair.from && pair.to){
-     add(pair.from, -amt);
-     add(pair.to, amt);
+     const from=normalizeCoinSymbol(pair.from);
+     const to=normalizeCoinSymbol(pair.to);
+     const qFrom=Number(x.qty)||0;
+     const qTo=Number(x.qtyTo)||0;
+     const held=Math.max(0, Number(qtyTrack[from])||0);
+     const basis=Math.max(0, Number(map[from])||0);
+     // Costo a mover: proporción de lo que realmente sales; si no hay qty, usa el monto.
+     let costMove=amt;
+     if(held>1e-12 && qFrom>0){
+       costMove=basis*Math.min(1, qFrom/held);
+     }
+     const toStable=isStableOrMxn(to);
+     const fromStable=isStableOrMxn(from);
+     if(!fromStable && toStable){
+       // Cripto → USDT/MXN: saca el costo de la cripto y el estable
+       // entra al valor de la conversión (sin arrastrar pérdida al rendimiento).
+       add(from, -costMove);
+       add(to, Math.max(0, amt));
+     } else if(fromStable && !toStable){
+       // USDT/MXN → cripto: el monto se vuelve costo de la cripto.
+       add(from, -Math.max(0, amt));
+       add(to, Math.max(0, amt));
+     } else {
+       // Cripto → cripto (o estable → estable): traspasar costo.
+       add(from, -costMove);
+       add(to, costMove);
+     }
+     if(from && qFrom>0) addQty(from, -qFrom);
+     if(to && qTo>0) addQty(to, qTo);
+     // Si ya no queda cantidad de "from", limpia polvo de costo para que
+     // no siga saliendo en Inversiones / Rendimiento como pérdida fantasma.
+     if((Number(qtyTrack[from])||0)<=1e-10) map[from]=0;
      return;
    }
-   if(['Compra','Depósito','Staking'].includes(x.type)) add(x.coin, amt);
-   else if(['Venta','Retiro','Comisión'].includes(x.type)) add(x.coin, -amt);
+   const coin=normalizeCoinSymbol(x.coin);
+   const q=Number(x.qty)||0;
+   if(['Compra','Depósito','Staking'].includes(x.type)){
+     add(coin, amt);
+     if(q>0) addQty(coin, q);
+   } else if(['Venta','Retiro','Comisión'].includes(x.type)){
+     const held=Math.max(0, Number(qtyTrack[coin])||0);
+     const basis=Math.max(0, Number(map[coin])||0);
+     let costMove=amt;
+     if(held>1e-12 && q>0) costMove=basis*Math.min(1, q/held);
+     add(coin, -costMove);
+     if(q>0) addQty(coin, -q);
+     if((Number(qtyTrack[coin])||0)<=1e-10) map[coin]=0;
+   }
  });
+ // Solo mostrar lo que aún tienes en Cantidad (evita fantasmas tras convertir a USDT).
  return Object.entries(map)
-   .filter(([,v])=>v>0.005)
+   .filter(([sym,v])=>{
+     if(!(v>0.005)) return false;
+     const q=holdingQty(sym);
+     // Si hay saldo manual/ops en 0, no listar aunque quede basura de MXN.
+     return q>1e-10;
+   })
    .sort((a,b)=>{
      const ra=marketRankOf(a[0]), rb=marketRankOf(b[0]);
      if(ra!==rb) return ra-rb;
@@ -2855,6 +2918,10 @@ function pnlFaceHtml(sym, amt){
   const basis=positionCostBasisMxn(s);
   if(!(basis>0)){
     return `<span class="amt muted">Sin costo base</span>`;
+  }
+  // Conversión a estable: no mostrar "pérdida" por mover valor a USDT/MXN.
+  if(isStableOrMxn(s)){
+    return `<span class="amt pnl-flat">$0.00</span><span class="chg pnl-flat">0.00%</span>`;
   }
   const pnl=val-basis;
   const pct=(pnl/basis)*100;
@@ -3635,13 +3702,15 @@ function updateDistributionPerformanceOnly(){
     const avg=avgBuyPriceMxn(s);
     const qty=holdingQty(s);
     const currentUnit=currentUnitPriceMxn(s);
-    const ratio=(avg!=null && avg>0 && currentUnit!=null)?currentUnit/avg:null;
+    // USDT/MXN: la conversión no debe verse como ganancia/pérdida de rendimiento.
+    let ratio=(avg!=null && avg>0 && currentUnit!=null)?currentUnit/avg:null;
+    if(isStableOrMxn(s)) ratio=1;
     const pnlPct=ratio!=null?(ratio-1)*100:null;
     let pos=50, status='Sin precio actual';
     if(ratio!=null){
       const raw=pnlPct<=0?50+(pnlPct/100)*49:50+(pnlPct/100)*50;
       pos=Math.max(1,Math.min(100,raw));
-      status=ratio<1?'Pérdida':(ratio>1?'Ganancia':'Equilibrio');
+      status=isStableOrMxn(s)?'Estable':(ratio<1?'Pérdida':(ratio>1?'Ganancia':'Equilibrio'));
     }
     const cls=ratio==null?'neutral':(ratio<1?'loss':(ratio>1?'gain':'even'));
     card.classList.remove('neutral','loss','gain','even');
