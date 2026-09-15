@@ -1469,25 +1469,41 @@
 .investment-stat{padding:12px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.035)}
 .investment-stat span{display:block;color:var(--muted);font-size:.65rem;font-weight:600}.investment-stat strong{display:block;margin-top:4px;font-size:1rem}
 .investment-grid{display:grid;gap:10px}.investment-card{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:16px;background:rgba(8,12,28,.72);box-shadow:var(--shadow)}
-.investment-thumb{width:64px;height:64px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:1.35rem}.investment-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.investment-thumb{
+  position:relative;width:64px;height:64px;aspect-ratio:1/1;flex:0 0 auto;
+  --neon-rgb:0, 245, 255;
+  background:linear-gradient(135deg, rgba(0,245,255,.08), rgba(255,43,214,.06)), var(--bg-2);
+  overflow:hidden;border-radius:0;
+  border:2px solid rgb(var(--neon-rgb));
+  box-shadow:0 0 0 1px rgba(var(--neon-rgb),.35),0 0 10px rgba(var(--neon-rgb),.55),inset 0 0 10px rgba(var(--neon-rgb),.18);
+  display:flex;align-items:center;justify-content:center;font-size:1.35rem;
+}
+.investment-thumb img{width:100%;height:100%;object-fit:cover;display:block;border-radius:0}
 .invest-article-picker{display:grid;gap:8px;max-height:220px;overflow:auto;padding:2px;margin-top:6px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.25)}
 .invest-article-opt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px;border-radius:10px;border:1px solid transparent;background:rgba(255,255,255,.04);color:inherit;font:inherit;cursor:pointer}
 .invest-article-opt:hover,.invest-article-opt:focus{border-color:rgba(0,245,255,.35);background:rgba(0,245,255,.08);outline:none}
 .invest-article-opt.is-selected{border-color:rgba(0,245,255,.55);background:rgba(0,245,255,.14);box-shadow:0 0 0 1px rgba(0,245,255,.2)}
-.invest-article-opt .thumb{width:52px;height:52px;border-radius:10px;overflow:hidden;flex:0 0 auto;border:1px solid var(--line);background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center}
-.invest-article-opt .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.invest-article-opt .thumb{
+  width:52px;height:52px;aspect-ratio:1/1;flex:0 0 auto;overflow:hidden;border-radius:0;
+  --neon-rgb:0, 245, 255;
+  background:linear-gradient(135deg, rgba(0,245,255,.08), rgba(255,43,214,.06)), var(--bg-2);
+  border:2px solid rgb(var(--neon-rgb));
+  box-shadow:0 0 0 1px rgba(var(--neon-rgb),.3),0 0 8px rgba(var(--neon-rgb),.45),inset 0 0 8px rgba(var(--neon-rgb),.16);
+  display:flex;align-items:center;justify-content:center;
+}
+.invest-article-opt .thumb img{width:100%;height:100%;object-fit:cover;display:block;border-radius:0}
 .invest-article-opt .info{min-width:0;display:grid;gap:2px}
 .invest-article-opt .info strong{font-size:.86rem;line-height:1.2}
 .invest-article-opt .info span{font-size:.72rem;color:var(--muted)}
 .investment-add-preview-row{display:flex;align-items:center;gap:12px;margin:4px 0 2px}
-.investment-add-preview-row .investment-thumb{width:96px;height:96px;border-radius:14px;flex:0 0 auto}
+.investment-add-preview-row .investment-thumb{width:96px;height:96px;border-radius:0;flex:0 0 auto}
 .investment-add-meta{font-size:.82rem;color:var(--muted);line-height:1.35}
 .investment-add-meta b{color:var(--text);display:block;font-size:.95rem;margin-bottom:2px}
 
 .investment-main{min-width:0}.investment-title{font-weight:800;font-size:.85rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap}.investment-badge{font-size:.58rem;font-weight:800;border:1px solid var(--line);border-radius:999px;padding:3px 7px;color:var(--cyan)}.investment-badge.out{color:#ff8f8f;border-color:rgba(255,143,143,.35)}
 .investment-meta{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:5px;color:var(--muted);font-size:.64rem}.investment-total{margin-top:5px;font-size:.72rem;font-weight:800}.investment-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.investment-actions button{min-height:36px}
 .investment-empty{padding:28px 16px;text-align:center;border:1px dashed var(--line);border-radius:16px;color:var(--muted);font-size:.72rem}
-@media (max-width:620px){.investment-summary{grid-template-columns:1fr 1fr}.investment-summary .investment-stat:last-child{grid-column:1/-1}.investment-card{grid-template-columns:52px 1fr;gap:10px}.investment-thumb{width:52px;height:52px}.investment-actions{grid-column:1/-1;justify-content:flex-start}}.investment-card .investment-actions{align-self:center}.investment-card .investment-actions button{font-size:.62rem;padding:6px 9px;white-space:nowrap}.investment-card .investment-title{line-height:1.25}.investment-card .investment-meta{line-height:1.35}@media(max-width:620px){.investment-card .investment-actions{width:100%}.investment-card .investment-actions button{flex:1;min-width:0}}
+@media (max-width:620px){.investment-summary{grid-template-columns:1fr 1fr}.investment-summary .investment-stat:last-child{grid-column:1/-1}.investment-card{grid-template-columns:52px 1fr;gap:10px}.investment-thumb{width:52px;height:52px;border-radius:0}.investment-actions{grid-column:1/-1;justify-content:flex-start}}.investment-card .investment-actions{align-self:center}.investment-card .investment-actions button{font-size:.62rem;padding:6px 9px;white-space:nowrap}.investment-card .investment-title{line-height:1.25}.investment-card .investment-meta{line-height:1.35}@media(max-width:620px){.investment-card .investment-actions{width:100%}.investment-card .investment-actions button{flex:1;min-width:0}}
 
 </style>
 <style>.delivery-payment-card .delivery-payment-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.delivery-payment-card select,.delivery-payment-card input{min-height:46px}.delivery-payment-card input[readonly]{opacity:.88;cursor:default}</style><style id="transfer-hide-change">#delivChangeField.transfer-hidden{display:none!important}
@@ -2704,9 +2720,9 @@
 
     function applyCardImageGlows(root){
       if(!root) return;
-      root.querySelectorAll(".card-media img").forEach((img)=>{
+      root.querySelectorAll(".card-media img, .investment-thumb img, .invest-article-opt .thumb img").forEach((img)=>{
         const paint=()=>{
-          const media=img.closest(".card-media");
+          const media=img.closest(".card-media, .investment-thumb, .thumb");
           if(!media) return;
           if(img.closest(".card.sold-out")){
             media.style.removeProperty("--neon-rgb");
@@ -2740,11 +2756,12 @@
         if(img.complete && img.naturalWidth) paint();
         else img.addEventListener("load", paint, {once:true});
         img.addEventListener("error", ()=>{
-          const media=img.closest(".card-media");
+          const media=img.closest(".card-media, .investment-thumb, .thumb");
           if(media) media.style.setProperty("--neon-rgb","0, 245, 255");
         }, {once:true});
       });
     }
+    window.applyCardImageGlows = applyCardImageGlows;
 
     window.renderArticles = render;
 
@@ -6248,7 +6265,7 @@
   const nowParts=()=>{const d=new Date();return{date:d.toISOString().slice(0,10),time:d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false})}};
   const total=r=>(Number(r.qty)||0)*(Number(r.unitCost)||0);
   const imgHtml=(url,name)=>url?'<img src="'+escInv(url)+'" alt="'+escInv(name)+'">':'<span aria-hidden="true">📦</span>';
-  function render(){records=read();const q=(($("investmentSearch")?.value)||"").trim().toLowerCase();const list=records.filter(r=>!q||[r.name,r.date,r.time,r.type].some(v=>String(v||"").toLowerCase().includes(q)));const ins=records.filter(r=>r.type!=="out"),outs=records.filter(r=>r.type==="out");const it=ins.reduce((a,r)=>a+total(r),0),ot=outs.reduce((a,r)=>a+total(r),0);$("investmentStatus")&&($("investmentStatus").textContent=records.length+" movimiento"+(records.length===1?"":"s")+" · "+moneyInv(it-ot));$("investmentEntries")&&($("investmentEntries").textContent=ins.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(it));$("investmentExits")&&($("investmentExits").textContent=outs.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(ot));$("investmentTotal")&&($("investmentTotal").textContent=moneyInv(it-ot)+" MXN");const grid=$("investmentGrid");if(!grid)return;if(!list.length){grid.innerHTML='<div class="investment-empty">'+(records.length?'No hay movimientos que coincidan con la búsqueda.':'Aún no hay movimientos. Usa “+ Agregar Actividad” para registrar una entrada desde el catálogo, o se registrará al agregar un artículo nuevo.')+'</div>';return}grid.innerHTML=list.map(r=>{const out=r.type==="out";return '<article class="investment-card" data-investment-id="'+escInv(r.id)+'"><div class="investment-thumb">'+imgHtml(r.photo_url,r.name)+'</div><div class="investment-main"><div class="investment-title">'+escInv(r.name)+' <span class="investment-badge '+(out?'out':'')+'">'+(out?'SALIDA':'ENTRADA')+'</span></div><div class="investment-meta"><span>📅 '+escInv(r.date)+'</span><span>🕒 '+escInv(r.time)+'</span><span>📦 '+(Number(r.qty)||0)+' uds.</span><span>💵 '+moneyInv(r.unitCost)+' / ud.</span></div><div class="investment-total">'+(out?'Salida registrada':'Inversión registrada')+': '+moneyInv(total(r))+' MXN</div></div><div class="investment-actions"><button type="button" class="ghost" data-investment-action="edit">Editar</button><button type="button" class="ghost" data-investment-action="delete">Eliminar</button></div></article>'}).join("")}
+  function render(){records=read();const q=(($("investmentSearch")?.value)||"").trim().toLowerCase();const list=records.filter(r=>!q||[r.name,r.date,r.time,r.type].some(v=>String(v||"").toLowerCase().includes(q)));const ins=records.filter(r=>r.type!=="out"),outs=records.filter(r=>r.type==="out");const it=ins.reduce((a,r)=>a+total(r),0),ot=outs.reduce((a,r)=>a+total(r),0);$("investmentStatus")&&($("investmentStatus").textContent=records.length+" movimiento"+(records.length===1?"":"s")+" · "+moneyInv(it-ot));$("investmentEntries")&&($("investmentEntries").textContent=ins.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(it));$("investmentExits")&&($("investmentExits").textContent=outs.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(ot));$("investmentTotal")&&($("investmentTotal").textContent=moneyInv(it-ot)+" MXN");const grid=$("investmentGrid");if(!grid)return;if(!list.length){grid.innerHTML='<div class="investment-empty">'+(records.length?'No hay movimientos que coincidan con la búsqueda.':'Aún no hay movimientos. Usa “+ Agregar Actividad” para registrar una entrada desde el catálogo, o se registrará al agregar un artículo nuevo.')+'</div>';return}grid.innerHTML=list.map(r=>{const out=r.type==="out";return '<article class="investment-card" data-investment-id="'+escInv(r.id)+'"><div class="investment-thumb">'+imgHtml(r.photo_url,r.name)+'</div><div class="investment-main"><div class="investment-title">'+escInv(r.name)+' <span class="investment-badge '+(out?'out':'')+'">'+(out?'SALIDA':'ENTRADA')+'</span></div><div class="investment-meta"><span>📅 '+escInv(r.date)+'</span><span>🕒 '+escInv(r.time)+'</span><span>📦 '+(Number(r.qty)||0)+' uds.</span><span>💵 '+moneyInv(r.unitCost)+' / ud.</span></div><div class="investment-total">'+(out?'Salida registrada':'Inversión registrada')+': '+moneyInv(total(r))+' MXN</div></div><div class="investment-actions"><button type="button" class="ghost" data-investment-action="edit">Editar</button><button type="button" class="ghost" data-investment-action="delete">Eliminar</button></div></article>'}).join("");if(typeof window.applyCardImageGlows==="function")window.applyCardImageGlows(grid);}
   function openEdit(id){const r=records.find(x=>x.id===id);if(!r)return;editingId=id;$("investmentEditId").value=id;$("investmentDate").value=r.date||"";$("investmentTime").value=r.time||"";$("investmentName").value=r.name||"";$("investmentType").value=r.type||"in";$("investmentQty").value=Number(r.qty)||0;$("investmentUnitCost").value=Number(r.unitCost)||0;$("investmentEditPhotoPreview").innerHTML=imgHtml(r.photo_url,r.name);$("investmentOverlay").classList.add("open")}
   function closeEdit(){$("investmentOverlay")?.classList.remove("open");editingId=null}
   function recordInvestment(article,type){
@@ -6326,6 +6343,7 @@
             onAddArticleChange();
           });
         });
+        if(typeof window.applyCardImageGlows==="function")window.applyCardImageGlows(picker);
       }
     }
     $("investmentAddPhotoPreview")&&($("investmentAddPhotoPreview").innerHTML='<span aria-hidden="true">📦</span>');
@@ -6352,7 +6370,7 @@
   function onAddArticleChange(){
     const id=$("investmentAddArticle")?.value||"";
     const art=(Array.isArray(window.articles)?window.articles:[]).find((a)=>String(a.id)===String(id));
-    $("investmentAddPhotoPreview")&&($("investmentAddPhotoPreview").innerHTML=imgHtml(art?.photo_url, art?.name));
+    $("investmentAddPhotoPreview")&&($("investmentAddPhotoPreview").innerHTML=imgHtml(art?.photo_url, art?.name));if(typeof window.applyCardImageGlows==="function")window.applyCardImageGlows($("investmentAddPhotoPreview")?.parentElement||document);
     const meta=$("investmentAddArticleMeta");
     if(meta){
       if(!art){
