@@ -2372,11 +2372,20 @@ function investedByCoin(){
    }
  });
  // Solo mostrar lo que aún tienes en Cantidad (evita fantasmas tras convertir a USDT).
+ // Y alinear el MXN invertido a la Cantidad real si las ops inflaron la qty.
  return Object.entries(map)
+   .map(([sym,v])=>{
+     const q=holdingQty(sym);
+     const opsQ=Number(qtyTrack[normalizeCoinSymbol(sym)])||0;
+     let inv=Number(v)||0;
+     if(q>1e-10 && opsQ>q*1.0000001){
+       inv=inv*(q/opsQ);
+     }
+     return [sym, inv];
+   })
    .filter(([sym,v])=>{
      if(!(v>0.005)) return false;
      const q=holdingQty(sym);
-     // Si hay saldo manual/ops en 0, no listar aunque quede basura de MXN.
      return q>1e-10;
    })
    .sort((a,b)=>{
@@ -2891,10 +2900,16 @@ function positionCostBasisMxn(sym){
   if(!(q>0)) return null;
   // La cifra "Invertido en MXN" es la base monetaria que la app muestra
   // para la posición. Todas las caras deben usar exactamente esa misma base.
-  // Esto evita que el promedio histórico use una cantidad distinta a la
-  // cantidad actualmente valuada.
   const row=(investedByCoin()||[]).find(([raw])=>normalizeCoinSymbol(raw)===s);
-  const invested=row?Number(row[1])||0:0;
+  let invested=row?Number(row[1])||0:0;
+  if(!(invested>0)) return null;
+  // Si Cantidad manual es menor que la qty implícita de las ops
+  // (p.ej. tras ida y vuelta ETH→MXN→ETH), no uses el costo de más
+  // unidades de las que realmente tienes: eso inflaba el promedio y la "pérdida".
+  const opsQ=qtySumFromOps(s);
+  if(opsQ>q*1.0000001 && opsQ>1e-12){
+    invested=invested*(q/opsQ);
+  }
   return invested>0 ? invested : null;
 }
 
