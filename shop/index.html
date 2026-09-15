@@ -1479,27 +1479,17 @@
   display:flex;align-items:center;justify-content:center;font-size:1.35rem;
 }
 .investment-thumb img{width:100%;height:100%;object-fit:cover;display:block;border-radius:0}
-.invest-article-picker{display:grid;gap:8px;max-height:220px;overflow:auto;padding:2px;margin-top:6px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.25)}
-.invest-article-opt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px;border-radius:10px;border:1px solid transparent;background:rgba(255,255,255,.04);color:inherit;font:inherit;cursor:pointer}
-.invest-article-opt:hover,.invest-article-opt:focus{border-color:rgba(0,245,255,.35);background:rgba(0,245,255,.08);outline:none}
-.invest-article-opt.is-selected{border-color:rgba(0,245,255,.55);background:rgba(0,245,255,.14);box-shadow:0 0 0 1px rgba(0,245,255,.2)}
-.invest-article-opt .thumb{
-  width:52px;height:52px;aspect-ratio:1/1;flex:0 0 auto;overflow:hidden;border-radius:0;
-  --neon-rgb:0, 245, 255;
-  background:linear-gradient(135deg, rgba(0,245,255,.08), rgba(255,43,214,.06)), var(--bg-2);
-  border:2px solid rgb(var(--neon-rgb));
-  box-shadow:0 0 0 1px rgba(var(--neon-rgb),.3),0 0 8px rgba(var(--neon-rgb),.45),inset 0 0 8px rgba(var(--neon-rgb),.16);
-  display:flex;align-items:center;justify-content:center;
+/* Agregar Actividad: mismo diseño de pastillas que Artículos vendidos (Ventas) */
+#investmentAddOverlay .deliv-items-picker{
+  border-color: rgba(0,245,255,0.28);
+  box-shadow: 0 0 0 1px rgba(0,245,255,0.08), inset 0 0 18px rgba(0,245,255,0.04);
 }
-.invest-article-opt .thumb img{width:100%;height:100%;object-fit:cover;display:block;border-radius:0}
-.invest-article-opt .info{min-width:0;display:grid;gap:2px}
-.invest-article-opt .info strong{font-size:.86rem;line-height:1.2}
-.invest-article-opt .info span{font-size:.72rem;color:var(--muted)}
-.investment-add-preview-row{display:flex;align-items:center;gap:12px;margin:4px 0 2px}
-.investment-add-preview-row .investment-thumb{width:96px;height:96px;border-radius:0;flex:0 0 auto}
-.investment-add-meta{font-size:.82rem;color:var(--muted);line-height:1.35}
-.investment-add-meta b{color:var(--text);display:block;font-size:.95rem;margin-bottom:2px}
-
+#investmentAddOverlay .deliv-pick.is-selected{
+  border-color: rgba(0,245,255,0.9);
+  background: rgba(0,245,255,0.12);
+  box-shadow: 0 0 0 1px rgba(0,245,255,0.35), 0 0 12px rgba(0,245,255,0.35);
+}
+#investmentAddOverlay .deliv-items-selected{ margin-top: 6px; }
 .investment-main{min-width:0}.investment-title{font-weight:800;font-size:.85rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap}.investment-badge{font-size:.58rem;font-weight:800;border:1px solid var(--line);border-radius:999px;padding:3px 7px;color:var(--cyan)}.investment-badge.out{color:#ff8f8f;border-color:rgba(255,143,143,.35)}
 .investment-meta{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:5px;color:var(--muted);font-size:.64rem}.investment-total{margin-top:5px;font-size:.72rem;font-weight:800}.investment-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.investment-actions button{min-height:36px}
 .investment-empty{padding:28px 16px;text-align:center;border:1px dashed var(--line);border-radius:16px;color:var(--muted);font-size:.72rem}
@@ -1787,13 +1777,11 @@
         <h2>Agregar Actividad</h2>
         <p style="margin:0 0 10px;color:var(--muted);font-size:.78rem;line-height:1.35">Elige un artículo del catálogo que aún no esté en el historial, indica cantidad, fecha y hora.</p>
         <form id="investmentAddForm" class="form-grid" novalidate>
-          <label><span>Artículo del catálogo</span>
+          <div class="deliv-items-block">
+            <span>Artículos</span>
             <input type="hidden" id="investmentAddArticle" value="" required />
-            <div class="invest-article-picker" id="investmentAddArticlePicker" role="listbox" aria-label="Elegir artículo"></div>
-          </label>
-          <div class="investment-add-preview-row">
-            <div class="investment-thumb" id="investmentAddPhotoPreview" aria-hidden="true"></div>
-            <div class="investment-add-meta" id="investmentAddArticleMeta">Selecciona un artículo para ver su foto</div>
+            <div class="deliv-items-picker" id="investmentAddArticlePicker" role="listbox" aria-label="Elegir artículo"></div>
+            <div class="deliv-items-selected" id="investmentAddArticleMeta"><span style="color:var(--muted);font-size:0.82rem">Ningún artículo seleccionado.</span></div>
           </div>
           <div class="row-2">
             <label><span>Fecha</span><input type="date" id="investmentAddDate" required /></label>
@@ -6319,36 +6307,32 @@
     if(!sel) return;
     const list=catalogArticlesForPurchase();
     sel.value="";
+    const invThumb=(photo,name)=>{
+      if(photo) return '<img src="'+escInv(photo)+'" alt="" loading="lazy" decoding="async" crossorigin="anonymous">';
+      const ini=escInv((name||"?").trim().slice(0,1).toUpperCase()||"?");
+      return '<span class="deliv-item-ph">'+ini+'</span>';
+    };
     if(picker){
       if(!list.length){
-        picker.innerHTML='<div class="investment-empty" style="padding:10px">No hay artículos disponibles</div>';
+        picker.innerHTML='<span style="color:var(--muted);font-size:0.82rem">No hay artículos disponibles</span>';
       } else {
         picker.innerHTML=list.map((a)=>{
-          const thumb=a.photo_url
-            ? '<img src="'+escInv(a.photo_url)+'" alt="" loading="lazy" decoding="async" crossorigin="anonymous">'
-            : '<span aria-hidden="true">📦</span>';
-          const stock=Math.max(0, Math.floor(Number(a.stock)||0));
-          const cost=Number(a.purchase_price);
-          const costTxt=Number.isFinite(cost)&&cost>=0?moneyInv(cost)+' / ud.':'Sin costo';
-          return '<button type="button" class="invest-article-opt" role="option" data-article-id="'+escInv(a.id)+'">'
-            +'<span class="thumb">'+thumb+'</span>'
-            +'<span class="info"><strong>'+escInv(a.name||"Artículo")+'</strong>'
-            +'<span>Stock '+stock+' · '+costTxt+'</span></span></button>';
+          return '<button type="button" class="deliv-pick" role="option" data-article-id="'+escInv(a.id)+'">'
+            +invThumb(a.photo_url,a.name||"Artículo")
+            +'<span>'+escInv(a.name||"Artículo")+'</span></button>';
         }).join("");
-        picker.querySelectorAll(".invest-article-opt[data-article-id]").forEach((btn)=>{
+        picker.querySelectorAll(".deliv-pick[data-article-id]").forEach((btn)=>{
           btn.addEventListener("click",()=>{
-            picker.querySelectorAll(".invest-article-opt.is-selected").forEach((x)=>x.classList.remove("is-selected"));
+            picker.querySelectorAll(".deliv-pick.is-selected").forEach((x)=>x.classList.remove("is-selected"));
             btn.classList.add("is-selected");
             sel.value=btn.getAttribute("data-article-id")||"";
             onAddArticleChange();
           });
         });
-        if(typeof window.applyCardImageGlows==="function")window.applyCardImageGlows(picker);
       }
     }
-    $("investmentAddPhotoPreview")&&($("investmentAddPhotoPreview").innerHTML='<span aria-hidden="true">📦</span>');
     const meta=$("investmentAddArticleMeta");
-    if(meta) meta.innerHTML="Selecciona un artículo para ver su foto";
+    if(meta) meta.innerHTML='<span style="color:var(--muted);font-size:0.82rem">Ningún artículo seleccionado.</span>';
     return list.length;
   }
   function openAddPurchase(){
@@ -6370,16 +6354,18 @@
   function onAddArticleChange(){
     const id=$("investmentAddArticle")?.value||"";
     const art=(Array.isArray(window.articles)?window.articles:[]).find((a)=>String(a.id)===String(id));
-    $("investmentAddPhotoPreview")&&($("investmentAddPhotoPreview").innerHTML=imgHtml(art?.photo_url, art?.name));if(typeof window.applyCardImageGlows==="function")window.applyCardImageGlows($("investmentAddPhotoPreview")?.parentElement||document);
     const meta=$("investmentAddArticleMeta");
     if(meta){
       if(!art){
-        meta.innerHTML="Selecciona un artículo para ver su foto";
+        meta.innerHTML='<span style="color:var(--muted);font-size:0.82rem">Ningún artículo seleccionado.</span>';
       } else {
         const stock=Math.max(0, Math.floor(Number(art.stock)||0));
         const cost=Number(art.purchase_price);
         const costTxt=Number.isFinite(cost)&&cost>=0?moneyInv(cost)+" / ud.":"Sin costo";
-        meta.innerHTML="<b>"+escInv(art.name||"Artículo")+"</b>Stock "+stock+" · "+costTxt+(art.description?("<br>"+escInv(art.description)):"") ;
+        const thumb=art.photo_url
+          ? '<img src="'+escInv(art.photo_url)+'" alt="" loading="lazy" decoding="async" crossorigin="anonymous">'
+          : '<span class="deliv-item-ph">'+escInv((art.name||"?").trim().slice(0,1).toUpperCase()||"?")+'</span>';
+        meta.innerHTML='<div class="deliv-sel-row"><div class="deliv-sel-main">'+thumb+'<div class="meta"><strong>'+escInv(art.name||"Artículo")+'</strong><span style="color:var(--muted);font-size:.75rem">Stock '+stock+' · '+costTxt+'</span></div></div></div>';
       }
     }
     const cost=Number(art?.purchase_price);
