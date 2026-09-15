@@ -6335,11 +6335,23 @@
     if(meta) meta.innerHTML='<span style="color:var(--muted);font-size:0.82rem">Ningún artículo seleccionado.</span>';
     return list.length;
   }
-  function openAddPurchase(){
+  async function openAddPurchase(){
     const n=nowParts();
+    // Si el catálogo aún no está en memoria, intenta cargarlo antes de filtrar.
+    let arts=Array.isArray(window.articles)?window.articles:[];
+    if(!arts.length && typeof window.loadArticles==="function"){
+      try{ await window.loadArticles(); }catch(_){}
+      arts=Array.isArray(window.articles)?window.articles:[];
+    }
     const available=fillAddArticleSelect();
     if(!available){
-      if(typeof toast==="function") toast("Todos los artículos del catálogo ya están en el historial");
+      if(typeof toast==="function"){
+        if(!arts.length){
+          toast("El catálogo no está cargado o está vacío. Pulsa Actualizar o ve a Catálogo");
+        } else {
+          toast("Todos los artículos del catálogo ya están en el historial");
+        }
+      }
       return;
     }
     if($("investmentAddDate")) $("investmentAddDate").value=n.date;
