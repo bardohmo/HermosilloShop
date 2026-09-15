@@ -2428,53 +2428,50 @@ function qtyHeldByPlatformForSymbol(sym){
   const out={};
   plats.forEach(p=>{ out[p]=0; });
   const bal=Math.max(0, qtyOf(s));
+  if(!(bal>0)) return out;
+
   const qtyPlats=[];
   const mxnPlats=[];
   plats.forEach(p=>{
     if(hasQtyOpsOnPlatform(p, s)) qtyPlats.push(p);
     else if((Number(mxnMap[p]?.[s])||0)>0) mxnPlats.push(p);
   });
-  let used=0;
-  qtyPlats.forEach(p=>{
-    out[p]=Math.max(0, Number(qtyMap[p]?.[s])||0);
-    used+=out[p];
-  });
-  if(used>0 && bal>0 && Math.abs(bal-used)>1e-12 && !mxnPlats.length){
-    // Ajustar al saldo de Cantidad (subió o bajó)
-    const scale=bal/used;
-    qtyPlats.forEach(p=>{ out[p]*=scale; });
-    used=bal;
-  } else if(used>bal && used>0){
-    const scale=bal/used;
-    qtyPlats.forEach(p=>{ out[p]*=scale; });
-    used=bal;
-  }
-  const rem=Math.max(0, bal-used);
-  if(rem>0 && mxnPlats.length){
-    let mxnSum=0;
-    mxnPlats.forEach(p=>{ mxnSum+=Math.max(0, Number(mxnMap[p]?.[s])||0); });
-    if(mxnSum>0){
-      mxnPlats.forEach(p=>{
-        out[p]=rem*(Math.max(0, Number(mxnMap[p]?.[s])||0)/mxnSum);
-      });
+
+  // Cantidad (balances) es la fuente de verdad del total.
+  // Las ops solo sirven como pesos para repartir entre plataformas.
+  if(qtyPlats.length){
+    let weightSum=0;
+    const weights={};
+    qtyPlats.forEach(p=>{
+      const w=Math.max(0, Number(qtyMap[p]?.[s])||0);
+      weights[p]=w;
+      weightSum+=w;
+    });
+    if(weightSum>0){
+      qtyPlats.forEach(p=>{ out[p]=bal*(weights[p]/weightSum); });
+    } else {
+      const each=bal/qtyPlats.length;
+      qtyPlats.forEach(p=>{ out[p]=each; });
     }
-  } else if(rem>0 && !qtyPlats.length && mxnPlats.length===0){
-    // Sin info de plataforma: no asignar
-  } else if(rem>0 && !qtyPlats.length && mxnPlats.length){
-    // already handled
-  } else if(bal>0 && !qtyPlats.length && mxnPlats.length===0){
-    // ops sin plataforma útil
+    return out;
   }
-  // Caso solo MXN (nadie con qty): repartir TODO el balance por MXN
-  if(!qtyPlats.length && mxnPlats.length && bal>0){
+
+  if(mxnPlats.length){
     let mxnSum=0;
     mxnPlats.forEach(p=>{ mxnSum+=Math.max(0, Number(mxnMap[p]?.[s])||0); });
     if(mxnSum>0){
       mxnPlats.forEach(p=>{
         out[p]=bal*(Math.max(0, Number(mxnMap[p]?.[s])||0)/mxnSum);
       });
+    } else {
+      const each=bal/mxnPlats.length;
+      mxnPlats.forEach(p=>{ out[p]=each; });
     }
+    return out;
   }
+
+  // Sin ops de plataforma: todo el saldo manual va a Binance para que Saldo actual coincida con Cantidad.
+  out.binance=bal;
   return out;
 }
 function currentSaldoByPlatform(){
