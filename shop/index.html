@@ -408,7 +408,7 @@
     }
     .empty strong { display: block; color: var(--text); font-size: 1.1rem; margin-bottom: 8px; }
     .overlay {
-      position: fixed; inset: 0; z-index: 50; background: rgba(2, 4, 12, 0.72);
+      position: fixed; inset: 0; z-index: 10050; background: rgba(2, 4, 12, 0.72);
       backdrop-filter: blur(8px); display: none; align-items: flex-end; justify-content: center; padding: 16px;
     }
     .overlay.open { display: flex; }
@@ -2303,7 +2303,9 @@
     async function pullShopStateFromCloud() {
       if (!supabaseClient) return null;
       try {
-        const { data, error } = await supabaseClient.storage.from(CONFIG.BUCKET).download(SHOP_STATE_PATH);
+        const dl = supabaseClient.storage.from(CONFIG.BUCKET).download(SHOP_STATE_PATH);
+        const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("timeout shop-state")), 8000));
+        const { data, error } = await Promise.race([dl, timeout]);
         if (error || !data) return null;
         const text = await data.text();
         const state = JSON.parse(text);
@@ -3048,7 +3050,7 @@
         toast(els.editId.value ? "Artículo actualizado" : "Artículo agregado");
         closeModal();
         await loadArticles();
-        if (typeof window.renderInvestments === "function") window.renderInvestments();
+        if (typeof window.renderInvestments === "function") if (typeof window.renderInvestments === "function") window.renderInvestments();
         if (typeof renderDeliveries === "function") renderDeliveries();
         if (typeof renderSales === "function") renderSales();
       } catch (err) {
@@ -4029,7 +4031,7 @@
             });
             if (changed) {
               localStorage.setItem(KEY, JSON.stringify(records));
-              window.renderInvestments();
+              if (typeof window.renderInvestments === "function") window.renderInvestments();
             }
           }
         }
@@ -4473,7 +4475,7 @@
       else if (isObs) loadObservations();
       else if (isDeleted) loadDeletedArticles();
         else if (isBackup) {}
-       else if (isInversiones) { if (typeof window.renderInvestments === "function") window.renderInvestments(); }
+       else if (isInversiones) { if (typeof window.renderInvestments === "function") if (typeof window.renderInvestments === "function") window.renderInvestments(); }
        else if (isQuote) renderQuote();
       else render();
       if (window.syncMobileFloatNav) window.syncMobileFloatNav();
@@ -5869,6 +5871,13 @@
     applyAuthMode();
     loadDelivStore();
     loadSalesStore();
+    // Evitar pantallas bloqueadas por modales de inversiones/categorías
+    try {
+      document.getElementById("investmentOverlay")?.classList.remove("open");
+      document.getElementById("investmentAddOverlay")?.classList.remove("open");
+      document.getElementById("categoryEditorOverlay")?.classList.remove("open");
+      document.getElementById("loginOverlay")?.classList.remove("open");
+    } catch (_) {}
     (async () => {
       try {
         if (supabaseClient) {
