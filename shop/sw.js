@@ -1,11 +1,11 @@
-/* Cripto Bitácora PWA (scope: ./bitacora/) */
-const CACHE = 'cripto-bitacora-v15';
+/* HermosilloShop PWA (scope: ./shop/) */
+const CACHE = 'hermosillo-shop-v2';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './bitacora-192.png',
-  './bitacora-512.png'
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -28,23 +28,6 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // HTML siempre red primero para no quedar atrapado en versión vieja
-  const isHTML = req.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/bitacora/') || url.pathname.endsWith('/bitacora');
-  if (isHTML) {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res && res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE).then((cache) => cache.put(req, copy));
-          }
-          return res;
-        })
-        .catch(() => caches.match(req))
-    );
-    return;
-  }
-
   event.respondWith(
     caches.match(req).then((cached) => {
       const fetched = fetch(req)
@@ -56,7 +39,7 @@ self.addEventListener('fetch', (event) => {
           return res;
         })
         .catch(() => cached);
-      return fetched || cached;
+      return cached || fetched;
     })
   );
 });
