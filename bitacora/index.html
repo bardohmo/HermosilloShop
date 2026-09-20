@@ -1393,7 +1393,12 @@ function updateQtyHaveHints(){
   }
   if(h2){
     if(type!=='Conversión'||!from) h2.textContent='';
-    else h2.textContent='Tienes: '+formatQty(qtyOf(from))+' '+from;
+    else {
+      const plat=selectedPlatformKey();
+      const qPlat=qtyOnSelectedPlatform(from);
+      const platLabel=plat.charAt(0).toUpperCase()+plat.slice(1);
+      h2.textContent='En '+platLabel+': '+formatQty(qPlat)+' '+from;
+    }
   }
 }
 let qtyAutoTimer=null;
@@ -1573,11 +1578,28 @@ function fillQtyMax(){
   inp.value=q>0?String(q):'0';
   updateQtyHaveHints();
 }
+function selectedPlatformKey(){
+  return String(document.getElementById('platform')?.value||'binance').trim().toLowerCase()||'binance';
+}
+function qtyOnSelectedPlatform(sym){
+  const s=String(sym||'').trim().toUpperCase();
+  if(!s) return 0;
+  const plat=selectedPlatformKey();
+  try{
+    if(typeof qtyHeldByPlatformForSymbol==='function'){
+      const map=qtyHeldByPlatformForSymbol(s)||{};
+      const q=Number(map[plat]);
+      if(Number.isFinite(q) && q>0) return q;
+    }
+  }catch(_){}
+  // Si no hay reparto por plataforma, no inventar el total global en Max.
+  return 0;
+}
 function fillQtyFromMax(){
   const from=(document.getElementById('coinFrom')?.value||'').trim().toUpperCase();
   const inp=document.getElementById('qtyFrom');
   if(!inp||!from) return;
-  const q=qtyOf(from);
+  const q=qtyOnSelectedPlatform(from);
   inp.value=q>0?String(q):'0';
   estimateQtyToAuto(true);
   updateQtyHaveHints();
@@ -1922,6 +1944,7 @@ document.getElementById('convertSwapBtn')?.addEventListener('click', (e)=>{
 document.getElementById('coinFrom')?.addEventListener('change',()=>{updateConvertPreviews();updateQtyHaveHints();estimateQtyToAuto(true);});
 document.getElementById('coinTo')?.addEventListener('change',()=>{updateConvertPreviews();estimateQtyToAuto(true);});
 document.getElementById('qtyFromMaxBtn')?.addEventListener('click',fillQtyFromMax);
+document.getElementById('platform')?.addEventListener('change',()=>{updateQtyHaveHints();});
 document.getElementById('qty')?.addEventListener('input',e=>{
   e.target.dataset.manual='1';
   estimateAmountMxnAuto(false);
