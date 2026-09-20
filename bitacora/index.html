@@ -3504,7 +3504,7 @@ function opQtyFingerprint(op){
     Number(op.qtyTo)||0
   ].join('|');
 }
-function save(){
+async function save(){
  const amount=parseFloat(document.getElementById('amount').value);
  const date=document.getElementById('date').value;
  const time=document.getElementById('time').value;
@@ -3531,28 +3531,37 @@ function save(){
      qty=Number(prev.qty)||0;
      qtyTo=Number(prev.qtyTo)||0;
    }
-   // ETH→MXN (u otra→MXN): sin cantidades, usar Monto MXN como pesos recibidos
-   // y estimar cripto vendida con el precio, para que Binance/Ledger muevan saldo.
+   // Sin Cant. De/A: estimar con Monto MXN + precios (cripto↔MXN y cripto↔cripto/USDT).
    if((!(qty>0) || !(qtyTo>0)) && amount>0){
+     try{
+       if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false);
+     }catch(_){}
+     try{
+       if(typeof ensureUsdtMxnRate==='function') await ensureUsdtMxnRate();
+     }catch(_){}
      if(coinTo==='MXN' && !(qtyTo>0)) qtyTo=amount;
      if(coinFrom==='MXN' && !(qty>0)) qty=amount;
-     if(coinTo==='MXN' && !(qty>0)){
-       try{
-         const px=usdPriceOfSym(coinFrom);
-         const fx=Number(usdtMxn);
-         if(px>0 && fx>0) qty=amount/(px*fx);
-       }catch(_){}
-     }
-     if(coinFrom==='MXN' && !(qtyTo>0)){
-       try{
-         const px=usdPriceOfSym(coinTo);
-         const fx=Number(usdtMxn);
-         if(px>0 && fx>0) qtyTo=amount/(px*fx);
-       }catch(_){}
-     }
+     try{
+       const fx=Number(usdtMxn);
+       const pxFrom=usdPriceOfSym(coinFrom);
+       const pxTo=usdPriceOfSym(coinTo);
+       const feePct=(typeof getConvertFeePct==='function')?getConvertFeePct():0.1;
+       const factor=Math.max(0, 1 - (Number(feePct)||0)/100);
+       if(fx>0 && pxFrom>0 && pxTo>0){
+         if(!(qty>0)) qty=amount/(pxFrom*fx);
+         if(!(qtyTo>0)){
+           if(qty>0) qtyTo=qty*(pxFrom/pxTo)*factor;
+           else qtyTo=(amount/(pxTo*fx))*factor;
+         }
+       } else {
+         // fallbacks ya cubiertos arriba para MXN en un extremo
+         if(coinTo==='MXN' && !(qty>0) && pxFrom>0 && fx>0) qty=amount/(pxFrom*fx);
+         if(coinFrom==='MXN' && !(qtyTo>0) && pxTo>0 && fx>0) qtyTo=(amount/(pxTo*fx))*factor;
+       }
+     }catch(_){}
    }
    if(!(qty>0) || !(qtyTo>0)){
-     alert('Para que se refleje en la plataforma, escribe Cant. De y Cant. A (o el Monto MXN).');
+     alert('Para que se refleje en la plataforma, escribe Cant. De y Cant. A (o el Monto MXN con precios cargados).');
      return;
    }
  } else {
