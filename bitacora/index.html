@@ -2758,11 +2758,24 @@ function openCoinInvestMini(sym){
   }
   if(name) name.textContent=(cc?.name?cc.name+' · ':'')+s+' (invertido)';
   const ops=investedOpsForCoin(s);
-  const total=ops.reduce((a,r)=>a+Number(r.delta||0),0);
+  // Misma base que Rendimiento / promedio: costo de la posición actual,
+  // no la suma cruda de montos (tras ida-vuelta BTC↔USDT eso dejaba un neto engañoso).
+  const basis=positionCostBasisMxn(s);
+  const sumOps=ops.reduce((a,r)=>a+Number(r.delta||0),0);
+  const total=(basis!=null && basis>0)?basis:sumOps;
   if(totalEl){
     const avg=avgBuyPriceMxn(s);
+    const val=currentValueMxn(s);
     const avgLine=avg!=null?('<br><span style="font-weight:700;color:#ffd96b">Precio promedio ≈ '+money(avg)+' / '+esc(s)+'</span>'):'';
-    totalEl.innerHTML='Invertido neto ≈ <strong>'+money(total)+'</strong>'+avgLine+'<br><span style="font-weight:600;color:#8b97a6">Suma de compras/depósitos/staking − ventas/retiros/comisiones ± conversiones</span>';
+    const valLine=val!=null?('<br><span style="font-weight:700;color:#9dffb0">Valor actual ≈ '+money(val)+'</span>'):'';
+    let pnlLine='';
+    if(val!=null && total>0){
+      const d=val-total;
+      const pct=(d/total)*100;
+      const col=d>0.5?'#9dffb0':(d<-0.5?'#ff8f8f':'#ffd96b');
+      pnlLine='<br><span style="font-weight:700;color:'+col+'">vs invertido: '+(d>=0?'+':'')+money(d)+' ('+(pct>=0?'+':'')+pct.toFixed(2)+'%)</span>';
+    }
+    totalEl.innerHTML='Invertido (costo posición) ≈ <strong>'+money(total)+'</strong>'+avgLine+valLine+pnlLine+'<br><span style="font-weight:600;color:#8b97a6">Costo de las unidades que aún tienes (no suma cruda de montos tras conversiones)</span>';
   }
   if(list){
     if(!ops.length){
