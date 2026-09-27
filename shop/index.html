@@ -5888,6 +5888,11 @@
       }
       return sum;
     }
+    function updateSaleTotalsOnly() {
+      const sum = saleTotalOf(saleFormItems);
+      if (saleEls.itemsSum) saleEls.itemsSum.textContent = "Suma de artículos: " + money(sum);
+      if (saleEls.total) saleEls.total.textContent = "Total a registrar: " + money(saleChargedTotal());
+    }
     function renderSaleItemsUI() {
       renderItemPicker(saleEls.picker, null, saleFormItems);
       renderItemSelected(saleEls.selected, saleFormItems, true);
@@ -6017,10 +6022,17 @@
       });
       saleEls.selected.addEventListener("input", (e) => {
         const qty = e.target.closest("[data-item-qty]");
-        if (!qty) return;
-        const it = saleFormItems.find((x) => x.id === qty.getAttribute("data-item-qty"));
-        if (it) it.qty = Math.max(1, Math.floor(Number(qty.value) || 1));
-        applyQtyStockWarning(qty);
+        const price = e.target.closest("[data-item-price]");
+        if (qty) {
+          const it = saleFormItems.find((x) => x.id === qty.getAttribute("data-item-qty"));
+          if (it) it.qty = Math.max(1, Math.floor(Number(qty.value) || 1));
+          applyQtyStockWarning(qty);
+        }
+        if (price) {
+          const it = saleFormItems.find((x) => x.id === price.getAttribute("data-item-price"));
+          if (it) it.price = Math.max(0, Number(price.value) || 0);
+        }
+        if (qty || price) updateSaleTotalsOnly();
       });
       saleEls.selected.addEventListener("change", (e) => {
         const qty = e.target.closest("[data-item-qty]");
@@ -6029,6 +6041,7 @@
           const it = saleFormItems.find((x) => x.id === qty.getAttribute("data-item-qty"));
           if (it) it.qty = Math.max(1, Math.floor(Number(qty.value) || 1));
           applyQtyStockWarning(qty);
+          updateSaleTotalsOnly();
         }
         if (price) {
           const it = saleFormItems.find((x) => x.id === price.getAttribute("data-item-price"));
