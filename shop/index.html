@@ -361,6 +361,15 @@
       border-color: rgba(0, 245, 255, 0.5);
       box-shadow: 0 0 0 1px rgba(0, 245, 255, 0.22), 0 0 26px rgba(124, 92, 255, 0.32);
     }
+    .incoming-pending-check {
+      display: flex; align-items: center; gap: 10px;
+      margin: 2px 0 4px; padding: 10px 12px;
+      border: 1px solid rgba(0, 245, 255, 0.4);
+      border-radius: 12px;
+      background: rgba(0, 245, 255, 0.07);
+      color: var(--text); font-weight: 600; font-size: 0.9rem;
+    }
+    .incoming-pending-check input { width: 18px; height: 18px; accent-color: var(--cyan); }
     .incoming-note {
       margin-top: 6px; font-size: 0.78rem; color: #9af6ff; letter-spacing: 0.01em;
     }
@@ -1868,6 +1877,10 @@
           </label>
           <div id="incomingNewFields">
             <label><span>Nombre</span><input type="text" id="incomingName" maxlength="100" /></label>
+            <label class="incoming-pending-check" id="incomingPendingRow">
+              <input type="checkbox" id="incomingPending" />
+              <span>Pendiente de llegar</span>
+            </label>
             <div class="row-2">
               <label><span>Precio de venta</span><input type="number" id="incomingPrice" min="0" step="0.01" /></label>
               <label><span>Costo por unidad</span><input type="number" id="incomingNewCost" min="0" step="0.01" /></label>
@@ -1895,10 +1908,6 @@
             <label><span>Fecha</span><input type="date" id="incomingDate" required /></label>
           </div>
           <label><span>Hora</span><input type="time" id="incomingTime" required /></label>
-          <label style="display:flex;align-items:center;gap:10px">
-            <input type="checkbox" id="incomingPending" />
-            <span>Pendiente de llegar</span>
-          </label>
           <div class="form-actions">
             <button type="button" class="ghost" id="incomingCancelBtn">Cancelar</button>
             <button type="submit" class="primary">Guardar</button>
@@ -6867,6 +6876,17 @@
     const ex=$("incomingExistingFields");
     if(neu) neu.hidden=mode!=="new";
     if(ex) ex.hidden=mode!=="existing";
+    const row=$("incomingPendingRow");
+    if(row){
+      if(mode==="existing"){
+        const picker=$("incomingArticlePicker");
+        if(picker) picker.insertAdjacentElement("afterend", row);
+      } else {
+        const name=$("incomingName");
+        const lab=name && name.closest("label");
+        if(lab) lab.insertAdjacentElement("afterend", row);
+      }
+    }
   }
   function fillIncomingPicker(){
     const picker=$("incomingArticlePicker");
