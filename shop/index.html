@@ -1867,8 +1867,7 @@
     <div class="overlay" id="incomingOverlay" role="dialog" aria-modal="true">
       <div class="modal">
         <h2>Agregar artículo</h2>
-        <p style="margin:0 0 10px;color:var(--muted);font-size:.78rem;line-height:1.35">Si marcas la casilla, esas piezas aparecen como pendiente en llegar y no se pueden vender hasta que pulses Recibido en Inversiones.</p>
-        <form id="incomingForm" class="form-grid" novalidate>
+                <form id="incomingForm" class="form-grid" novalidate>
           <label><span>Tipo</span>
             <select id="incomingMode">
               <option value="new">Artículo nuevo</option>
@@ -1908,6 +1907,7 @@
             <input type="checkbox" id="incomingPending" />
             <span>Pendiente de llegar</span>
           </label>
+          <p style="margin:0 0 10px;color:var(--muted);font-size:.78rem;line-height:1.35">Si marcas la casilla, esas piezas aparecen como pendiente de llegar y no se pueden vender hasta que pulses Recibido en Inversiones.</p>
           <div class="form-actions">
             <button type="button" class="ghost" id="incomingCancelBtn">Cancelar</button>
             <button type="submit" class="primary">Guardar</button>
