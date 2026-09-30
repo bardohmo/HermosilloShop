@@ -466,6 +466,14 @@
     input[type="text"], input[type="number"], input[type="date"], input[type="search"], select, textarea {
       width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
       background: rgba(0,0,0,0.35); color: var(--text); font: inherit; outline: none;
+      color-scheme: dark;
+      -webkit-text-fill-color: var(--text);
+    }
+    input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, input[type="time"]:focus, input[type="search"]:focus, select:focus, textarea:focus {
+      background: rgba(0,0,0,0.45);
+      color: var(--text);
+      -webkit-text-fill-color: var(--text);
+      box-shadow: 0 0 0 1000px #0c1220 inset, 0 0 0 3px rgba(0, 245, 255, 0.12);
     }
     select {
       appearance: none;
@@ -1877,7 +1885,7 @@
             </select>
           </label>
           <div id="incomingNewFields">
-            <label><span>Nombre</span><input type="text" id="incomingName" maxlength="100" /></label>
+            <label><span>Nombre</span><input type="text" id="incomingName" maxlength="100" autocomplete="off" autocapitalize="words" /></label>
             <div class="row-2">
               <label><span>Costo por unidad</span><input type="number" id="incomingNewCost" min="0" step="0.01" /></label>
               <label><span>Precio de venta</span><input type="number" id="incomingPrice" min="0" step="0.01" /></label>
