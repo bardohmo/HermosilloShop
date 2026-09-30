@@ -1597,11 +1597,13 @@
   border-color: rgba(0,245,255,0.28);
   box-shadow: 0 0 0 1px rgba(0,245,255,0.08), inset 0 0 18px rgba(0,245,255,0.04);
 }
-#investmentAddOverlay .deliv-pick.is-selected{
+#investmentAddOverlay .deliv-pick.is-selected,
+#saleArticlePick .deliv-pick.is-selected{
   border-color: rgba(0,245,255,0.9);
   background: rgba(0,245,255,0.12);
   box-shadow: 0 0 0 1px rgba(0,245,255,0.35), 0 0 12px rgba(0,245,255,0.35);
 }
+#saleArticlePick.deliv-items-picker{max-height:180px}
 #investmentAddOverlay .deliv-items-selected{ margin-top: 6px; }
 .investment-main{min-width:0}.investment-title{font-weight:800;font-size:.85rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap}.investment-badge{font-size:.58rem;font-weight:800;border:1px solid var(--line);border-radius:999px;padding:3px 7px;color:var(--cyan)}.investment-badge.out{color:#ff8f8f;border-color:rgba(255,143,143,.35)}
 .investment-meta{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:5px;color:var(--muted);font-size:.64rem}.investment-total{margin-top:5px;font-size:.72rem;font-weight:800}.investment-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.investment-actions button{min-height:36px}
@@ -2231,10 +2233,6 @@
               <option value="article">Ventas por artículo</option>
             </select>
           </label>
-          <label class="sale-sort-wrap" id="saleArticleWrap" hidden>
-            <span>Artículo</span>
-            <select id="saleArticlePick" aria-label="Artículo"></select>
-          </label>
           <label class="sale-sort-wrap">
             <span>Ordenar</span>
             <select id="saleSort" aria-label="Ordenar ventas">
@@ -2245,6 +2243,10 @@
             </select>
           </label>
         </div>
+      </div>
+      <div class="deliv-items-block" id="saleArticleWrap" hidden style="margin:0 0 12px">
+        <span>Artículo</span>
+        <div id="saleArticlePick" class="deliv-items-picker" role="listbox" aria-label="Artículo"></div>
       </div>
       <div class="grid deliv-grid" id="saleGrid" aria-live="polite"></div>
     </div>
@@ -6004,23 +6006,29 @@
       if (saleEls.total) saleEls.total.textContent = "Total a registrar: " + money(saleChargedTotal());
     }
 
+    let saleArticleId = "";
     function fillSaleArticlePick() {
       if (!saleEls.articlePick) return;
-      const names = new Map();
-      (articles || []).forEach((a) => { if (a && a.id) names.set(String(a.id), a.name || "Artículo"); });
+      const map = new Map();
+      (articles || []).forEach((a) => {
+        if (a && a.id) map.set(String(a.id), { id: String(a.id), name: a.name || "Artículo", photo: a.photo_url || null });
+      });
       (sales || []).forEach((row) => (row.items || []).forEach((it) => {
         const id = String(it && it.id || "");
-        if (id && !names.has(id)) names.set(id, it.name || "Artículo");
+        if (!id) return;
+        const photo = it.photo_url || null;
+        if (!map.has(id)) map.set(id, { id, name: it.name || "Artículo", photo });
+        else if (!map.get(id).photo && photo) map.get(id).photo = photo;
       }));
-      const prev = saleEls.articlePick.value;
-      const opts = [...names.entries()].sort((a, b) => a[1].localeCompare(b[1], "es", { sensitivity: "base" }));
-      saleEls.articlePick.innerHTML = opts.map(([id, name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join("");
-      if (prev && names.has(prev)) saleEls.articlePick.value = prev;
+      const opts = [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
+      if (!saleArticleId || !map.has(saleArticleId)) saleArticleId = opts[0] ? opts[0].id : "";
+      saleEls.articlePick.innerHTML = opts.map((a) => `<button type="button" class="deliv-pick${a.id === saleArticleId ? " is-selected" : ""}" data-sale-article="${escapeHtml(a.id)}">${itemThumb(a.photo, a.name)}<span>${escapeHtml(a.name)}</span></button>`).join("");
     }
     function renderSalesByArticle() {
       fillSaleArticlePick();
-      const id = saleEls.articlePick ? saleEls.articlePick.value : "";
-      const name = saleEls.articlePick && saleEls.articlePick.selectedOptions[0] ? saleEls.articlePick.selectedOptions[0].textContent : "Artículo";
+      const id = saleArticleId || "";
+      const picked = saleEls.articlePick && saleEls.articlePick.querySelector(".deliv-pick.is-selected span");
+      const name = picked ? picked.textContent : "Artículo";
       const q = (saleEls.search && saleEls.search.value || "").trim().toLowerCase();
       const lines = [];
       (sales || []).forEach((row) => {
@@ -6167,7 +6175,12 @@
     if (saleEls.overlay) saleEls.overlay.addEventListener("click", (e) => { if (e.target === saleEls.overlay) closeSaleForm(); });
     if (saleEls.search) saleEls.search.addEventListener("input", renderSales);
     if (saleEls.viewMode) saleEls.viewMode.addEventListener("change", renderSales);
-    if (saleEls.articlePick) saleEls.articlePick.addEventListener("change", renderSales);
+    if (saleEls.articlePick) saleEls.articlePick.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-sale-article]");
+      if (!btn) return;
+      saleArticleId = btn.getAttribute("data-sale-article") || "";
+      renderSales();
+    });
     if (saleEls.sort) {
       saleEls.sort.value = saleSortMode || "date-desc";
       saleEls.sort.addEventListener("change", () => { saleSortMode = saleEls.sort.value; renderSales(); });
