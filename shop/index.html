@@ -1518,6 +1518,15 @@
     .sale-by-stat strong{font-size:1.05rem;color:var(--text)}
     .sale-by-stat.net strong{color:var(--ok)}
     .sale-by-block h3{margin:4px 0 8px;font-size:.95rem}
+    .sale-top10{margin:0 0 12px;padding:12px;border:1px solid rgba(0,245,255,.28);border-radius:14px;background:rgba(8,12,28,0.65)}
+    .sale-top10 h3{margin:0 0 8px;font-size:.95rem}
+    .sale-top10-list{display:grid;gap:6px}
+    .sale-top10-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;font:inherit;color:var(--text);cursor:pointer;padding:8px 10px;border-radius:12px;border:1px solid rgba(148,163,184,.25);background:rgba(8,12,28,0.65)}
+    .sale-top10-row:hover{border-color:rgba(0,245,255,.7)}
+    .sale-top10-row .rank{flex:0 0 22px;font-size:.75rem;font-weight:800;color:var(--cyan);text-align:center}
+    .sale-top10-row img,.sale-top10-row .deliv-item-ph{width:32px;height:32px;border-radius:8px;object-fit:cover;flex:0 0 auto;background:rgba(0,0,0,.35)}
+    .sale-top10-row .deliv-item-ph{display:grid;place-items:center;font-size:.72rem;font-weight:700;color:var(--muted)}
+    .sale-top10-row .name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .sale-price-list,.sale-line-list{display:grid;gap:8px}
     .sale-price-row,.sale-line-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;border:1px solid rgba(148,163,184,.25);background:rgba(8,12,28,0.65)}
     .sale-line-row small{color:var(--muted)}
@@ -1896,7 +1905,7 @@
           <div class="row-2"><label><span>Movimiento</span><select id="investmentType"><option value="in">Entrada · artículo agregado</option><option value="out">Salida · artículo eliminado</option></select></label><label><span>Cantidad</span><input type="number" id="investmentQty" min="0" step="1" required /></label></div>
           <label><span>Costo de compra por unidad</span><input type="number" id="investmentUnitCost" min="0" step="0.01" required /></label>
           <div class="investment-thumb" id="investmentEditPhotoPreview" style="width:84px;height:84px"></div>
-          <div class="form-actions"><button type="button" class="ghost" id="investmentCancelBtn">Cancelar</button><button type="submit" class="primary">Guardar cambios</button></div>
+          <div class="form-actions"><button type="button" class="ghost" id="investmentMarkPendingBtn" hidden>Marcar como pendiente</button><button type="button" class="ghost" id="investmentCancelBtn">Cancelar</button><button type="submit" class="primary">Guardar cambios</button></div>
         </form>
       </div>
     </div>
@@ -2259,6 +2268,10 @@
         <span>Artículo</span>
         <div id="saleArticlePick" class="deliv-items-picker" role="listbox" aria-label="Artículo"></div>
       </div>
+      <section class="sale-top10" id="saleTop10" hidden>
+        <h3>Top 10</h3>
+        <div id="saleTop10List" class="sale-top10-list"></div>
+      </section>
       <div class="grid deliv-grid" id="saleGrid" aria-live="polite"></div>
     </div>
 
@@ -6062,6 +6075,60 @@
       if (!saleArticleId || !map.has(saleArticleId)) saleArticleId = opts[0] ? opts[0].id : "";
       saleEls.articlePick.innerHTML = opts.map((a) => `<button type="button" class="deliv-pick${a.id === saleArticleId ? " is-selected" : ""}" data-sale-article="${escapeHtml(a.id)}">${itemThumb(a.photo, a.name)}<span>${escapeHtml(a.name)}</span></button>`).join("");
     }
+    function soldArticleRanking() {
+      const map = new Map();
+      (sales || []).forEach((row) => (row.items || []).forEach((it) => {
+        const id = String(it && it.id || "");
+        const qty = Math.max(0, Number(it && it.qty) || 0);
+        if (!id || !qty) return;
+        const art = (articles || []).find((a) => String(a.id) === id);
+        const photo = (art && art.photo_url) || it.photo_url || null;
+        const name = (art && art.name) || it.name || "Artículo";
+        const priceRaw = Number(it.price);
+        const price = Number.isFinite(priceRaw) ? priceRaw : (Number(art && art.price) || 0);
+        const rec = map.get(id) || { id, name, photo, qty: 0, cobrado: 0 };
+        rec.qty += qty;
+        rec.cobrado += qty * price;
+        if (art && art.name) rec.name = art.name;
+        if ((art && art.photo_url) || (!rec.photo && photo)) rec.photo = (art && art.photo_url) || rec.photo || photo;
+        map.set(id, rec);
+      }));
+      return [...map.values()].sort((a, b) => {
+        if (b.qty !== a.qty) return b.qty - a.qty;
+        if (b.cobrado !== a.cobrado) return b.cobrado - a.cobrado;
+        return String(a.name).localeCompare(String(b.name), "es", { sensitivity: "base" });
+      }).slice(0, 10);
+    }
+    function renderSaleTop10(visible) {
+      const host = document.getElementById("saleTop10");
+      const listEl = document.getElementById("saleTop10List");
+      if (!host || !listEl) return;
+      if (!visible) { host.hidden = true; return; }
+      const top = soldArticleRanking();
+      if (!top.length) { host.hidden = true; listEl.innerHTML = ""; return; }
+      host.hidden = false;
+      listEl.innerHTML = top.map((a, i) => `<button type="button" class="sale-top10-row" data-top-article="${escapeHtml(a.id)}"><span class="rank">${i + 1}</span>${itemThumb(a.photo, a.name)}<span class="name">${escapeHtml(a.name)}</span></button>`).join("");
+    }
+    function openSalesByArticle(id) {
+      if (!id) return;
+      saleArticleId = String(id);
+      const root = saleEls.viewMode;
+      if (root) {
+        root.dataset.value = "article";
+        const current = root.querySelector(".sale-drop-current");
+        const menu = root.querySelector(".sale-drop-menu");
+        if (menu) {
+          menu.querySelectorAll("button").forEach((b) => {
+            const on = b.getAttribute("data-value") === "article";
+            b.classList.toggle("is-on", on);
+            if (on && current) current.textContent = b.textContent;
+          });
+          menu.hidden = true;
+        }
+        if (current) current.setAttribute("aria-expanded", "false");
+      }
+      renderSales();
+    }
     function renderSalesByArticle() {
       fillSaleArticlePick();
       const id = saleArticleId || "";
@@ -6157,6 +6224,7 @@
       const byArticle = saleEls.viewMode && saleEls.viewMode.dataset.value === "article";
       if (saleEls.articleWrap) saleEls.articleWrap.hidden = !byArticle;
       if (saleEls.sort) { const wrap = document.getElementById("saleSortWrap"); if (wrap) wrap.hidden = byArticle; }
+      renderSaleTop10(!byArticle);
       if (byArticle) { renderSalesByArticle(); return; }
       if (!list.length) {
         saleEls.grid.innerHTML = `<div class="empty"><strong>${sales.length === 0 ? "Sin ventas aún" : "Sin resultados"}</strong>${sales.length === 0 ? "Registra una venta manual o marca una entrega como realizada." : "Prueba con otro término de búsqueda."}</div>`;
@@ -6244,6 +6312,12 @@
       if (!btn) return;
       saleArticleId = btn.getAttribute("data-sale-article") || "";
       renderSales();
+    });
+    const saleTop10 = document.getElementById("saleTop10");
+    if (saleTop10) saleTop10.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-top-article]");
+      if (!btn) return;
+      openSalesByArticle(btn.getAttribute("data-top-article") || "");
     });
     if (saleEls.sort && saleSortMode && saleSortMode !== "date-desc") {
       const btn = saleEls.sort.querySelector('[data-value="' + saleSortMode + '"]');
@@ -6809,9 +6883,9 @@
   const nowParts=()=>{const d=new Date();return{date:d.toISOString().slice(0,10),time:d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false})}};
   const total=r=>(Number(r.qty)||0)*(Number(r.unitCost)||0);
   const imgHtml=(url,name)=>url?'<img src="'+escInv(url)+'" alt="'+escInv(name)+'">':'<span aria-hidden="true">📦</span>';
-  function render(){records=read();const q=(($("investmentSearch")?.value)||"").trim().toLowerCase();const list=records.filter(r=>!q||[r.name,r.date,r.time,r.type].some(v=>String(v||"").toLowerCase().includes(q))).sort((a,b)=>(a.status==="pending"&&a.type!=="out"?0:1)-(b.status==="pending"&&b.type!=="out"?0:1));const ins=records.filter(r=>r.type!=="out"),outs=records.filter(r=>r.type==="out");const it=ins.reduce((a,r)=>a+total(r),0),ot=outs.reduce((a,r)=>a+total(r),0);$("investmentStatus")&&($("investmentStatus").textContent=records.length+" movimiento"+(records.length===1?"":"s")+" · "+moneyInv(it-ot));$("investmentEntries")&&($("investmentEntries").textContent=ins.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(it));$("investmentExits")&&($("investmentExits").textContent=outs.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(ot));$("investmentTotal")&&($("investmentTotal").textContent=moneyInv(it-ot)+" MXN");const grid=$("investmentGrid");if(!grid)return;if(!list.length){grid.innerHTML='<div class="investment-empty">'+(records.length?'No hay movimientos que coincidan con la búsqueda.':'Aún no hay movimientos. Usa “+ Agregar compra” para registrar una compra pendiente de llegar.')+'</div>';return}grid.innerHTML=list.map(r=>{const out=r.type==="out";const pending=r.status==="pending"&&!out;const badgeCls=pending?"pending":(out?"out":"");const badgeTxt=pending?"PENDIENTE":(out?"SALIDA":"ENTRADA");const receiveBtn=pending?'<button type="button" class="primary" data-investment-action="receive">Recibido</button>':'';const pendingBtn=(!out&&r.status==="received")?'<button type="button" class="ghost" data-investment-action="unreceive">Pendiente</button>':'';return '<article class="investment-card" data-investment-id="'+escInv(r.id)+'"><div class="investment-thumb">'+imgHtml(r.photo_url,r.name)+'</div><div class="investment-main"><div class="investment-title">'+escInv(r.name)+' <span class="investment-badge '+badgeCls+'">'+badgeTxt+'</span></div><div class="investment-meta"><span>📅 '+escInv(r.date)+'</span><span>🕒 '+escInv(r.time)+'</span><span>📦 '+(Number(r.qty)||0)+' uds.</span><span>💵 '+moneyInv(r.unitCost)+' / ud.</span></div><div class="investment-total">'+(out?'Salida registrada':'Inversión registrada')+': '+moneyInv(total(r))+' MXN</div></div><div class="investment-actions">'+receiveBtn+pendingBtn+'<button type="button" class="ghost" data-investment-action="edit">Editar</button><button type="button" class="ghost" data-investment-action="delete">Eliminar</button></div></article>'}).join("");if(typeof window.applyCardImageGlows==="function")window.applyCardImageGlows(grid);}
-  function openEdit(id){const r=records.find(x=>x.id===id);if(!r)return;editingId=id;$("investmentEditId").value=id;$("investmentDate").value=r.date||"";$("investmentTime").value=r.time||"";$("investmentName").value=r.name||"";$("investmentType").value=r.type||"in";$("investmentQty").value=Number(r.qty)||0;$("investmentUnitCost").value=Number(r.unitCost)||0;$("investmentEditPhotoPreview").innerHTML=imgHtml(r.photo_url,r.name);$("investmentOverlay").classList.add("open")}
-  function closeEdit(){$("investmentOverlay")?.classList.remove("open");editingId=null}
+  function render(){records=read();const q=(($("investmentSearch")?.value)||"").trim().toLowerCase();const list=records.filter(r=>!q||[r.name,r.date,r.time,r.type].some(v=>String(v||"").toLowerCase().includes(q))).sort((a,b)=>(a.status==="pending"&&a.type!=="out"?0:1)-(b.status==="pending"&&b.type!=="out"?0:1));const ins=records.filter(r=>r.type!=="out"),outs=records.filter(r=>r.type==="out");const it=ins.reduce((a,r)=>a+total(r),0),ot=outs.reduce((a,r)=>a+total(r),0);$("investmentStatus")&&($("investmentStatus").textContent=records.length+" movimiento"+(records.length===1?"":"s")+" · "+moneyInv(it-ot));$("investmentEntries")&&($("investmentEntries").textContent=ins.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(it));$("investmentExits")&&($("investmentExits").textContent=outs.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(ot));$("investmentTotal")&&($("investmentTotal").textContent=moneyInv(it-ot)+" MXN");const grid=$("investmentGrid");if(!grid)return;if(!list.length){grid.innerHTML='<div class="investment-empty">'+(records.length?'No hay movimientos que coincidan con la búsqueda.':'Aún no hay movimientos. Usa “+ Agregar compra” para registrar una compra pendiente de llegar.')+'</div>';return}grid.innerHTML=list.map(r=>{const out=r.type==="out";const pending=r.status==="pending"&&!out;const badgeCls=pending?"pending":(out?"out":"");const badgeTxt=pending?"PENDIENTE":(out?"SALIDA":"ENTRADA");const receiveBtn=pending?'<button type="button" class="primary" data-investment-action="receive">Recibido</button>':'';return '<article class="investment-card" data-investment-id="'+escInv(r.id)+'"><div class="investment-thumb">'+imgHtml(r.photo_url,r.name)+'</div><div class="investment-main"><div class="investment-title">'+escInv(r.name)+' <span class="investment-badge '+badgeCls+'">'+badgeTxt+'</span></div><div class="investment-meta"><span>📅 '+escInv(r.date)+'</span><span>🕒 '+escInv(r.time)+'</span><span>📦 '+(Number(r.qty)||0)+' uds.</span><span>💵 '+moneyInv(r.unitCost)+' / ud.</span></div><div class="investment-total">'+(out?'Salida registrada':'Inversión registrada')+': '+moneyInv(total(r))+' MXN</div></div><div class="investment-actions">'+receiveBtn+'<button type="button" class="ghost" data-investment-action="edit">Editar</button><button type="button" class="ghost" data-investment-action="delete">Eliminar</button></div></article>'}).join("");if(typeof window.applyCardImageGlows==="function")window.applyCardImageGlows(grid);}
+  function openEdit(id){const r=records.find(x=>x.id===id);if(!r)return;editingId=id;$("investmentEditId").value=id;$("investmentDate").value=r.date||"";$("investmentTime").value=r.time||"";$("investmentName").value=r.name||"";$("investmentType").value=r.type||"in";$("investmentQty").value=Number(r.qty)||0;$("investmentUnitCost").value=Number(r.unitCost)||0;$("investmentEditPhotoPreview").innerHTML=imgHtml(r.photo_url,r.name);const markPending=$("investmentMarkPendingBtn");if(markPending)markPending.hidden=!(r.status==="received"&&r.type!=="out");$("investmentOverlay").classList.add("open")}
+  function closeEdit(){$("investmentOverlay")?.classList.remove("open");editingId=null;const markPending=$("investmentMarkPendingBtn");if(markPending)markPending.hidden=true}
   function recordInvestment(article,type){
     const n=nowParts();
     records=read();
@@ -7137,6 +7211,7 @@
       r.status="pending";
       r.updatedAt=new Date().toISOString();
       write();
+      closeEdit();
       render();
       if(typeof window.renderArticles==="function") window.renderArticles();
       if(typeof toast==="function") toast("Volvió a pendiente. Aún no está disponible");
@@ -7150,10 +7225,11 @@
   window.recordInvestment=recordInvestment;
   window.openIncoming=openIncoming;
   $("investmentSearch")?.addEventListener("input",render);
+  $("investmentMarkPendingBtn")?.addEventListener("click",()=>{if(!editingId)return;markIncomingPending(editingId);});
   $("investmentCancelBtn")?.addEventListener("click",closeEdit);
   $("investmentOverlay")?.addEventListener("click",e=>{if(e.target===$("investmentOverlay"))closeEdit()});
   $("investmentForm")?.addEventListener("submit",e=>{e.preventDefault();if(!editingId)return;if(typeof requireEdit==="function"&&!requireEdit())return;const r=records.find(x=>x.id===editingId);if(!r)return;r.date=$("investmentDate").value;r.time=$("investmentTime").value;r.name=$("investmentName").value.trim();r.type=$("investmentType").value;r.qty=Math.max(0,Math.floor(Number($("investmentQty").value)||0));r.unitCost=Math.max(0,Number($("investmentUnitCost").value)||0);r.updatedAt=new Date().toISOString();write();closeEdit();render();if(typeof toast==="function")toast("Inversión actualizada")});
-  $("investmentGrid")?.addEventListener("click",e=>{const b=e.target.closest("[data-investment-action]");if(!b)return;const id=b.closest("[data-investment-id]")?.getAttribute("data-investment-id");if(!id)return;if(typeof requireEdit==="function"&&!requireEdit())return;if(b.dataset.investmentAction==="receive"){receiveIncoming(id);return;}if(b.dataset.investmentAction==="unreceive"){markIncomingPending(id);return;}if(b.dataset.investmentAction==="edit")openEdit(id);else if(confirm("¿Eliminar este movimiento del historial de inversiones?")){records=read().filter(r=>r.id!==id);write();render();if(typeof window.renderArticles==="function")window.renderArticles();if(typeof toast==="function")toast("Movimiento eliminado")}});
+  $("investmentGrid")?.addEventListener("click",e=>{const b=e.target.closest("[data-investment-action]");if(!b)return;const id=b.closest("[data-investment-id]")?.getAttribute("data-investment-id");if(!id)return;if(typeof requireEdit==="function"&&!requireEdit())return;if(b.dataset.investmentAction==="receive"){receiveIncoming(id);return;}if(b.dataset.investmentAction==="edit")openEdit(id);else if(confirm("¿Eliminar este movimiento del historial de inversiones?")){records=read().filter(r=>r.id!==id);write();render();if(typeof window.renderArticles==="function")window.renderArticles();if(typeof toast==="function")toast("Movimiento eliminado")}});
   $("investmentAddBtn")?.addEventListener("click",()=>{
     if(typeof requireEdit==="function"&&!requireEdit())return;
     openAddPurchase();
