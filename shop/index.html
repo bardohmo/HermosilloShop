@@ -2850,12 +2850,8 @@
               // Se estima la inversión total de compra a partir de las unidades
               // vendidas + las que aún quedan en existencia.
               
-              const realizedGain = productSales.profit;
-
-              // Neta = margen ya vendido + margen potencial del stock que queda.
-              // (Antes restaba purchase*stock completo y con 0 ventas salía siempre negativo.)
-              const unrealizedGain = hasPurchaseCost ? (sale - purchase) * units : 0;
-              const netGain = realizedGain + unrealizedGain;
+              // Neta = lo que se va a cobrar por las piezas en existencia y por llegar, menos lo que costaron.
+              const netGain = hasPurchaseCost ? (sale - purchase) * units : 0;
 
               const roi = hasPurchaseCost ? ((sale - purchase) / purchase) * 100 : 0;
               // Potencial = suma a precio de venta (sin descontar inversión).
@@ -2887,7 +2883,7 @@
     ${hasPurchaseCost ? `<div class="investment-row net-gain-row ${netGain >= 0 ? "net-positive" : "net-negative"}">
       <span>
         <span class="net-gain-label">Ganancia neta</span>
-        <small>(vendido + potencial del stock)</small>
+        <small>(lo que vas a cobrar − lo que costaron)</small>
       </span>
       <strong>${netGain > 0 ? "+ " : netGain < 0 ? "- " : ""}${money(Math.abs(netGain))} MXN</strong>
     </div>` : ""}
