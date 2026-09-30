@@ -352,14 +352,14 @@
     .badge.out { background: rgba(255, 77, 109, 0.15); border-color: rgba(255, 77, 109, 0.4); color: #ff9aab; }
     .badge.incoming {
       max-width: none; white-space: nowrap;
-      background: rgba(0, 245, 255, 0.14);
-      border-color: rgba(0, 245, 255, 0.55);
-      color: #9af6ff;
-      box-shadow: 0 0 14px rgba(0, 245, 255, 0.28);
+      background: rgba(255, 176, 46, 0.16);
+      border-color: rgba(255, 176, 46, 0.7);
+      color: #ffc14d;
+      box-shadow: 0 0 14px rgba(255, 176, 46, 0.35);
     }
     .card.incoming {
-      border-color: rgba(0, 245, 255, 0.5);
-      box-shadow: 0 0 0 1px rgba(0, 245, 255, 0.22), 0 0 26px rgba(124, 92, 255, 0.32);
+      border-color: rgba(255, 176, 46, 0.65);
+      box-shadow: 0 0 0 1px rgba(255, 176, 46, 0.28), 0 0 26px rgba(255, 140, 40, 0.28);
     }
     .incoming-pending-check {
       display: flex; align-items: center; gap: 10px;
@@ -371,7 +371,7 @@
     }
     .incoming-pending-check input { width: 18px; height: 18px; accent-color: var(--cyan); }
     .incoming-note {
-      margin-top: 6px; font-size: 0.78rem; color: #9af6ff; letter-spacing: 0.01em;
+      margin-top: 6px; font-size: 0.78rem; color: #ffc14d; letter-spacing: 0.01em;
     }
     .investment-badge.pending {
       background: rgba(0, 245, 255, 0.12); color: #9af6ff; border: 1px solid rgba(0, 245, 255, 0.45);
@@ -2793,7 +2793,7 @@
         const pendingIn = typeof window.pendingQtyFor === "function" ? window.pendingQtyFor(a.id) : 0;
         const onHand = Number(a.stock) || 0;
         const badge = pendingIn > 0 && onHand <= 0
-          ? { cls: "incoming", text: "Pendiente en llegar" }
+          ? { cls: "incoming", text: "Pendiente de llegar" }
           : stockBadge(a.stock);
         const media = a.photo_url
           ? `<img src="${escapeHtml(a.photo_url)}" alt="${escapeHtml(a.name)}" loading="lazy" crossorigin="anonymous" decoding="async" />`
@@ -2816,7 +2816,7 @@
             <h3>${escapeHtml(a.name)}</h3>
             <div class="price">${money(a.price)}</div>
             <div class="meta">Existencia: <strong style="color:var(--text)">${Number(a.stock) || 0}</strong></div>
-            ${pendingIn > 0 ? `<div class="incoming-note">Pendiente en llegar: <strong>${pendingIn}</strong></div>` : ""}
+            ${pendingIn > 0 ? `<div class="incoming-note">Pendiente de llegar: <strong>${pendingIn}</strong></div>` : ""}
             ${isUnlocked ? (() => {
               const hasPurchaseCost = a.purchase_price !== null && a.purchase_price !== undefined && String(a.purchase_price).trim() !== "" && Number(a.purchase_price) > 0;
               const purchase = hasPurchaseCost ? Number(a.purchase_price) : 0;
