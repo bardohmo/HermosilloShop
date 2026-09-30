@@ -440,6 +440,17 @@
     }
     .overlay.open { display: flex; }
     @media (min-width: 640px) { .overlay { align-items: center; } }
+    .incoming-sheet { position: relative; width: min(520px, 100%); }
+    .incoming-sheet > .modal { width: 100%; }
+    .incoming-close {
+      position: absolute; top: -16px; right: 8px; z-index: 2;
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 1px solid rgba(0, 245, 255, 0.55);
+      background: #0c1220; color: #e8eef8;
+      font-size: 22px; line-height: 1; padding: 0;
+      display: grid; place-items: center; cursor: pointer;
+      box-shadow: 0 0 16px rgba(0, 245, 255, 0.28);
+    }
     .modal {
       width: min(520px, 100%); max-height: min(92vh, 900px); overflow: auto;
       border-radius: 22px; border: 1px solid rgba(0, 245, 255, 0.35);
@@ -1875,6 +1886,8 @@
 
 
     <div class="overlay" id="incomingOverlay" role="dialog" aria-modal="true">
+      <div class="incoming-sheet">
+      <button type="button" class="incoming-close" id="incomingCloseBtn" aria-label="Cerrar">×</button>
       <div class="modal">
         <h2>Agregar artículo</h2>
                 <form id="incomingForm" class="form-grid" novalidate>
@@ -1923,6 +1936,7 @@
             <button type="submit" class="primary">Guardar</button>
           </div>
         </form>
+      </div>
       </div>
     </div>
 
@@ -7033,6 +7047,7 @@
   $("investmentAddForm")?.addEventListener("submit",submitAddPurchase);
   $("btnAddIncoming")?.addEventListener("click", openIncoming);
   $("incomingCancelBtn")?.addEventListener("click", closeIncoming);
+  $("incomingCloseBtn")?.addEventListener("click", closeIncoming);
   $("incomingOverlay")?.addEventListener("click", e=>{ if(e.target===$("incomingOverlay")) closeIncoming(); });
   $("incomingMode")?.addEventListener("change", syncIncomingMode);
   $("incomingForm")?.addEventListener("submit", submitIncoming);
