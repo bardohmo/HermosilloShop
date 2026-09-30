@@ -6021,14 +6021,14 @@
     function fillSaleArticlePick() {
       if (!saleEls.articlePick) return;
       const map = new Map();
-      (articles || []).forEach((a) => {
-        if (a && a.id) map.set(String(a.id), { id: String(a.id), name: a.name || "Artículo", photo: a.photo_url || null });
-      });
       (sales || []).forEach((row) => (row.items || []).forEach((it) => {
         const id = String(it && it.id || "");
-        if (!id) return;
-        const photo = it.photo_url || null;
-        if (!map.has(id)) map.set(id, { id, name: it.name || "Artículo", photo });
+        const qty = Math.max(0, Number(it && it.qty) || 0);
+        if (!id || !qty) return;
+        const art = (articles || []).find((a) => String(a.id) === id);
+        const photo = (art && art.photo_url) || it.photo_url || null;
+        const name = (art && art.name) || it.name || "Artículo";
+        if (!map.has(id)) map.set(id, { id, name, photo });
         else if (!map.get(id).photo && photo) map.get(id).photo = photo;
       }));
       const opts = [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
