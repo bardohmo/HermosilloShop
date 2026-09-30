@@ -2822,6 +2822,7 @@
               const purchase = hasPurchaseCost ? Number(a.purchase_price) : 0;
               const sale = Number(a.price) || 0;
               const stock = Number(a.stock) || 0;
+              const units = stock + (Number(pendingIn) || 0);
 
               // Ventas realizadas de este artículo.
               const productSales = (sales || []).reduce((acc, s) => {
@@ -2846,12 +2847,12 @@
 
               // Neta = margen ya vendido + margen potencial del stock que queda.
               // (Antes restaba purchase*stock completo y con 0 ventas salía siempre negativo.)
-              const unrealizedGain = hasPurchaseCost ? (sale - purchase) * stock : 0;
+              const unrealizedGain = hasPurchaseCost ? (sale - purchase) * units : 0;
               const netGain = realizedGain + unrealizedGain;
 
               const roi = hasPurchaseCost ? ((sale - purchase) / purchase) * 100 : 0;
               // Potencial = suma a precio de venta (sin descontar inversión).
-              const potential = sale * stock;
+              const potential = sale * units;
 
               return `<details class="investment-details">
   <summary class="investment-detail-summary">
@@ -2872,8 +2873,8 @@
       <span>Rentabilidad por unidad</span>
       <strong>${roi.toFixed(1)}%</strong>
     </div>` : ""}
-    ${stock > 0 ? `<div class="investment-row potential-row">
-      <span>Ganancia potencial · ${stock} uds.</span>
+    ${units > 0 ? `<div class="investment-row potential-row">
+      <span>Ganancia potencial · ${units} uds.</span>
       <strong>${money(potential)} MXN</strong>
     </div>` : ""}
     ${hasPurchaseCost ? `<div class="investment-row net-gain-row ${netGain >= 0 ? "net-positive" : "net-negative"}">
