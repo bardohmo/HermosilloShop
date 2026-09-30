@@ -3105,6 +3105,7 @@
     els.btnAdd.addEventListener("click", () => {
       if (!requireEdit()) return;
       if (!supabaseClient) { toast("Configura Supabase primero"); return; }
+      if (typeof window.openIncoming === "function") { window.openIncoming(); return; }
       openModal(null);
     });
     els.btnCancel.addEventListener("click", closeModal);
@@ -6979,6 +6980,7 @@
   window.reloadInvestmentsFromStorage=function(){records=read();render();};
   window.renderInvestments=render;
   window.recordInvestment=recordInvestment;
+  window.openIncoming=openIncoming;
   $("investmentSearch")?.addEventListener("input",render);
   $("investmentCancelBtn")?.addEventListener("click",closeEdit);
   $("investmentOverlay")?.addEventListener("click",e=>{if(e.target===$("investmentOverlay"))closeEdit()});
