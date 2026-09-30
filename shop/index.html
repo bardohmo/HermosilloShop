@@ -1797,8 +1797,9 @@
         <input type="search" id="search" placeholder="Buscar por nombre..." autocomplete="off" />
       </div>
       <div class="stats">
-        <div class="stat"><strong id="statCount">0 artículos existentes, 0 artículos por llegar</strong></div>
+        <div class="stat">Artículos: <strong id="statCount">0</strong></div>
         <div class="stat">Stock total: <strong id="statStock">0</strong></div>
+        <div class="stat">Por llegar: <strong id="statIncoming">0</strong></div>
       </div>
     </div>
 
@@ -2565,6 +2566,7 @@
       search: document.getElementById("search"),
       statCount: document.getElementById("statCount"),
       statStock: document.getElementById("statStock"),
+      statIncoming: document.getElementById("statIncoming"),
       overlay: document.getElementById("overlay"),
       form: document.getElementById("form"),
       modalTitle: document.getElementById("modalTitle"),
@@ -2783,14 +2785,10 @@
 
     function render() {
       const list = filtered();
-      const arriving = articles.filter((a) => {
-        const pending = typeof window.pendingQtyFor === "function" ? window.pendingQtyFor(a.id) : 0;
-        return pending > 0 && (Number(a.stock) || 0) <= 0;
-      }).length;
-      const existing = articles.length - arriving;
-      const word = (n, one, many) => n === 1 ? one : many;
-      els.statCount.textContent = existing + " " + word(existing, "artículo existente", "artículos existentes") + ", " + arriving + " " + word(arriving, "artículo por llegar", "artículos por llegar");
-      els.statStock.textContent = String(articles.reduce((s, a) => s + (Number(a.stock) || 0), 0));
+      els.statCount.textContent = String(articles.length);
+      els.statStock.textContent = String(articles.reduce((sum, a) => sum + (Number(a.stock) || 0), 0));
+      const arriving = articles.reduce((sum, a) => sum + (typeof window.pendingQtyFor === "function" ? window.pendingQtyFor(a.id) : 0), 0);
+      if (els.statIncoming) els.statIncoming.textContent = String(arriving);
       if (list.length === 0) {
         els.grid.innerHTML = `<div class="empty"><strong>${articles.length === 0 ? "Sin artículos aún" : "Sin resultados"}</strong>${articles.length === 0 ? "Toca “Agregar artículo” para crear el primero en la nube." : "Prueba con otro término de búsqueda."}</div>`;
         return;
