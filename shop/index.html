@@ -1857,8 +1857,8 @@
 
     <div class="overlay" id="incomingOverlay" role="dialog" aria-modal="true">
       <div class="modal">
-        <h2>Pendiente de llegar</h2>
-        <p style="margin:0 0 10px;color:var(--muted);font-size:.78rem;line-height:1.35">Estas piezas aparecen en el catálogo como pendiente en llegar y no se pueden vender ni entregar hasta que marques Recibido.</p>
+        <h2>Agregar artículo</h2>
+        <p style="margin:0 0 10px;color:var(--muted);font-size:.78rem;line-height:1.35">Si marcas la casilla, esas piezas aparecen como pendiente en llegar y no se pueden vender hasta que pulses Recibido en Inversiones.</p>
         <form id="incomingForm" class="form-grid" novalidate>
           <label><span>Tipo</span>
             <select id="incomingMode">
@@ -1895,9 +1895,13 @@
             <label><span>Fecha</span><input type="date" id="incomingDate" required /></label>
           </div>
           <label><span>Hora</span><input type="time" id="incomingTime" required /></label>
+          <label style="display:flex;align-items:center;gap:10px">
+            <input type="checkbox" id="incomingPending" />
+            <span>Pendiente de llegar</span>
+          </label>
           <div class="form-actions">
             <button type="button" class="ghost" id="incomingCancelBtn">Cancelar</button>
-            <button type="submit" class="primary">Guardar pendiente</button>
+            <button type="submit" class="primary">Guardar</button>
           </div>
         </form>
       </div>
@@ -2941,7 +2945,7 @@
         description: "",
         price: Math.max(0, Number(fields.price) || 0),
         purchase_price: Math.max(0, Number(fields.purchase_price) || 0),
-        stock: 0,
+        stock: Math.max(0, Math.floor(Number(fields.stock) || 0)),
         photo_url,
         sort_order: articles.length,
         updated_at: new Date().toISOString(),
@@ -6899,6 +6903,7 @@
     if($("incomingQty")) $("incomingQty").value="1";
     if($("incomingDate")) $("incomingDate").value=n.date;
     if($("incomingTime")) $("incomingTime").value=n.time;
+    if($("incomingPending")) $("incomingPending").checked=false;
     incomingPhotoDataUrl=null;
     paintIncomingPhoto();
     if($("incomingPhotoFile")) $("incomingPhotoFile").value="";
@@ -6906,14 +6911,14 @@
     $("incomingOverlay")?.classList.add("open");
   }
   function closeIncoming(){ $("incomingOverlay")?.classList.remove("open"); }
-  function pushPending(article, qty, unitCost, date, time){
+  function pushPending(article, qty, unitCost, date, time, pending){
     records=read();
     records.push({
       id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),
       date, time,
       name:String(article.name||"Artículo"),
       type:"in",
-      status:"pending",
+      status:pending?"pending":"received",
       qty, unitCost,
       photo_url:article.photo_url||null,
       articleId:article.id,
@@ -6942,18 +6947,27 @@
         if(!Number.isFinite(price)||price<0){ if(typeof toast==="function") toast("Precio de venta inválido"); return; }
         if(!Number.isFinite(unitCost)||unitCost<0){ if(typeof toast==="function") toast("Costo inválido"); return; }
         if(typeof window.createIncomingArticle!=="function") throw new Error("No se pudo crear el artículo");
-        const art=await window.createIncomingArticle({name, price, purchase_price:unitCost, photoDataUrl:incomingPhotoDataUrl});
-        pushPending(art, qty, unitCost, date, time);
+        const pending=!!$("incomingPending")?.checked;
+        const art=await window.createIncomingArticle({name, price, purchase_price:unitCost, photoDataUrl:incomingPhotoDataUrl, stock: pending?0:qty});
+        pushPending(art, qty, unitCost, date, time, pending);
       } else {
+        const pending=!!$("incomingPending")?.checked;
         const id=$("incomingArticle")?.value||"";
         const art=(Array.isArray(window.articles)?window.articles:[]).find(a=>String(a.id)===String(id));
         const unitCost=Number($("incomingExistCost")?.value);
         if(!art){ if(typeof toast==="function") toast("Elige un artículo"); return; }
         if(!Number.isFinite(unitCost)||unitCost<0){ if(typeof toast==="function") toast("Costo inválido"); return; }
-        pushPending(art, qty, unitCost, date, time);
+        if(!pending){
+          if(typeof window.applyReceivedStock!=="function") throw new Error("No se pudo actualizar el stock");
+          await window.applyReceivedStock(art.id, qty, unitCost);
+          const fresh=(Array.isArray(window.articles)?window.articles:[]).find(a=>String(a.id)===String(art.id))||art;
+          pushPending(fresh, qty, unitCost, date, time, false);
+        } else {
+          pushPending(art, qty, unitCost, date, time, true);
+        }
       }
       closeIncoming();
-      if(typeof toast==="function") toast("Quedó como pendiente en llegar");
+      if(typeof toast==="function") toast($("incomingPending")?.checked?"Quedó como pendiente en llegar":"Artículo registrado y disponible");
     }catch(err){
       if(typeof toast==="function") toast(err.message||"No se pudo guardar");
     }
