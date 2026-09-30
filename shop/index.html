@@ -350,6 +350,23 @@
     .badge.ok { background: rgba(61, 255, 154, 0.15); border-color: rgba(61, 255, 154, 0.35); color: var(--ok); }
     .badge.low { background: rgba(255, 43, 214, 0.15); border-color: rgba(255, 43, 214, 0.4); color: #ff9ae6; }
     .badge.out { background: rgba(255, 77, 109, 0.15); border-color: rgba(255, 77, 109, 0.4); color: #ff9aab; }
+    .badge.incoming {
+      max-width: none; white-space: nowrap;
+      background: rgba(0, 245, 255, 0.14);
+      border-color: rgba(0, 245, 255, 0.55);
+      color: #9af6ff;
+      box-shadow: 0 0 14px rgba(0, 245, 255, 0.28);
+    }
+    .card.incoming {
+      border-color: rgba(0, 245, 255, 0.5);
+      box-shadow: 0 0 0 1px rgba(0, 245, 255, 0.22), 0 0 26px rgba(124, 92, 255, 0.32);
+    }
+    .incoming-note {
+      margin-top: 6px; font-size: 0.78rem; color: #9af6ff; letter-spacing: 0.01em;
+    }
+    .investment-badge.pending {
+      background: rgba(0, 245, 255, 0.12); color: #9af6ff; border: 1px solid rgba(0, 245, 255, 0.45);
+    }
     /* ===== ARTÍCULO AGOTADO =====
        Solo la tarjeta agotada se desatura. La etiqueta "Agotado"
        queda fuera de esta regla para conservar su rojo original. */
@@ -1733,6 +1750,7 @@
         <button type="button" class="primary edit-only ventas-only" id="btnAddSale" hidden>+ Agregar venta</button>
         <button type="button" class="primary edit-only observaciones-only" id="btnAddObservation" hidden>+ Agregar observación</button>
         <button type="button" class="primary edit-only catalog-only" id="btnAdd" hidden>+ Agregar artículo</button>
+        <button type="button" class="primary edit-only" id="btnAddIncoming" hidden>+ Agregar compra</button>
         <input type="file" id="importFile" accept="application/json,.json" hidden />
       </div>
     </header>
@@ -1833,6 +1851,46 @@
           <label><span>Costo de compra por unidad</span><input type="number" id="investmentUnitCost" min="0" step="0.01" required /></label>
           <div class="investment-thumb" id="investmentEditPhotoPreview" style="width:84px;height:84px"></div>
           <div class="form-actions"><button type="button" class="ghost" id="investmentCancelBtn">Cancelar</button><button type="submit" class="primary">Guardar cambios</button></div>
+        </form>
+      </div>
+    </div>
+
+
+    <div class="overlay" id="incomingOverlay" role="dialog" aria-modal="true">
+      <div class="modal">
+        <h2>Pendiente de llegar</h2>
+        <p style="margin:0 0 10px;color:var(--muted);font-size:.78rem;line-height:1.35">Estas piezas aparecen en el catálogo como pendiente en llegar y no se pueden vender ni entregar hasta que marques Recibido.</p>
+        <form id="incomingForm" class="form-grid" novalidate>
+          <label><span>Tipo</span>
+            <select id="incomingMode">
+              <option value="new">Artículo nuevo</option>
+              <option value="existing">Artículo que ya está en el catálogo</option>
+            </select>
+          </label>
+          <div id="incomingNewFields">
+            <label><span>Nombre</span><input type="text" id="incomingName" maxlength="100" /></label>
+            <div class="row-2">
+              <label><span>Precio de venta</span><input type="number" id="incomingPrice" min="0" step="0.01" /></label>
+              <label><span>Costo por unidad</span><input type="number" id="incomingNewCost" min="0" step="0.01" /></label>
+            </div>
+          </div>
+          <div id="incomingExistingFields" hidden>
+            <div class="deliv-items-block">
+              <span>Artículo</span>
+              <input type="hidden" id="incomingArticle" value="" />
+              <div class="deliv-items-picker" id="incomingArticlePicker"></div>
+            </div>
+            <label><span>Costo por unidad</span><input type="number" id="incomingExistCost" min="0" step="0.01" /></label>
+          </div>
+          <div class="row-2">
+            <label><span>Cantidad</span><input type="number" id="incomingQty" min="1" step="1" value="1" required /></label>
+            <label><span>Fecha</span><input type="date" id="incomingDate" required /></label>
+          </div>
+          <label><span>Hora</span><input type="time" id="incomingTime" required /></label>
+          <div class="form-actions">
+            <button type="button" class="ghost" id="incomingCancelBtn">Cancelar</button>
+            <button type="submit" class="primary">Guardar pendiente</button>
+          </div>
         </form>
       </div>
     </div>
@@ -2711,7 +2769,11 @@
         return;
       }
       els.grid.innerHTML = list.map((a) => {
-        const badge = stockBadge(a.stock);
+        const pendingIn = typeof window.pendingQtyFor === "function" ? window.pendingQtyFor(a.id) : 0;
+        const onHand = Number(a.stock) || 0;
+        const badge = pendingIn > 0 && onHand <= 0
+          ? { cls: "incoming", text: "Pendiente en llegar" }
+          : stockBadge(a.stock);
         const media = a.photo_url
           ? `<img src="${escapeHtml(a.photo_url)}" alt="${escapeHtml(a.name)}" loading="lazy" crossorigin="anonymous" decoding="async" />`
           : `<div class="placeholder">Sin<br>foto</div>`;
@@ -2723,7 +2785,7 @@
               <button type="button" class="danger" data-action="delete">Eliminar</button>
             </div>`
           : "";
-        return `<article class="card ${badge.cls === "out" ? "sold-out" : ""}" data-id="${a.id}"${dragAttr}>
+        return `<article class="card ${badge.cls === "out" ? "sold-out" : ""}${pendingIn > 0 ? " incoming" : ""}" data-id="${a.id}"${dragAttr}>
           ${handle}
           <div class="card-media-wrap">
             <div class="card-media">${media}</div>
@@ -2733,6 +2795,7 @@
             <h3>${escapeHtml(a.name)}</h3>
             <div class="price">${money(a.price)}</div>
             <div class="meta">Existencia: <strong style="color:var(--text)">${Number(a.stock) || 0}</strong></div>
+            ${pendingIn > 0 ? `<div class="incoming-note">Pendiente en llegar: <strong>${pendingIn}</strong></div>` : ""}
             ${isUnlocked ? (() => {
               const hasPurchaseCost = a.purchase_price !== null && a.purchase_price !== undefined && String(a.purchase_price).trim() !== "" && Number(a.purchase_price) > 0;
               const purchase = hasPurchaseCost ? Number(a.purchase_price) : 0;
@@ -2858,6 +2921,46 @@
     window.applyCardImageGlows = applyCardImageGlows;
 
     window.renderArticles = render;
+    window.createIncomingArticle = async function (fields) {
+      if (!supabaseClient) throw new Error("Sin conexión a la nube");
+      const id = uid();
+      const row = {
+        id,
+        name: String(fields.name || "").trim(),
+        description: "",
+        price: Math.max(0, Number(fields.price) || 0),
+        purchase_price: Math.max(0, Number(fields.purchase_price) || 0),
+        stock: 0,
+        photo_url: null,
+        sort_order: articles.length,
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await supabaseClient.from("articles").upsert(row);
+      if (error) throw error;
+      await loadArticles();
+      return articles.find((a) => a.id === id) || row;
+    };
+    window.applyReceivedStock = async function (articleId, qty, unitCost) {
+      if (!supabaseClient) throw new Error("Sin conexión a la nube");
+      const article = articles.find((a) => String(a.id) === String(articleId));
+      if (!article) throw new Error("El artículo ya no está en el catálogo");
+      const oldStock = Math.max(0, Math.floor(Number(article.stock) || 0));
+      const oldCostRaw = Number(article.purchase_price);
+      const hasOldCost = Number.isFinite(oldCostRaw) && oldCostRaw > 0;
+      const add = Math.max(1, Math.floor(Number(qty) || 0));
+      const cost = Math.max(0, Number(unitCost) || 0);
+      const newStock = oldStock + add;
+      const averageCost = newStock > 0
+        ? ((hasOldCost ? oldStock * oldCostRaw : 0) + add * cost) / newStock
+        : cost;
+      const { error } = await supabaseClient.from("articles").update({
+        stock: newStock,
+        purchase_price: averageCost,
+        updated_at: new Date().toISOString(),
+      }).eq("id", article.id);
+      if (error) throw error;
+      await loadArticles();
+    };
 
     async function loadArticles() {
       if (!supabaseClient) {
@@ -4745,6 +4848,8 @@
        if (del.btnAddContact) del.btnAddContact.hidden = !isDel || !isUnlocked;
       if (del.btnAddSale) del.btnAddSale.hidden = !isSale || !isUnlocked;
       if (del.btnAddObservation) del.btnAddObservation.hidden = !isObs || !isUnlocked;
+      const btnIncoming = document.getElementById("btnAddIncoming");
+      if (btnIncoming) btnIncoming.hidden = !isInversiones || !isUnlocked;
        if (del.btnVentas) del.btnVentas.hidden = !isUnlocked;
       if (del.btnUbicacion) del.btnUbicacion.hidden = !isUnlocked;
       if (del.btnGoCatalog) del.btnGoCatalog.hidden = !isUnlocked;
@@ -6330,7 +6435,7 @@
       const action = document.getElementById("mobileFloatAction");
       if (!toggle || !panel || !links || !action) return;
       const navIds = ["btnGoCatalog", "btnEntregas", "btnCotizar", "btnVentas", "btnUbicacion", "btnObservaciones", "btnDeletedArticles", "btnCategories", "btnInversiones"];
-      const actionIds = ["btnAdd", "btnAddContact", "btnAddSale", "btnAddObservation"];
+      const actionIds = ["btnAdd", "btnAddContact", "btnAddSale", "btnAddObservation", "btnAddIncoming"];
       const clones = new Map();
       navIds.forEach((id) => {
         const original = document.getElementById(id);
@@ -6553,7 +6658,7 @@
   const nowParts=()=>{const d=new Date();return{date:d.toISOString().slice(0,10),time:d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false})}};
   const total=r=>(Number(r.qty)||0)*(Number(r.unitCost)||0);
   const imgHtml=(url,name)=>url?'<img src="'+escInv(url)+'" alt="'+escInv(name)+'">':'<span aria-hidden="true">📦</span>';
-  function render(){records=read();const q=(($("investmentSearch")?.value)||"").trim().toLowerCase();const list=records.filter(r=>!q||[r.name,r.date,r.time,r.type].some(v=>String(v||"").toLowerCase().includes(q)));const ins=records.filter(r=>r.type!=="out"),outs=records.filter(r=>r.type==="out");const it=ins.reduce((a,r)=>a+total(r),0),ot=outs.reduce((a,r)=>a+total(r),0);$("investmentStatus")&&($("investmentStatus").textContent=records.length+" movimiento"+(records.length===1?"":"s")+" · "+moneyInv(it-ot));$("investmentEntries")&&($("investmentEntries").textContent=ins.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(it));$("investmentExits")&&($("investmentExits").textContent=outs.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(ot));$("investmentTotal")&&($("investmentTotal").textContent=moneyInv(it-ot)+" MXN");const grid=$("investmentGrid");if(!grid)return;if(!list.length){grid.innerHTML='<div class="investment-empty">'+(records.length?'No hay movimientos que coincidan con la búsqueda.':'Aún no hay movimientos. Usa “+ Agregar Actividad” para registrar una entrada desde el catálogo, o se registrará al agregar un artículo nuevo.')+'</div>';return}grid.innerHTML=list.map(r=>{const out=r.type==="out";return '<article class="investment-card" data-investment-id="'+escInv(r.id)+'"><div class="investment-thumb">'+imgHtml(r.photo_url,r.name)+'</div><div class="investment-main"><div class="investment-title">'+escInv(r.name)+' <span class="investment-badge '+(out?'out':'')+'">'+(out?'SALIDA':'ENTRADA')+'</span></div><div class="investment-meta"><span>📅 '+escInv(r.date)+'</span><span>🕒 '+escInv(r.time)+'</span><span>📦 '+(Number(r.qty)||0)+' uds.</span><span>💵 '+moneyInv(r.unitCost)+' / ud.</span></div><div class="investment-total">'+(out?'Salida registrada':'Inversión registrada')+': '+moneyInv(total(r))+' MXN</div></div><div class="investment-actions"><button type="button" class="ghost" data-investment-action="edit">Editar</button><button type="button" class="ghost" data-investment-action="delete">Eliminar</button></div></article>'}).join("");if(typeof window.applyCardImageGlows==="function")window.applyCardImageGlows(grid);}
+  function render(){records=read();const q=(($("investmentSearch")?.value)||"").trim().toLowerCase();const list=records.filter(r=>!q||[r.name,r.date,r.time,r.type].some(v=>String(v||"").toLowerCase().includes(q)));const ins=records.filter(r=>r.type!=="out"),outs=records.filter(r=>r.type==="out");const it=ins.reduce((a,r)=>a+total(r),0),ot=outs.reduce((a,r)=>a+total(r),0);$("investmentStatus")&&($("investmentStatus").textContent=records.length+" movimiento"+(records.length===1?"":"s")+" · "+moneyInv(it-ot));$("investmentEntries")&&($("investmentEntries").textContent=ins.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(it));$("investmentExits")&&($("investmentExits").textContent=outs.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(ot));$("investmentTotal")&&($("investmentTotal").textContent=moneyInv(it-ot)+" MXN");const grid=$("investmentGrid");if(!grid)return;if(!list.length){grid.innerHTML='<div class="investment-empty">'+(records.length?'No hay movimientos que coincidan con la búsqueda.':'Aún no hay movimientos. Usa “+ Agregar Actividad” para registrar una entrada desde el catálogo, o se registrará al agregar un artículo nuevo.')+'</div>';return}grid.innerHTML=list.map(r=>{const out=r.type==="out";const pending=r.status==="pending"&&!out;const badgeCls=pending?"pending":(out?"out":"");const badgeTxt=pending?"PENDIENTE":(out?"SALIDA":"ENTRADA");const receiveBtn=pending?'<button type="button" class="primary" data-investment-action="receive">Recibido</button>':'';return '<article class="investment-card" data-investment-id="'+escInv(r.id)+'"><div class="investment-thumb">'+imgHtml(r.photo_url,r.name)+'</div><div class="investment-main"><div class="investment-title">'+escInv(r.name)+' <span class="investment-badge '+badgeCls+'">'+badgeTxt+'</span></div><div class="investment-meta"><span>📅 '+escInv(r.date)+'</span><span>🕒 '+escInv(r.time)+'</span><span>📦 '+(Number(r.qty)||0)+' uds.</span><span>💵 '+moneyInv(r.unitCost)+' / ud.</span></div><div class="investment-total">'+(out?'Salida registrada':'Inversión registrada')+': '+moneyInv(total(r))+' MXN</div></div><div class="investment-actions">'+receiveBtn+'<button type="button" class="ghost" data-investment-action="edit">Editar</button><button type="button" class="ghost" data-investment-action="delete">Eliminar</button></div></article>'}).join("");if(typeof window.applyCardImageGlows==="function")window.applyCardImageGlows(grid);}
   function openEdit(id){const r=records.find(x=>x.id===id);if(!r)return;editingId=id;$("investmentEditId").value=id;$("investmentDate").value=r.date||"";$("investmentTime").value=r.time||"";$("investmentName").value=r.name||"";$("investmentType").value=r.type||"in";$("investmentQty").value=Number(r.qty)||0;$("investmentUnitCost").value=Number(r.unitCost)||0;$("investmentEditPhotoPreview").innerHTML=imgHtml(r.photo_url,r.name);$("investmentOverlay").classList.add("open")}
   function closeEdit(){$("investmentOverlay")?.classList.remove("open");editingId=null}
   function recordInvestment(article,type){
@@ -6727,6 +6832,128 @@
     render();
     if(typeof toast==="function") toast("Compra registrada en el historial");
   }
+
+  window.pendingQtyFor=function(articleId){
+    const id=String(articleId||"");
+    return read().filter(r=>r.status==="pending"&&String(r.articleId)===id).reduce((s,r)=>s+(Number(r.qty)||0),0);
+  };
+  function syncIncomingMode(){
+    const mode=$("incomingMode")?.value||"new";
+    const neu=$("incomingNewFields");
+    const ex=$("incomingExistingFields");
+    if(neu) neu.hidden=mode!=="new";
+    if(ex) ex.hidden=mode!=="existing";
+  }
+  function fillIncomingPicker(){
+    const picker=$("incomingArticlePicker");
+    const sel=$("incomingArticle");
+    if(!picker||!sel) return;
+    const arts=(Array.isArray(window.articles)?window.articles:[]).slice().sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"es",{sensitivity:"base"}));
+    sel.value="";
+    if(!arts.length){picker.innerHTML='<span style="color:var(--muted);font-size:0.82rem">No hay artículos en el catálogo</span>';return;}
+    picker.innerHTML=arts.map(a=>'<button type="button" class="deliv-pick" data-incoming-id="'+escInv(a.id)+'">'+imgHtml(a.photo_url,a.name)+'<span>'+escInv(a.name||"Artículo")+'</span></button>').join("");
+    picker.querySelectorAll("[data-incoming-id]").forEach(btn=>{
+      btn.addEventListener("click",()=>{
+        picker.querySelectorAll(".is-selected").forEach(x=>x.classList.remove("is-selected"));
+        btn.classList.add("is-selected");
+        sel.value=btn.getAttribute("data-incoming-id")||"";
+        const art=arts.find(x=>String(x.id)===sel.value);
+        const cost=Number(art&&art.purchase_price);
+        if($("incomingExistCost")) $("incomingExistCost").value=(Number.isFinite(cost)&&cost>=0)?String(cost):"";
+      });
+    });
+  }
+  async function openIncoming(){
+    if(typeof requireEdit==="function"&&!requireEdit()) return;
+    let arts=Array.isArray(window.articles)?window.articles:[];
+    if(!arts.length && typeof window.loadArticles==="function"){
+      try{ await window.loadArticles(); }catch(_){}
+    }
+    const n=nowParts();
+    if($("incomingMode")) $("incomingMode").value="new";
+    syncIncomingMode();
+    if($("incomingName")) $("incomingName").value="";
+    if($("incomingPrice")) $("incomingPrice").value="";
+    if($("incomingNewCost")) $("incomingNewCost").value="";
+    if($("incomingExistCost")) $("incomingExistCost").value="";
+    if($("incomingQty")) $("incomingQty").value="1";
+    if($("incomingDate")) $("incomingDate").value=n.date;
+    if($("incomingTime")) $("incomingTime").value=n.time;
+    fillIncomingPicker();
+    $("incomingOverlay")?.classList.add("open");
+  }
+  function closeIncoming(){ $("incomingOverlay")?.classList.remove("open"); }
+  function pushPending(article, qty, unitCost, date, time){
+    records=read();
+    records.push({
+      id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),
+      date, time,
+      name:String(article.name||"Artículo"),
+      type:"in",
+      status:"pending",
+      qty, unitCost,
+      photo_url:article.photo_url||null,
+      articleId:article.id,
+      createdAt:new Date().toISOString(),
+      updatedAt:new Date().toISOString()
+    });
+    write();
+    render();
+    if(typeof window.renderArticles==="function") window.renderArticles();
+  }
+  async function submitIncoming(e){
+    e.preventDefault();
+    if(typeof requireEdit==="function"&&!requireEdit()) return;
+    const mode=$("incomingMode")?.value||"new";
+    const qty=Math.max(1, Math.floor(Number($("incomingQty")?.value)||0));
+    const date=$("incomingDate")?.value||"";
+    const time=$("incomingTime")?.value||"";
+    if(!date||!time){ if(typeof toast==="function") toast("Completa fecha y hora"); return; }
+    if(!(qty>0)){ if(typeof toast==="function") toast("Cantidad inválida"); return; }
+    try{
+      if(mode==="new"){
+        const name=($("incomingName")?.value||"").trim();
+        const price=Number($("incomingPrice")?.value);
+        const unitCost=Number($("incomingNewCost")?.value);
+        if(!name){ if(typeof toast==="function") toast("Escribe el nombre"); return; }
+        if(!Number.isFinite(price)||price<0){ if(typeof toast==="function") toast("Precio de venta inválido"); return; }
+        if(!Number.isFinite(unitCost)||unitCost<0){ if(typeof toast==="function") toast("Costo inválido"); return; }
+        if(typeof window.createIncomingArticle!=="function") throw new Error("No se pudo crear el artículo");
+        const art=await window.createIncomingArticle({name, price, purchase_price:unitCost});
+        pushPending(art, qty, unitCost, date, time);
+      } else {
+        const id=$("incomingArticle")?.value||"";
+        const art=(Array.isArray(window.articles)?window.articles:[]).find(a=>String(a.id)===String(id));
+        const unitCost=Number($("incomingExistCost")?.value);
+        if(!art){ if(typeof toast==="function") toast("Elige un artículo"); return; }
+        if(!Number.isFinite(unitCost)||unitCost<0){ if(typeof toast==="function") toast("Costo inválido"); return; }
+        pushPending(art, qty, unitCost, date, time);
+      }
+      closeIncoming();
+      if(typeof toast==="function") toast("Quedó como pendiente en llegar");
+    }catch(err){
+      if(typeof toast==="function") toast(err.message||"No se pudo guardar");
+    }
+  }
+  async function receiveIncoming(id){
+    if(typeof requireEdit==="function"&&!requireEdit()) return;
+    records=read();
+    const r=records.find(x=>x.id===id);
+    if(!r||r.status!=="pending") return;
+    if(typeof window.applyReceivedStock!=="function"){ if(typeof toast==="function") toast("No se pudo actualizar el catálogo"); return; }
+    try{
+      await window.applyReceivedStock(r.articleId, r.qty, r.unitCost);
+      r.status="received";
+      r.updatedAt=new Date().toISOString();
+      write();
+      render();
+      if(typeof window.renderArticles==="function") window.renderArticles();
+      if(typeof toast==="function") toast("Recibido. Ya está disponible en el catálogo");
+    }catch(err){
+      if(typeof toast==="function") toast(err.message||"No se pudo marcar como recibido");
+    }
+  }
+
   window.reloadInvestmentsFromStorage=function(){records=read();render();};
   window.renderInvestments=render;
   window.recordInvestment=recordInvestment;
@@ -6734,7 +6961,7 @@
   $("investmentCancelBtn")?.addEventListener("click",closeEdit);
   $("investmentOverlay")?.addEventListener("click",e=>{if(e.target===$("investmentOverlay"))closeEdit()});
   $("investmentForm")?.addEventListener("submit",e=>{e.preventDefault();if(!editingId)return;if(typeof requireEdit==="function"&&!requireEdit())return;const r=records.find(x=>x.id===editingId);if(!r)return;r.date=$("investmentDate").value;r.time=$("investmentTime").value;r.name=$("investmentName").value.trim();r.type=$("investmentType").value;r.qty=Math.max(0,Math.floor(Number($("investmentQty").value)||0));r.unitCost=Math.max(0,Number($("investmentUnitCost").value)||0);r.updatedAt=new Date().toISOString();write();closeEdit();render();if(typeof toast==="function")toast("Inversión actualizada")});
-  $("investmentGrid")?.addEventListener("click",e=>{const b=e.target.closest("[data-investment-action]");if(!b)return;const id=b.closest("[data-investment-id]")?.getAttribute("data-investment-id");if(!id)return;if(typeof requireEdit==="function"&&!requireEdit())return;if(b.dataset.investmentAction==="edit")openEdit(id);else if(confirm("¿Eliminar este movimiento del historial de inversiones?")){records=read().filter(r=>r.id!==id);write();render();if(typeof toast==="function")toast("Movimiento eliminado")}});
+  $("investmentGrid")?.addEventListener("click",e=>{const b=e.target.closest("[data-investment-action]");if(!b)return;const id=b.closest("[data-investment-id]")?.getAttribute("data-investment-id");if(!id)return;if(typeof requireEdit==="function"&&!requireEdit())return;if(b.dataset.investmentAction==="receive"){receiveIncoming(id);return;}if(b.dataset.investmentAction==="edit")openEdit(id);else if(confirm("¿Eliminar este movimiento del historial de inversiones?")){records=read().filter(r=>r.id!==id);write();render();if(typeof window.renderArticles==="function")window.renderArticles();if(typeof toast==="function")toast("Movimiento eliminado")}});
   $("investmentAddBtn")?.addEventListener("click",()=>{
     if(typeof requireEdit==="function"&&!requireEdit())return;
     openAddPurchase();
@@ -6743,6 +6970,11 @@
   $("investmentAddOverlay")?.addEventListener("click",e=>{if(e.target===$("investmentAddOverlay"))closeAddPurchase()});
   $("investmentAddArticle")?.addEventListener("change",onAddArticleChange);
   $("investmentAddForm")?.addEventListener("submit",submitAddPurchase);
+  $("btnAddIncoming")?.addEventListener("click", openIncoming);
+  $("incomingCancelBtn")?.addEventListener("click", closeIncoming);
+  $("incomingOverlay")?.addEventListener("click", e=>{ if(e.target===$("incomingOverlay")) closeIncoming(); });
+  $("incomingMode")?.addEventListener("change", syncIncomingMode);
+  $("incomingForm")?.addEventListener("submit", submitIncoming);
   $("btnInversiones")?.addEventListener("click",e=>{
     e.preventDefault();e.stopPropagation();
     if(typeof requireEdit==="function"&&!requireEdit())return;
@@ -6750,7 +6982,8 @@
     render();
   });
   records=read();
-  try { $("investmentOverlay")?.classList.remove("open"); $("investmentAddOverlay")?.classList.remove("open"); } catch(_){}
+  if(typeof window.renderArticles==="function") window.renderArticles();
+  try { $("investmentOverlay")?.classList.remove("open"); $("investmentAddOverlay")?.classList.remove("open"); $("incomingOverlay")?.classList.remove("open"); } catch(_){}
   try {
     const v = sessionStorage.getItem("hs_current_view") || "";
     if (v === "inversiones") render();
