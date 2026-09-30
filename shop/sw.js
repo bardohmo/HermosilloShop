@@ -1,5 +1,5 @@
 /* HermosilloShop PWA (scope: ./shop/) */
-const CACHE = 'hermosillo-shop-v19';
+const CACHE = 'hermosillo-shop-v20';
 const ASSETS = [
   './',
   './index.html',
