@@ -1523,6 +1523,11 @@
     .sale-line-row small{color:var(--muted)}
     .sale-toolbar-row{display:flex;flex-wrap:wrap;gap:10px;align-items:end;width:100%}
     .sale-toolbar-row .search{flex:1 1 220px}
+    .sale-drop{position:relative}
+    .sale-drop-current{width:100%;min-height:42px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text);padding:8px 12px;text-align:left;font:inherit;cursor:pointer}
+    .sale-drop-menu{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:40;display:grid;gap:2px;padding:6px;border-radius:12px;border:1px solid rgba(0,245,255,.4);background:#0c1220;box-shadow:0 14px 32px rgba(0,0,0,.5)}
+    .sale-drop-menu button{text-align:left;border:0;background:transparent;color:var(--text);font:inherit;padding:9px 10px;border-radius:8px;cursor:pointer}
+    .sale-drop-menu button.is-on{background:rgba(0,245,255,.16);color:#7ef9ff}
     .sale-sort-wrap{display:grid;gap:4px;min-width:210px}
     .sale-sort-wrap span{font-size:.72rem;color:var(--muted);font-weight:600}
     .sale-sort-wrap select{min-height:42px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text);padding:8px 10px}
@@ -2226,22 +2231,28 @@
           <div class="search">
             <input type="search" id="saleSearch" placeholder="Buscar por artículo, cliente o fecha..." autocomplete="off" />
           </div>
-          <label class="sale-sort-wrap">
+          <div class="sale-sort-wrap">
             <span>Ver</span>
-            <select id="saleViewMode" aria-label="Vista de ventas">
-              <option value="all">Todas las ventas</option>
-              <option value="article">Ventas por artículo</option>
-            </select>
-          </label>
-          <label class="sale-sort-wrap">
+            <div class="sale-drop" id="saleViewMode" data-value="all">
+              <button type="button" class="sale-drop-current" aria-expanded="false" aria-label="Vista de ventas">Todas las ventas</button>
+              <div class="sale-drop-menu" hidden>
+                <button type="button" data-value="all" class="is-on">Todas las ventas</button>
+                <button type="button" data-value="article">Ventas por artículo</button>
+              </div>
+            </div>
+          </div>
+          <div class="sale-sort-wrap" id="saleSortWrap">
             <span>Ordenar</span>
-            <select id="saleSort" aria-label="Ordenar ventas">
-              <option value="date-desc">Fecha · más recientes</option>
-              <option value="date-asc">Fecha · más antiguas</option>
-              <option value="total-desc">Total cobrado · mayor a menor</option>
-              <option value="total-asc">Total cobrado · menor a mayor</option>
-            </select>
-          </label>
+            <div class="sale-drop" id="saleSort" data-value="date-desc">
+              <button type="button" class="sale-drop-current" aria-expanded="false" aria-label="Ordenar ventas">Fecha · más recientes</button>
+              <div class="sale-drop-menu" hidden>
+                <button type="button" data-value="date-desc" class="is-on">Fecha · más recientes</button>
+                <button type="button" data-value="date-asc">Fecha · más antiguas</button>
+                <button type="button" data-value="total-desc">Total cobrado · mayor a menor</button>
+                <button type="button" data-value="total-asc">Total cobrado · menor a mayor</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="deliv-items-block" id="saleArticleWrap" hidden style="margin:0 0 12px">
@@ -6100,7 +6111,7 @@
         if (!q) return true;
         return row.customer.toLowerCase().includes(q) || row.date.includes(q) || row.items.some((it) => (it.name||"").toLowerCase().includes(q)) || (row.source === "delivery" && "entrega".includes(q));
       });
-      const mode = (saleEls.sort && saleEls.sort.value) || saleSortMode || "date-desc";
+      const mode = (saleEls.sort && saleEls.sort.dataset.value) || saleSortMode || "date-desc";
       saleSortMode = mode;
       list.sort((a, b) => {
         if (mode.startsWith("total")) {
@@ -6116,9 +6127,9 @@
         return mode === "date-asc" ? ta.localeCompare(tb) : tb.localeCompare(ta);
       });
       if (!saleEls.grid) return;
-      const byArticle = saleEls.viewMode && saleEls.viewMode.value === "article";
+      const byArticle = saleEls.viewMode && saleEls.viewMode.dataset.value === "article";
       if (saleEls.articleWrap) saleEls.articleWrap.hidden = !byArticle;
-      if (saleEls.sort) saleEls.sort.closest("label").hidden = byArticle;
+      if (saleEls.sort) { const wrap = document.getElementById("saleSortWrap"); if (wrap) wrap.hidden = byArticle; }
       if (byArticle) { renderSalesByArticle(); return; }
       if (!list.length) {
         saleEls.grid.innerHTML = `<div class="empty"><strong>${sales.length === 0 ? "Sin ventas aún" : "Sin resultados"}</strong>${sales.length === 0 ? "Registra una venta manual o marca una entrega como realizada." : "Prueba con otro término de búsqueda."}</div>`;
@@ -6174,16 +6185,42 @@
     document.getElementById("btnSaleCancel") && document.getElementById("btnSaleCancel").addEventListener("click", closeSaleForm);
     if (saleEls.overlay) saleEls.overlay.addEventListener("click", (e) => { if (e.target === saleEls.overlay) closeSaleForm(); });
     if (saleEls.search) saleEls.search.addEventListener("input", renderSales);
-    if (saleEls.viewMode) saleEls.viewMode.addEventListener("change", renderSales);
+    function bindSaleDrop(root, onPick) {
+      if (!root) return;
+      const current = root.querySelector(".sale-drop-current");
+      const menu = root.querySelector(".sale-drop-menu");
+      current.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const open = menu.hidden;
+        document.querySelectorAll(".sale-drop-menu").forEach((m) => { m.hidden = true; m.previousElementSibling.setAttribute("aria-expanded", "false"); });
+        menu.hidden = !open;
+        current.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+      menu.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-value]");
+        if (!btn) return;
+        root.dataset.value = btn.getAttribute("data-value");
+        current.textContent = btn.textContent;
+        menu.querySelectorAll("button").forEach((b) => b.classList.toggle("is-on", b === btn));
+        menu.hidden = true;
+        current.setAttribute("aria-expanded", "false");
+        onPick();
+      });
+    }
+    bindSaleDrop(saleEls.viewMode, renderSales);
+    bindSaleDrop(saleEls.sort, () => { saleSortMode = saleEls.sort.dataset.value; renderSales(); });
+    document.addEventListener("click", () => {
+      document.querySelectorAll(".sale-drop-menu").forEach((m) => { m.hidden = true; if (m.previousElementSibling) m.previousElementSibling.setAttribute("aria-expanded", "false"); });
+    });
     if (saleEls.articlePick) saleEls.articlePick.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-sale-article]");
       if (!btn) return;
       saleArticleId = btn.getAttribute("data-sale-article") || "";
       renderSales();
     });
-    if (saleEls.sort) {
-      saleEls.sort.value = saleSortMode || "date-desc";
-      saleEls.sort.addEventListener("change", () => { saleSortMode = saleEls.sort.value; renderSales(); });
+    if (saleEls.sort && saleSortMode && saleSortMode !== "date-desc") {
+      const btn = saleEls.sort.querySelector('[data-value="' + saleSortMode + '"]');
+      if (btn) { saleEls.sort.dataset.value = saleSortMode; saleEls.sort.querySelector(".sale-drop-current").textContent = btn.textContent; }
     }
     if (saleEls.year) saleEls.year.addEventListener("change", () => {
       saleYear = Number(saleEls.year.value) || new Date().getFullYear();
