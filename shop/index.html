@@ -1873,6 +1873,15 @@
               <label><span>Precio de venta</span><input type="number" id="incomingPrice" min="0" step="0.01" /></label>
               <label><span>Costo por unidad</span><input type="number" id="incomingNewCost" min="0" step="0.01" /></label>
             </div>
+            <div>
+              <span style="font-size:0.85rem;color:var(--muted)"><strong style="color:var(--text)">Foto</strong></span>
+              <div class="photo-preview" id="incomingPhotoPreview" style="margin-top:8px">Sin foto</div>
+              <div class="photo-actions" style="margin-top:10px">
+                <button type="button" id="incomingPickPhoto">Elegir foto</button>
+                <button type="button" class="ghost" id="incomingClearPhoto">Quitar foto</button>
+                <input type="file" id="incomingPhotoFile" accept="image/*" hidden />
+              </div>
+            </div>
           </div>
           <div id="incomingExistingFields" hidden>
             <div class="deliv-items-block">
@@ -2921,9 +2930,12 @@
     window.applyCardImageGlows = applyCardImageGlows;
 
     window.renderArticles = render;
+    window.compressArticlePhoto = compressImage;
     window.createIncomingArticle = async function (fields) {
       if (!supabaseClient) throw new Error("Sin conexión a la nube");
       const id = uid();
+      let photo_url = null;
+      if (fields.photoDataUrl) photo_url = await uploadPhoto(fields.photoDataUrl, id);
       const row = {
         id,
         name: String(fields.name || "").trim(),
@@ -2931,7 +2943,7 @@
         price: Math.max(0, Number(fields.price) || 0),
         purchase_price: Math.max(0, Number(fields.purchase_price) || 0),
         stock: 0,
-        photo_url: null,
+        photo_url,
         sort_order: articles.length,
         updated_at: new Date().toISOString(),
       };
@@ -6837,6 +6849,14 @@
     const id=String(articleId||"");
     return read().filter(r=>r.status==="pending"&&String(r.articleId)===id).reduce((s,r)=>s+(Number(r.qty)||0),0);
   };
+  let incomingPhotoDataUrl = null;
+  function paintIncomingPhoto(){
+    const box=$("incomingPhotoPreview");
+    if(!box) return;
+    box.innerHTML = incomingPhotoDataUrl
+      ? '<img src="'+incomingPhotoDataUrl+'" alt="" style="width:100%;height:100%;object-fit:cover">'
+      : "Sin foto";
+  }
   function syncIncomingMode(){
     const mode=$("incomingMode")?.value||"new";
     const neu=$("incomingNewFields");
@@ -6879,6 +6899,9 @@
     if($("incomingQty")) $("incomingQty").value="1";
     if($("incomingDate")) $("incomingDate").value=n.date;
     if($("incomingTime")) $("incomingTime").value=n.time;
+    incomingPhotoDataUrl=null;
+    paintIncomingPhoto();
+    if($("incomingPhotoFile")) $("incomingPhotoFile").value="";
     fillIncomingPicker();
     $("incomingOverlay")?.classList.add("open");
   }
@@ -6919,7 +6942,7 @@
         if(!Number.isFinite(price)||price<0){ if(typeof toast==="function") toast("Precio de venta inválido"); return; }
         if(!Number.isFinite(unitCost)||unitCost<0){ if(typeof toast==="function") toast("Costo inválido"); return; }
         if(typeof window.createIncomingArticle!=="function") throw new Error("No se pudo crear el artículo");
-        const art=await window.createIncomingArticle({name, price, purchase_price:unitCost});
+        const art=await window.createIncomingArticle({name, price, purchase_price:unitCost, photoDataUrl:incomingPhotoDataUrl});
         pushPending(art, qty, unitCost, date, time);
       } else {
         const id=$("incomingArticle")?.value||"";
@@ -6975,6 +6998,21 @@
   $("incomingOverlay")?.addEventListener("click", e=>{ if(e.target===$("incomingOverlay")) closeIncoming(); });
   $("incomingMode")?.addEventListener("change", syncIncomingMode);
   $("incomingForm")?.addEventListener("submit", submitIncoming);
+  $("incomingPickPhoto")?.addEventListener("click", ()=>{ $("incomingPhotoFile")?.click(); });
+  $("incomingClearPhoto")?.addEventListener("click", ()=>{ incomingPhotoDataUrl=null; if($("incomingPhotoFile")) $("incomingPhotoFile").value=""; paintIncomingPhoto(); });
+  $("incomingPhotoFile")?.addEventListener("change", async (e)=>{
+    const file=e.target.files && e.target.files[0];
+    if(!file) return;
+    try{
+      if(typeof window.compressArticlePhoto!=="function") throw new Error("No se pudo preparar la foto");
+      incomingPhotoDataUrl=await window.compressArticlePhoto(file);
+      paintIncomingPhoto();
+    }catch(err){
+      incomingPhotoDataUrl=null;
+      paintIncomingPhoto();
+      if(typeof toast==="function") toast(err.message||"No se pudo leer la foto");
+    }
+  });
   $("btnInversiones")?.addEventListener("click",e=>{
     e.preventDefault();e.stopPropagation();
     if(typeof requireEdit==="function"&&!requireEdit())return;
