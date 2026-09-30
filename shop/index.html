@@ -1511,6 +1511,16 @@
 
 
     .deliv-qty-label-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;width:100%}
+    .sale-by-article{display:grid;gap:12px;width:100%}
+    .sale-by-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+    .sale-by-stat{border:1px solid rgba(0,245,255,.28);border-radius:14px;padding:10px 12px;background:rgba(0,0,0,.28)}
+    .sale-by-stat span{display:block;color:var(--muted);font-size:.75rem}
+    .sale-by-stat strong{font-size:1.05rem;color:var(--text)}
+    .sale-by-stat.net strong{color:var(--ok)}
+    .sale-by-block h3{margin:4px 0 8px;font-size:.95rem}
+    .sale-price-list,.sale-line-list{display:grid;gap:8px}
+    .sale-price-row,.sale-line-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;border:1px solid rgba(148,163,184,.25);background:rgba(0,0,0,.22)}
+    .sale-line-row small{color:var(--muted)}
     .sale-toolbar-row{display:flex;flex-wrap:wrap;gap:10px;align-items:end;width:100%}
     .sale-toolbar-row .search{flex:1 1 220px}
     .sale-sort-wrap{display:grid;gap:4px;min-width:210px}
@@ -2214,6 +2224,17 @@
           <div class="search">
             <input type="search" id="saleSearch" placeholder="Buscar por artículo, cliente o fecha..." autocomplete="off" />
           </div>
+          <label class="sale-sort-wrap">
+            <span>Ver</span>
+            <select id="saleViewMode" aria-label="Vista de ventas">
+              <option value="all">Todas las ventas</option>
+              <option value="article">Ventas por artículo</option>
+            </select>
+          </label>
+          <label class="sale-sort-wrap" id="saleArticleWrap" hidden>
+            <span>Artículo</span>
+            <select id="saleArticlePick" aria-label="Artículo"></select>
+          </label>
           <label class="sale-sort-wrap">
             <span>Ordenar</span>
             <select id="saleSort" aria-label="Ordenar ventas">
@@ -5772,6 +5793,9 @@
       customTotal: document.getElementById("saleCustomTotal"),
       grid: document.getElementById("saleGrid"),
       search: document.getElementById("saleSearch"),
+      viewMode: document.getElementById("saleViewMode"),
+      articleWrap: document.getElementById("saleArticleWrap"),
+      articlePick: document.getElementById("saleArticlePick"),
       sort: document.getElementById("saleSort"),
       status: document.getElementById("saleStatus"),
       avg: document.getElementById("saleAvg"),
@@ -5979,6 +6003,78 @@
       if (saleEls.customField) saleEls.customField.hidden = !(saleEls.customOn && saleEls.customOn.checked);
       if (saleEls.total) saleEls.total.textContent = "Total a registrar: " + money(saleChargedTotal());
     }
+
+    function fillSaleArticlePick() {
+      if (!saleEls.articlePick) return;
+      const names = new Map();
+      (articles || []).forEach((a) => { if (a && a.id) names.set(String(a.id), a.name || "Artículo"); });
+      (sales || []).forEach((row) => (row.items || []).forEach((it) => {
+        const id = String(it && it.id || "");
+        if (id && !names.has(id)) names.set(id, it.name || "Artículo");
+      }));
+      const prev = saleEls.articlePick.value;
+      const opts = [...names.entries()].sort((a, b) => a[1].localeCompare(b[1], "es", { sensitivity: "base" }));
+      saleEls.articlePick.innerHTML = opts.map(([id, name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join("");
+      if (prev && names.has(prev)) saleEls.articlePick.value = prev;
+    }
+    function renderSalesByArticle() {
+      fillSaleArticlePick();
+      const id = saleEls.articlePick ? saleEls.articlePick.value : "";
+      const name = saleEls.articlePick && saleEls.articlePick.selectedOptions[0] ? saleEls.articlePick.selectedOptions[0].textContent : "Artículo";
+      const q = (saleEls.search && saleEls.search.value || "").trim().toLowerCase();
+      const lines = [];
+      (sales || []).forEach((row) => {
+        (row.items || []).forEach((it) => {
+          if (String(it.id) !== String(id)) return;
+          const qty = Math.max(0, Number(it.qty) || 0);
+          if (!qty) return;
+          const art = (articles || []).find((a) => String(a.id) === String(id));
+          const priceRaw = Number(it.price);
+          const price = Number.isFinite(priceRaw) ? priceRaw : (Number(art && art.price) || 0);
+          const costRaw = Number(it.cost ?? it.purchase_price ?? it.unitCost);
+          const cost = Number.isFinite(costRaw) && costRaw >= 0 ? costRaw : (Number(art && art.purchase_price) || 0);
+          const customer = row.customer || "";
+          const blob = (row.date + " " + customer + " " + name).toLowerCase();
+          if (q && !blob.includes(q)) return;
+          lines.push({ date: row.date || "", customer, qty, price, cost, revenue: qty * price, profit: qty * (price - cost) });
+        });
+      });
+      lines.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+      const qty = lines.reduce((s, l) => s + l.qty, 0);
+      const revenue = lines.reduce((s, l) => s + l.revenue, 0);
+      const cost = lines.reduce((s, l) => s + l.qty * l.cost, 0);
+      const net = lines.reduce((s, l) => s + l.profit, 0);
+      if (saleEls.status) saleEls.status.textContent = name + " · " + qty + " pieza" + (qty === 1 ? "" : "s") + " · ganancia neta " + money(net);
+      const byPrice = new Map();
+      lines.forEach((l) => {
+        const key = l.price.toFixed(2);
+        const row = byPrice.get(key) || { price: l.price, qty: 0, profit: 0 };
+        row.qty += l.qty;
+        row.profit += l.profit;
+        byPrice.set(key, row);
+      });
+      const prices = [...byPrice.values()].sort((a, b) => b.price - a.price);
+      if (!lines.length) {
+        saleEls.grid.innerHTML = `<div class="empty"><strong>${id ? "Sin ventas de este artículo" : "Elige un artículo"}</strong>${id ? "No hay ventas registradas con ese nombre." : ""}</div>`;
+        return;
+      }
+      saleEls.grid.innerHTML = `<div class="sale-by-article">
+        <div class="sale-by-stats">
+          <div class="sale-by-stat"><span>Piezas vendidas</span><strong>${qty}</strong></div>
+          <div class="sale-by-stat"><span>Cobrado</span><strong>${escapeHtml(money(revenue))}</strong></div>
+          <div class="sale-by-stat"><span>Costo</span><strong>${escapeHtml(money(cost))}</strong></div>
+          <div class="sale-by-stat net"><span>Ganancia neta</span><strong>${net > 0 ? "+ " : ""}${escapeHtml(money(net))}</strong></div>
+        </div>
+        <div class="sale-by-block">
+          <h3>Precios que ha tenido</h3>
+          <div class="sale-price-list">${prices.map((p) => `<div class="sale-price-row"><div><strong>${escapeHtml(money(p.price))}</strong><small> · ${p.qty} pieza${p.qty === 1 ? "" : "s"}</small></div><div>Ganancia ${escapeHtml(money(p.profit))}</div></div>`).join("")}</div>
+        </div>
+        <div class="sale-by-block">
+          <h3>Ventas</h3>
+          <div class="sale-line-list">${lines.map((l) => `<div class="sale-line-row"><div><strong>${escapeHtml(formatDate(l.date) || l.date)}</strong><br><small>${l.qty} × ${escapeHtml(money(l.price))} · costo ${escapeHtml(money(l.cost))}${l.customer ? " · " + escapeHtml(l.customer) : ""}</small></div><div>Ganancia<br><strong>${escapeHtml(money(l.profit))}</strong></div></div>`).join("")}</div>
+        </div>
+      </div>`;
+    }
     function renderSales() {
       loadSalesStore();
       const inYear = sales.filter((s) => s.date.startsWith(String(saleYear) + "-"));
@@ -6012,6 +6108,10 @@
         return mode === "date-asc" ? ta.localeCompare(tb) : tb.localeCompare(ta);
       });
       if (!saleEls.grid) return;
+      const byArticle = saleEls.viewMode && saleEls.viewMode.value === "article";
+      if (saleEls.articleWrap) saleEls.articleWrap.hidden = !byArticle;
+      if (saleEls.sort) saleEls.sort.closest("label").hidden = byArticle;
+      if (byArticle) { renderSalesByArticle(); return; }
       if (!list.length) {
         saleEls.grid.innerHTML = `<div class="empty"><strong>${sales.length === 0 ? "Sin ventas aún" : "Sin resultados"}</strong>${sales.length === 0 ? "Registra una venta manual o marca una entrega como realizada." : "Prueba con otro término de búsqueda."}</div>`;
         return;
@@ -6066,6 +6166,8 @@
     document.getElementById("btnSaleCancel") && document.getElementById("btnSaleCancel").addEventListener("click", closeSaleForm);
     if (saleEls.overlay) saleEls.overlay.addEventListener("click", (e) => { if (e.target === saleEls.overlay) closeSaleForm(); });
     if (saleEls.search) saleEls.search.addEventListener("input", renderSales);
+    if (saleEls.viewMode) saleEls.viewMode.addEventListener("change", renderSales);
+    if (saleEls.articlePick) saleEls.articlePick.addEventListener("change", renderSales);
     if (saleEls.sort) {
       saleEls.sort.value = saleSortMode || "date-desc";
       saleEls.sort.addEventListener("change", () => { saleSortMode = saleEls.sort.value; renderSales(); });
