@@ -1877,10 +1877,6 @@
           </label>
           <div id="incomingNewFields">
             <label><span>Nombre</span><input type="text" id="incomingName" maxlength="100" /></label>
-            <label class="incoming-pending-check" id="incomingPendingRow">
-              <input type="checkbox" id="incomingPending" />
-              <span>Pendiente de llegar</span>
-            </label>
             <div class="row-2">
               <label><span>Precio de venta</span><input type="number" id="incomingPrice" min="0" step="0.01" /></label>
               <label><span>Costo por unidad</span><input type="number" id="incomingNewCost" min="0" step="0.01" /></label>
@@ -1908,6 +1904,10 @@
             <label><span>Fecha</span><input type="date" id="incomingDate" required /></label>
           </div>
           <label><span>Hora</span><input type="time" id="incomingTime" required /></label>
+          <label class="incoming-pending-check" id="incomingPendingRow">
+            <input type="checkbox" id="incomingPending" />
+            <span>Pendiente de llegar</span>
+          </label>
           <div class="form-actions">
             <button type="button" class="ghost" id="incomingCancelBtn">Cancelar</button>
             <button type="submit" class="primary">Guardar</button>
@@ -6876,17 +6876,6 @@
     const ex=$("incomingExistingFields");
     if(neu) neu.hidden=mode!=="new";
     if(ex) ex.hidden=mode!=="existing";
-    const row=$("incomingPendingRow");
-    if(row){
-      if(mode==="existing"){
-        const picker=$("incomingArticlePicker");
-        if(picker) picker.insertAdjacentElement("afterend", row);
-      } else {
-        const name=$("incomingName");
-        const lab=name && name.closest("label");
-        if(lab) lab.insertAdjacentElement("afterend", row);
-      }
-    }
   }
   function fillIncomingPicker(){
     const picker=$("incomingArticlePicker");
