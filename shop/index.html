@@ -2332,19 +2332,6 @@
             <span>Existencia</span>
             <input type="number" id="stock" required min="0" step="1" placeholder="0" />
           </label>
-          <button type="button" class="ghost add-purchase-btn" id="btnAddPurchase" hidden>＋ Agregar por Compra</button>
-        </div>
-        <div class="purchase-box" id="purchaseBox" hidden>
-          <div class="purchase-box-title">Agregar por Compra</div>
-          <div class="purchase-box-grid">
-            <label><span>Cantidad:</span><input type="number" id="purchaseQty" min="1" step="1" placeholder="0"></label>
-            <label><span>Costo por unidad</span><input type="number" id="purchaseCost" min="0" step="0.01" placeholder="0.00"></label>
-          </div>
-          <div class="purchase-box-total">Total de inversión: <strong id="purchaseTotal">$0.00</strong></div>
-          <div class="purchase-box-actions">
-            <button type="button" class="ghost" id="btnCancelPurchase">Cancelar</button>
-            <button type="button" id="btnConfirmPurchase">Registrar compra</button>
-          </div>
         </div>
         <div id="articleCategoriesWrap" class="article-categories-editor">
           <span style="font-size:0.85rem;color:var(--muted)"><strong style="color:var(--text)">Categorías</strong></span>
@@ -2606,13 +2593,6 @@
       profitPercent: document.getElementById("profitPercent"),
       profitStock: document.getElementById("profitStock"),
       stock: document.getElementById("stock"),
-      btnAddPurchase: document.getElementById("btnAddPurchase"),
-      purchaseBox: document.getElementById("purchaseBox"),
-      purchaseQty: document.getElementById("purchaseQty"),
-      purchaseCost: document.getElementById("purchaseCost"),
-      purchaseTotal: document.getElementById("purchaseTotal"),
-      btnCancelPurchase: document.getElementById("btnCancelPurchase"),
-      btnConfirmPurchase: document.getElementById("btnConfirmPurchase"),
       purchaseStockOption: document.getElementById("purchaseStockOption"),
       registerPurchase: document.getElementById("registerPurchase"),
       categories: document.getElementById("articleCategories"),
@@ -3098,8 +3078,6 @@
       pendingPhotoDataUrl = null;
       if (article) {
         els.modalTitle.textContent = "Editar artículo";
-        if (els.btnAddPurchase) els.btnAddPurchase.hidden = false;
-        if (els.purchaseBox) els.purchaseBox.hidden = true;
         els.editId.value = article.id;
         els.name.value = article.name;
         els.description.value = article.description || "";
@@ -3110,8 +3088,6 @@
         existingPhotoUrl = article.photo_url || null;
       } else {
         els.modalTitle.textContent = "Nuevo artículo";
-        if (els.btnAddPurchase) els.btnAddPurchase.hidden = true;
-        if (els.purchaseBox) els.purchaseBox.hidden = true;
         els.editId.value = "";
         els.form.reset();
         renderArticleCategoryChecks([]);
@@ -3179,59 +3155,6 @@
         toast(err.message || "Error al cargar la foto");
         els.photoFile.value = "";
       }
-    });
-
-    function updatePurchaseTotal() {
-      const qty = Math.max(0, Math.floor(Number(els.purchaseQty?.value) || 0));
-      const cost = Math.max(0, Number(els.purchaseCost?.value) || 0);
-      if (els.purchaseTotal) els.purchaseTotal.textContent = money(qty * cost);
-    }
-
-    els.btnAddPurchase?.addEventListener("click", () => {
-      if (!requireEdit()) return;
-      if (!els.editId.value) { toast("Primero guarda el artículo para registrar una compra"); return; }
-      const current = Number(els.stock.value) || 0;
-      els.purchaseQty.value = "";
-      els.purchaseCost.value = String(Number(els.purchasePrice.value) || 0);
-      els.purchaseBox.hidden = false;
-      updatePurchaseTotal();
-      els.purchaseQty.focus();
-    });
-    els.btnCancelPurchase?.addEventListener("click", () => { if (els.purchaseBox) els.purchaseBox.hidden = true; });
-    [els.purchaseQty, els.purchaseCost].forEach(el => el?.addEventListener("input", updatePurchaseTotal));
-    els.btnConfirmPurchase?.addEventListener("click", async () => {
-      if (!requireEdit() || !supabaseClient) return;
-      const id = els.editId.value;
-      const article = articles.find(a => a.id === id);
-      if (!article) { toast("No se encontró el artículo"); return; }
-      const qty = Math.floor(Number(els.purchaseQty.value) || 0);
-      const cost = Number(els.purchaseCost.value);
-      if (!Number.isInteger(qty) || qty <= 0) { toast("Indica una cantidad válida"); return; }
-      if (!Number.isFinite(cost) || cost < 0) { toast("Indica un costo válido"); return; }
-      const oldStock = Math.max(0, Math.floor(Number(article.stock) || 0));
-      const oldCostRaw = Number(article.purchase_price);
-      const hasOldCost = Number.isFinite(oldCostRaw) && oldCostRaw > 0;
-      const newStock = oldStock + qty;
-      const averageCost = newStock > 0
-        ? ((hasOldCost ? oldStock * oldCostRaw : 0) + qty * cost) / newStock
-        : cost;
-      const snapshot = { ...article, stock: qty, purchase_price: cost, photo_url: article.photo_url || null };
-      els.btnConfirmPurchase.disabled = true;
-      try {
-        const { error } = await supabaseClient.from("articles").update({ stock: newStock, purchase_price: averageCost, updated_at: new Date().toISOString() }).eq("id", id);
-        if (error) throw error;
-        if (typeof window.recordInvestment === "function") window.recordInvestment(snapshot, "in");
-        article.stock = newStock; article.purchase_price = averageCost;
-        els.stock.value = String(newStock);
-        els.purchasePrice.value = String(averageCost);
-        if (els.purchaseBox) els.purchaseBox.hidden = true;
-        updateProfitPreview();
-        toast("Compra registrada · stock actualizado");
-        await loadArticles();
-      } catch (err) {
-        console.error(err);
-        toast(err.message || "No se pudo registrar la compra");
-      } finally { els.btnConfirmPurchase.disabled = false; }
     });
 
     function updateProfitPreview() {
