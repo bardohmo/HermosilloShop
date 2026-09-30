@@ -3023,6 +3023,33 @@
       if (error) throw error;
       await loadArticles();
     };
+    // Inverso de applyReceivedStock: resta las unidades que Recibido sumó
+    // y deshace el costo promedio ponderado con la misma fórmula.
+    window.revertReceivedStock = async function (articleId, qty, unitCost) {
+      if (!supabaseClient) throw new Error("Sin conexión a la nube");
+      const article = articles.find((a) => String(a.id) === String(articleId));
+      if (!article) throw new Error("El artículo ya no está en el catálogo");
+      const currentStock = Math.max(0, Math.floor(Number(article.stock) || 0));
+      const currentCostRaw = Number(article.purchase_price);
+      const hasCurrentCost = Number.isFinite(currentCostRaw) && currentCostRaw > 0;
+      const remove = Math.max(1, Math.floor(Number(qty) || 0));
+      const cost = Math.max(0, Number(unitCost) || 0);
+      const restoredStock = Math.max(0, currentStock - remove);
+      let restoredCost = hasCurrentCost ? currentCostRaw : 0;
+      if (restoredStock > 0) {
+        const currentValue = hasCurrentCost ? currentStock * currentCostRaw : 0;
+        const previousValue = currentValue - remove * cost;
+        restoredCost = previousValue / restoredStock;
+        if (!Number.isFinite(restoredCost) || restoredCost < 0) restoredCost = 0;
+      }
+      const { error } = await supabaseClient.from("articles").update({
+        stock: restoredStock,
+        purchase_price: restoredCost,
+        updated_at: new Date().toISOString(),
+      }).eq("id", article.id);
+      if (error) throw error;
+      await loadArticles();
+    };
 
     async function loadArticles() {
       if (!supabaseClient) {
@@ -6782,7 +6809,7 @@
   const nowParts=()=>{const d=new Date();return{date:d.toISOString().slice(0,10),time:d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false})}};
   const total=r=>(Number(r.qty)||0)*(Number(r.unitCost)||0);
   const imgHtml=(url,name)=>url?'<img src="'+escInv(url)+'" alt="'+escInv(name)+'">':'<span aria-hidden="true">📦</span>';
-  function render(){records=read();const q=(($("investmentSearch")?.value)||"").trim().toLowerCase();const list=records.filter(r=>!q||[r.name,r.date,r.time,r.type].some(v=>String(v||"").toLowerCase().includes(q))).sort((a,b)=>(a.status==="pending"&&a.type!=="out"?0:1)-(b.status==="pending"&&b.type!=="out"?0:1));const ins=records.filter(r=>r.type!=="out"),outs=records.filter(r=>r.type==="out");const it=ins.reduce((a,r)=>a+total(r),0),ot=outs.reduce((a,r)=>a+total(r),0);$("investmentStatus")&&($("investmentStatus").textContent=records.length+" movimiento"+(records.length===1?"":"s")+" · "+moneyInv(it-ot));$("investmentEntries")&&($("investmentEntries").textContent=ins.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(it));$("investmentExits")&&($("investmentExits").textContent=outs.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(ot));$("investmentTotal")&&($("investmentTotal").textContent=moneyInv(it-ot)+" MXN");const grid=$("investmentGrid");if(!grid)return;if(!list.length){grid.innerHTML='<div class="investment-empty">'+(records.length?'No hay movimientos que coincidan con la búsqueda.':'Aún no hay movimientos. Usa “+ Agregar compra” para registrar una compra pendiente de llegar.')+'</div>';return}grid.innerHTML=list.map(r=>{const out=r.type==="out";const pending=r.status==="pending"&&!out;const badgeCls=pending?"pending":(out?"out":"");const badgeTxt=pending?"PENDIENTE":(out?"SALIDA":"ENTRADA");const receiveBtn=pending?'<button type="button" class="primary" data-investment-action="receive">Recibido</button>':'';return '<article class="investment-card" data-investment-id="'+escInv(r.id)+'"><div class="investment-thumb">'+imgHtml(r.photo_url,r.name)+'</div><div class="investment-main"><div class="investment-title">'+escInv(r.name)+' <span class="investment-badge '+badgeCls+'">'+badgeTxt+'</span></div><div class="investment-meta"><span>📅 '+escInv(r.date)+'</span><span>🕒 '+escInv(r.time)+'</span><span>📦 '+(Number(r.qty)||0)+' uds.</span><span>💵 '+moneyInv(r.unitCost)+' / ud.</span></div><div class="investment-total">'+(out?'Salida registrada':'Inversión registrada')+': '+moneyInv(total(r))+' MXN</div></div><div class="investment-actions">'+receiveBtn+'<button type="button" class="ghost" data-investment-action="edit">Editar</button><button type="button" class="ghost" data-investment-action="delete">Eliminar</button></div></article>'}).join("");if(typeof window.applyCardImageGlows==="function")window.applyCardImageGlows(grid);}
+  function render(){records=read();const q=(($("investmentSearch")?.value)||"").trim().toLowerCase();const list=records.filter(r=>!q||[r.name,r.date,r.time,r.type].some(v=>String(v||"").toLowerCase().includes(q))).sort((a,b)=>(a.status==="pending"&&a.type!=="out"?0:1)-(b.status==="pending"&&b.type!=="out"?0:1));const ins=records.filter(r=>r.type!=="out"),outs=records.filter(r=>r.type==="out");const it=ins.reduce((a,r)=>a+total(r),0),ot=outs.reduce((a,r)=>a+total(r),0);$("investmentStatus")&&($("investmentStatus").textContent=records.length+" movimiento"+(records.length===1?"":"s")+" · "+moneyInv(it-ot));$("investmentEntries")&&($("investmentEntries").textContent=ins.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(it));$("investmentExits")&&($("investmentExits").textContent=outs.reduce((a,r)=>a+(Number(r.qty)||0),0)+" uds. · "+moneyInv(ot));$("investmentTotal")&&($("investmentTotal").textContent=moneyInv(it-ot)+" MXN");const grid=$("investmentGrid");if(!grid)return;if(!list.length){grid.innerHTML='<div class="investment-empty">'+(records.length?'No hay movimientos que coincidan con la búsqueda.':'Aún no hay movimientos. Usa “+ Agregar compra” para registrar una compra pendiente de llegar.')+'</div>';return}grid.innerHTML=list.map(r=>{const out=r.type==="out";const pending=r.status==="pending"&&!out;const badgeCls=pending?"pending":(out?"out":"");const badgeTxt=pending?"PENDIENTE":(out?"SALIDA":"ENTRADA");const receiveBtn=pending?'<button type="button" class="primary" data-investment-action="receive">Recibido</button>':'';const pendingBtn=(!out&&r.status==="received")?'<button type="button" class="ghost" data-investment-action="unreceive">Pendiente</button>':'';return '<article class="investment-card" data-investment-id="'+escInv(r.id)+'"><div class="investment-thumb">'+imgHtml(r.photo_url,r.name)+'</div><div class="investment-main"><div class="investment-title">'+escInv(r.name)+' <span class="investment-badge '+badgeCls+'">'+badgeTxt+'</span></div><div class="investment-meta"><span>📅 '+escInv(r.date)+'</span><span>🕒 '+escInv(r.time)+'</span><span>📦 '+(Number(r.qty)||0)+' uds.</span><span>💵 '+moneyInv(r.unitCost)+' / ud.</span></div><div class="investment-total">'+(out?'Salida registrada':'Inversión registrada')+': '+moneyInv(total(r))+' MXN</div></div><div class="investment-actions">'+receiveBtn+pendingBtn+'<button type="button" class="ghost" data-investment-action="edit">Editar</button><button type="button" class="ghost" data-investment-action="delete">Eliminar</button></div></article>'}).join("");if(typeof window.applyCardImageGlows==="function")window.applyCardImageGlows(grid);}
   function openEdit(id){const r=records.find(x=>x.id===id);if(!r)return;editingId=id;$("investmentEditId").value=id;$("investmentDate").value=r.date||"";$("investmentTime").value=r.time||"";$("investmentName").value=r.name||"";$("investmentType").value=r.type||"in";$("investmentQty").value=Number(r.qty)||0;$("investmentUnitCost").value=Number(r.unitCost)||0;$("investmentEditPhotoPreview").innerHTML=imgHtml(r.photo_url,r.name);$("investmentOverlay").classList.add("open")}
   function closeEdit(){$("investmentOverlay")?.classList.remove("open");editingId=null}
   function recordInvestment(article,type){
@@ -7098,6 +7125,25 @@
       if(typeof toast==="function") toast(err.message||"No se pudo marcar como recibido");
     }
   }
+  async function markIncomingPending(id){
+    if(typeof requireEdit==="function"&&!requireEdit()) return;
+    records=read();
+    const r=records.find(x=>x.id===id);
+    if(!r||r.type==="out"||r.status!=="received") return;
+    if(!confirm("¿Regresar este movimiento a pendiente de llegar?")) return;
+    if(typeof window.revertReceivedStock!=="function"){ if(typeof toast==="function") toast("No se pudo actualizar el catálogo"); return; }
+    try{
+      await window.revertReceivedStock(r.articleId, r.qty, r.unitCost);
+      r.status="pending";
+      r.updatedAt=new Date().toISOString();
+      write();
+      render();
+      if(typeof window.renderArticles==="function") window.renderArticles();
+      if(typeof toast==="function") toast("Volvió a pendiente. Aún no está disponible");
+    }catch(err){
+      if(typeof toast==="function") toast(err.message||"No se pudo marcar como pendiente");
+    }
+  }
 
   window.reloadInvestmentsFromStorage=function(){records=read();render();};
   window.renderInvestments=render;
@@ -7107,7 +7153,7 @@
   $("investmentCancelBtn")?.addEventListener("click",closeEdit);
   $("investmentOverlay")?.addEventListener("click",e=>{if(e.target===$("investmentOverlay"))closeEdit()});
   $("investmentForm")?.addEventListener("submit",e=>{e.preventDefault();if(!editingId)return;if(typeof requireEdit==="function"&&!requireEdit())return;const r=records.find(x=>x.id===editingId);if(!r)return;r.date=$("investmentDate").value;r.time=$("investmentTime").value;r.name=$("investmentName").value.trim();r.type=$("investmentType").value;r.qty=Math.max(0,Math.floor(Number($("investmentQty").value)||0));r.unitCost=Math.max(0,Number($("investmentUnitCost").value)||0);r.updatedAt=new Date().toISOString();write();closeEdit();render();if(typeof toast==="function")toast("Inversión actualizada")});
-  $("investmentGrid")?.addEventListener("click",e=>{const b=e.target.closest("[data-investment-action]");if(!b)return;const id=b.closest("[data-investment-id]")?.getAttribute("data-investment-id");if(!id)return;if(typeof requireEdit==="function"&&!requireEdit())return;if(b.dataset.investmentAction==="receive"){receiveIncoming(id);return;}if(b.dataset.investmentAction==="edit")openEdit(id);else if(confirm("¿Eliminar este movimiento del historial de inversiones?")){records=read().filter(r=>r.id!==id);write();render();if(typeof window.renderArticles==="function")window.renderArticles();if(typeof toast==="function")toast("Movimiento eliminado")}});
+  $("investmentGrid")?.addEventListener("click",e=>{const b=e.target.closest("[data-investment-action]");if(!b)return;const id=b.closest("[data-investment-id]")?.getAttribute("data-investment-id");if(!id)return;if(typeof requireEdit==="function"&&!requireEdit())return;if(b.dataset.investmentAction==="receive"){receiveIncoming(id);return;}if(b.dataset.investmentAction==="unreceive"){markIncomingPending(id);return;}if(b.dataset.investmentAction==="edit")openEdit(id);else if(confirm("¿Eliminar este movimiento del historial de inversiones?")){records=read().filter(r=>r.id!==id);write();render();if(typeof window.renderArticles==="function")window.renderArticles();if(typeof toast==="function")toast("Movimiento eliminado")}});
   $("investmentAddBtn")?.addEventListener("click",()=>{
     if(typeof requireEdit==="function"&&!requireEdit())return;
     openAddPurchase();
