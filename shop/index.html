@@ -4438,7 +4438,9 @@
         toast("Sin conexión a Supabase: la entrega no se guardó en la nube");
         return false;
       }
-      const rows = deliveries.map((r) => ({
+      const snapshot = deliveries.slice();
+      try { sessionStorage.setItem(DELIV_KEY, JSON.stringify(snapshot)); } catch (_) {}
+      const rows = snapshot.map((r) => ({
         id: String(r.id),
         name: String(r.name || "").slice(0, 80),
         phone: String(r.phone || "").slice(0, 24),
@@ -4460,7 +4462,8 @@
         console.error(error);
         return false;
       }
-      try { sessionStorage.setItem(DELIV_KEY, JSON.stringify(deliveries)); } catch (_) {}
+      deliveries = snapshot;
+      try { sessionStorage.setItem(DELIV_KEY, JSON.stringify(snapshot)); } catch (_) {}
       return true;
     }
     const SALES_KEY = "hs_sales_v1";
@@ -4600,7 +4603,11 @@
         totalToCharge: Number.isFinite(total) && total >= 0 ? total : null, changeToReturn: Number.isFinite(change) && change >= 0 ? change : null };
     }
     function packDeliveryItems(items, payment) {
-      return { lines: normalizeLineItems(items, false), payment: normalizeDeliveryPayment(payment) };
+      let raw = items;
+      if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch (_) { raw = null; } }
+      const lines = (raw && !Array.isArray(raw) && Array.isArray(raw.lines)) ? raw.lines : raw;
+      const pay = payment || (raw && !Array.isArray(raw) ? raw.payment : null);
+      return { lines: normalizeLineItems(lines, false), payment: normalizeDeliveryPayment(pay) };
     }
     function deliveryTotalOf(items) {
       return (items || []).reduce((sum, it) => {
@@ -4646,7 +4653,12 @@
       return 0;
     }
     function deliveryGasAmount(row) {
-      return normalizeDeliveryPayment(row && (row.payment || row.items)).deliveryFee || 0;
+      if (!row || row.status !== "done") return 0;
+      let payment = row.payment;
+      let items = row.items;
+      if (typeof payment === "string") { try { payment = JSON.parse(payment); } catch (_) { payment = null; } }
+      if (typeof items === "string") { try { items = JSON.parse(items); } catch (_) { items = null; } }
+      return normalizeDeliveryPayment(payment || items).deliveryFee || 0;
     }
     function gasTankGrossPesos() {
       const fromDel = (deliveries || []).reduce((sum, row) => sum + deliveryGasAmount(row), 0);
@@ -4661,8 +4673,6 @@
       const fill = document.getElementById("gasTankFill");
       const meta = document.getElementById("gasTankMeta");
       if (!fill || !meta) return;
-      loadDelivStore();
-      loadSalesStore();
       const total = gasTankPesos();
       const fullTanks = Math.floor(total / 200);
       const remainder = total % 200;
@@ -5829,13 +5839,13 @@
           toast("Contacto agregado");
         }
 
+        await saveDelivStore();
         if (delivStatus === "done" && items.length) {
           const row = deliveries.find((r) => r.id === id);
           if (row) await upsertDeliverySale(row);
         } else if (delivStatus === "pending") {
           await removeDeliverySale(id);
         }
-        saveDelivStore();
         closeDelivForm();
         renderDeliveries();
       })();
@@ -5868,14 +5878,14 @@
             }
             row.status = "done";
             row.updatedAt = new Date().toISOString();
-            saveDelivStore();
+            await saveDelivStore();
             const saleOk = await upsertDeliverySale(row);
+            renderDeliveries();
+            renderSales();
             if (!saleOk) {
               toast("Entrega realizada, pero no se pudo guardar la venta");
               return;
             }
-            renderDeliveries();
-            renderSales();
             toast("Entrega realizada · stock descontado");
             return;
           } else {
