@@ -2037,7 +2037,7 @@
       <section class="gas-tank-card" id="gasTankCard" aria-label="Tanque de gasolina">
         <div class="gas-tank-copy">
           <strong>Tanque de gasolina</strong>
-          <span id="gasTankMeta">0% · 0 / 200</span>
+          <span id="gasTankMeta">0 tanques llenos · 0 / 200</span>
         </div>
         <div class="gas-tank" aria-hidden="true">
           <div class="gas-tank-cap"></div>
@@ -4605,11 +4605,14 @@
       loadDelivStore();
       loadSalesStore();
       const total = gasTankPesos();
-      const pct = total <= 0 ? 0 : Math.min(100, (total / 200) * 100);
+      const fullTanks = Math.floor(total / 200);
+      const remainder = total % 200;
+      const pct = total <= 0 ? 0 : (remainder === 0 ? 100 : (remainder / 200) * 100);
       fill.style.height = pct + "%";
-      fill.classList.toggle("is-full", total >= 200);
-      const pesos = Math.abs(total - Math.round(total)) < 0.001 ? String(Math.round(total)) : total.toFixed(2);
-      meta.textContent = Math.round(pct) + "% · " + pesos + " / 200";
+      fill.classList.toggle("is-full", total > 0 && remainder === 0);
+      const pesos = Math.abs(remainder - Math.round(remainder)) < 0.001 ? String(Math.round(remainder)) : remainder.toFixed(2);
+      const tankLabel = fullTanks === 1 ? "tanque lleno" : "tanques llenos";
+      meta.textContent = fullTanks + " " + tankLabel + (remainder > 0 ? " · " + pesos + " / 200" : "");
     }
     function saleItemsAndGas(rawItems, rawRow) {
       const wrapped = rawItems && typeof rawItems === "object" && !Array.isArray(rawItems) && Array.isArray(rawItems.lines);
