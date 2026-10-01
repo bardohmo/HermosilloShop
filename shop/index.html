@@ -1148,12 +1148,6 @@
       border-color:rgba(245,165,36,.95);background:rgba(245,165,36,.22);color:#ffe7a3;
       box-shadow:0 0 0 1px rgba(245,165,36,.35);
     }
-    .gas-use-custom{display:block}
-    .gas-use-custom input{
-      width:100%;min-height:36px;box-sizing:border-box;padding:6px 10px;border-radius:10px;
-      border:1px solid rgba(245,165,36,.35);background:rgba(0,0,0,.35);
-      color:var(--text);font:inherit;font-size:.85rem;
-    }
     .gas-use-actions{display:flex;gap:8px;justify-content:flex-end}
     .gas-use-actions button{min-height:34px;padding:6px 14px;border-radius:999px;font-size:.78rem}
     .gas-use-actions button:disabled{opacity:.4;cursor:not-allowed;filter:none;transform:none}
@@ -2091,15 +2085,11 @@
           <button type="button" class="gas-use-btn" id="btnUseGas" aria-expanded="false" aria-controls="gasUsePanel">Usar gasolina</button>
           <div class="gas-use-panel" id="gasUsePanel" hidden>
             <div class="gas-use-presets" role="group" aria-label="Cantidad a usar">
-              <button type="button" class="gas-amt" data-gas-amt="20" aria-pressed="false">$20</button>
-              <button type="button" class="gas-amt" data-gas-amt="30" aria-pressed="false">$30</button>
-              <button type="button" class="gas-amt" data-gas-amt="40" aria-pressed="false">$40</button>
               <button type="button" class="gas-amt" data-gas-amt="50" aria-pressed="false">$50</button>
               <button type="button" class="gas-amt" data-gas-amt="100" aria-pressed="false">$100</button>
+              <button type="button" class="gas-amt" data-gas-amt="200" aria-pressed="false">$200</button>
+              <button type="button" class="gas-amt" data-gas-use-all="true" aria-pressed="false">Usar todo</button>
             </div>
-            <label class="gas-use-custom">
-              <input type="number" id="gasUseAmount" inputmode="decimal" min="0" step="0.01" placeholder="Otra cantidad" autocomplete="off" />
-            </label>
             <div class="gas-use-actions">
               <button type="button" class="ghost" id="gasUseCancel">Cancelar</button>
               <button type="button" class="primary" id="gasUseOk">OK</button>
@@ -4785,31 +4775,34 @@
       meta.textContent = fullTanks + " " + tankLabel + (showRemainder ? " · " + pesos + " / 200" : "");
       syncGasUseOk();
     }
-    function parseGasUseAmount(raw) {
-      let s = String(raw == null ? "" : raw).trim().replace(/\s/g, "");
-      if (!s) return null;
-      if (s.includes(",") && !s.includes(".")) s = s.replace(",", ".");
-      const n = Number(s);
-      if (!Number.isFinite(n) || n <= 0) return null;
-      return n;
-    }
     function syncGasUseOk() {
       const ok = document.getElementById("gasUseOk");
       if (!ok) return;
       ok.disabled = !(gasTankPesos() > 0.001);
     }
     function clearGasUseSelection() {
+      const panel = document.getElementById("gasUsePanel");
+      if (panel) panel.dataset.useAll = "0";
       document.querySelectorAll("#gasUsePanel .gas-amt").forEach((b) => {
         b.classList.remove("is-on");
         b.setAttribute("aria-pressed", "false");
       });
-      const input = document.getElementById("gasUseAmount");
-      if (input) input.value = "";
     }
     function markGasPreset(amount) {
+      const panel = document.getElementById("gasUsePanel");
+      if (panel) panel.dataset.useAll = "0";
       const key = String(amount);
       document.querySelectorAll("#gasUsePanel .gas-amt").forEach((b) => {
         const on = b.getAttribute("data-gas-amt") === key;
+        b.classList.toggle("is-on", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    }
+    function markGasUseAll() {
+      const panel = document.getElementById("gasUsePanel");
+      if (panel) panel.dataset.useAll = "1";
+      document.querySelectorAll("#gasUsePanel .gas-amt").forEach((b) => {
+        const on = b.getAttribute("data-gas-use-all") === "true";
         b.classList.toggle("is-on", on);
         b.setAttribute("aria-pressed", on ? "true" : "false");
       });
@@ -4830,9 +4823,19 @@
       syncGasUseOk();
     }
     function spendChosenGas() {
-      const input = document.getElementById("gasUseAmount");
-      const chosen = parseGasUseAmount(input ? input.value : "");
-      if (chosen == null) return false;
+      const panel = document.getElementById("gasUsePanel");
+      const useAll = panel && panel.dataset.useAll === "1";
+      let chosen = null;
+      if (useAll) {
+        chosen = gasTankPesos();
+      } else {
+        const selected = panel && panel.querySelector(".gas-amt.is-on[data-gas-amt]");
+        if (selected) {
+          const amount = Number(selected.getAttribute("data-gas-amt"));
+          if (Number.isFinite(amount) && amount > 0) chosen = amount;
+        }
+      }
+      if (!(chosen > 0)) return false;
       loadDelivStore();
       loadSalesStore();
       const fuel = gasTankPesos();
@@ -4861,27 +4864,9 @@
       gasUsePanel.addEventListener("click", (e) => {
         const amt = e.target.closest(".gas-amt");
         if (!amt || !gasUsePanel.contains(amt)) return;
-        const value = amt.getAttribute("data-gas-amt") || "";
-        const input = document.getElementById("gasUseAmount");
-        if (input) input.value = value;
-        markGasPreset(value);
+        if (amt.getAttribute("data-gas-use-all") === "true") markGasUseAll();
+        else markGasPreset(amt.getAttribute("data-gas-amt") || "");
       });
-      const gasUseAmount = document.getElementById("gasUseAmount");
-      if (gasUseAmount) {
-        gasUseAmount.addEventListener("input", () => {
-          const raw = String(gasUseAmount.value).trim();
-          const n = parseGasUseAmount(raw);
-          const exact = n != null && document.querySelector('#gasUsePanel .gas-amt[data-gas-amt="' + String(n) + '"]')
-            && (raw === String(n) || raw === String(n).replace(".", ","));
-          if (exact) markGasPreset(n);
-          else {
-            document.querySelectorAll("#gasUsePanel .gas-amt").forEach((b) => {
-              b.classList.remove("is-on");
-              b.setAttribute("aria-pressed", "false");
-            });
-          }
-        });
-      }
       const gasUseCancel = document.getElementById("gasUseCancel");
       if (gasUseCancel) gasUseCancel.addEventListener("click", () => closeGasUsePanel());
       const gasUseOk = document.getElementById("gasUseOk");
