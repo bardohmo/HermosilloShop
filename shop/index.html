@@ -753,6 +753,30 @@
     .delivery-actions-collapsible { display:flex; flex-wrap:wrap; gap:8px; margin-top:9px; padding-top:9px; border-top:1px solid rgba(0,245,255,.10); animation: deliveryActionsIn .18s ease; }
     .delivery-actions-collapsible[hidden] { display:none !important; }
     @keyframes deliveryActionsIn { from {opacity:0; transform:translateY(-4px)} to {opacity:1; transform:translateY(0)} }
+    .deliv-historial { margin-top: 16px; }
+    .deliv-historial-toggle {
+      width: 100%; min-height: 46px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      border: 1px solid rgba(0,245,255,.24); border-radius: 12px;
+      background: rgba(0,245,255,.055); color: var(--cyan);
+      font-weight: 800; cursor: pointer; transition: .2s ease;
+    }
+    .deliv-historial-toggle:hover { border-color: rgba(0,245,255,.55); transform: translateY(-1px); }
+    .deliv-historial-count {
+      min-width: 1.4em; padding: 0 6px; border-radius: 999px;
+      background: rgba(0,0,0,.28); color: var(--text); font-size: .78rem;
+    }
+    .deliv-historial-toggle[aria-expanded="true"] .delivery-actions-chevron { transform: rotate(180deg); }
+    .deliv-historial-list { display: grid; gap: 8px; margin-top: 10px; }
+    .deliv-hist-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 12px; border-radius: 12px;
+      border: 1px solid rgba(0,245,255,.14); background: rgba(0,0,0,.18);
+    }
+    .deliv-hist-main { display: grid; gap: 2px; min-width: 0; }
+    .deliv-hist-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .deliv-hist-main span { color: var(--muted); font-size: .82rem; }
+    .deliv-hist-row .danger { flex: 0 0 auto; }
 
     .ubicacion-modal .ubicacion-preview {
       margin: 4px 0 12px;
@@ -2084,6 +2108,16 @@
         </div>
       </div>
       <div class="grid deliv-grid" id="delivGrid" aria-live="polite"></div>
+      <section class="deliv-historial" id="delivHistorial" aria-label="Historial de entregas">
+        <button type="button" class="deliv-historial-toggle" id="btnDelivHistorial" aria-expanded="false" aria-controls="delivHistorialBody">
+          <span>Historial</span>
+          <span class="deliv-historial-count" id="delivHistorialCount">0</span>
+          <span class="delivery-actions-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span>
+        </button>
+        <div id="delivHistorialBody" hidden>
+          <div class="deliv-historial-list" id="delivHistorialList"></div>
+        </div>
+      </section>
     </div>
 
   <div class="overlay" id="delivOverlay" role="dialog" aria-modal="true">
@@ -3904,6 +3938,8 @@
     let delivMap = null;
     let delivMarker = null;
     let pendingDelivDelete = null;
+    let pendingDelivDeleteMode = "archive";
+    let delivHistorialOpen = false;
     const VIEW_KEY = "hs_current_view";
     let currentView = sessionStorage.getItem(VIEW_KEY) || "catalog";
 
@@ -4331,6 +4367,27 @@
       }
       return null;
     }
+    function isDeliveryArchived(row) {
+      return !!(row && (row.archived === true || row.archived === "true" || row.archived === 1));
+    }
+    function readDeliveryArchived(raw) {
+      if (!raw) return false;
+      if (raw.archived === true || raw.archived === "true" || raw.archived === 1) return true;
+      let items = raw.items;
+      if (typeof items === "string") {
+        try { items = JSON.parse(items); } catch (_) { items = null; }
+      }
+      return !!(items && typeof items === "object" && !Array.isArray(items) && (items.archived === true || items.archived === "true"));
+    }
+    function compareDeliveriesDesc(a, b) {
+      const ua = String((a && a.updatedAt) || "");
+      const ub = String((b && b.updatedAt) || "");
+      if (ua !== ub) return ub.localeCompare(ua);
+      const da = ((a && a.date) || "0000-00-00") + "T" + ((a && a.time) || "00:00");
+      const db = ((b && b.date) || "0000-00-00") + "T" + ((b && b.time) || "00:00");
+      if (da !== db) return db.localeCompare(da);
+      return String((b && b.createdAt) || "").localeCompare(String((a && a.createdAt) || ""));
+    }
     function loadDelivStore() {
       // La memoria local solo mantiene la vista actual; la fuente persistente es Supabase.
       try {
@@ -4340,20 +4397,12 @@
           ...r,
           date: normalizeDate(r.date),
           time: normalizeTime(r.time),
+          archived: readDeliveryArchived(r),
         })) : [];
       } catch (_) {
         deliveries = [];
       }
-      deliveries.sort((a, b) => {
-        if (a.status !== b.status) return a.status === "pending" ? -1 : 1;
-        const da = a.date || "9999-99-99";
-        const db = b.date || "9999-99-99";
-        if (da !== db) return da.localeCompare(db);
-        const ta = a.time || "99:99";
-        const tb = b.time || "99:99";
-        if (ta !== tb) return ta.localeCompare(tb);
-        return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
-      });
+      deliveries.sort(compareDeliveriesDesc);
     }
 
     async function migrateLegacyLocalDataToSupabase() {
@@ -4426,9 +4475,11 @@
         id: String(r.id),
         date: normalizeDate(r.date),
         time: normalizeTime(r.time),
+        archived: readDeliveryArchived(r),
         items: normalizeDeliveryItems(r.items),
         payment: normalizeDeliveryPayment(r.payment || r.items),
       }));
+      deliveries.sort(compareDeliveriesDesc);
       try { sessionStorage.setItem(DELIV_KEY, JSON.stringify(deliveries)); } catch (_) {}
       renderDeliveries();
     }
@@ -4451,7 +4502,7 @@
         status: r.status === "done" ? "done" : "pending",
         date: normalizeDate(r.date) || null,
         time: normalizeTime(r.time) || null,
-        items: packDeliveryItems(r.items, r.payment),
+        items: packDeliveryItems(r.items, r.payment, r.archived === true),
         createdAt: r.createdAt || new Date().toISOString(),
         updatedAt: r.updatedAt || new Date().toISOString(),
       }));
@@ -4602,12 +4653,15 @@
         amountToReceive: method === "cash" && Number.isFinite(amount) && amount >= 0 ? amount : null, amountPaid: method === "cash" && Number.isFinite(amount) && amount >= 0 ? amount : null,
         totalToCharge: Number.isFinite(total) && total >= 0 ? total : null, changeToReturn: Number.isFinite(change) && change >= 0 ? change : null };
     }
-    function packDeliveryItems(items, payment) {
+    function packDeliveryItems(items, payment, archived) {
       let raw = items;
       if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch (_) { raw = null; } }
       const lines = (raw && !Array.isArray(raw) && Array.isArray(raw.lines)) ? raw.lines : raw;
       const pay = payment || (raw && !Array.isArray(raw) ? raw.payment : null);
-      return { lines: normalizeLineItems(lines, false), payment: normalizeDeliveryPayment(pay) };
+      const packed = { lines: normalizeLineItems(lines, false), payment: normalizeDeliveryPayment(pay) };
+      const keepArchived = archived === true || !!(raw && typeof raw === "object" && !Array.isArray(raw) && raw.archived === true);
+      if (keepArchived) packed.archived = true;
+      return packed;
     }
     function deliveryTotalOf(items) {
       return (items || []).reduce((sum, it) => {
@@ -5105,25 +5159,82 @@
       }
     }
 
+    function renderDelivHistorial(historyRows, q) {
+      const btn = document.getElementById("btnDelivHistorial");
+      const body = document.getElementById("delivHistorialBody");
+      const listEl = document.getElementById("delivHistorialList");
+      const countEl = document.getElementById("delivHistorialCount");
+      const all = historyRows || [];
+      const rows = all.filter((row) => {
+        if (!q) return true;
+        const when = formatWhen(row).toLowerCase();
+        return (row.name || "").toLowerCase().includes(q) || (row.date || "").includes(q) || (row.phone || "").toLowerCase().includes(q) || when.includes(q);
+      });
+      if (countEl) countEl.textContent = String(all.length);
+      if (btn) btn.setAttribute("aria-expanded", delivHistorialOpen ? "true" : "false");
+      if (body) body.hidden = !delivHistorialOpen;
+      if (!listEl) return;
+      if (!rows.length) {
+        listEl.innerHTML = `<div class="empty"><strong>${all.length === 0 ? "Sin entregas en el historial" : "Sin resultados"}</strong>${all.length === 0 ? "Las entregas que elimines de la lista se acumulan aquí." : "Prueba con otro nombre o fecha."}</div>`;
+        return;
+      }
+      listEl.innerHTML = rows.map((row) => {
+        const when = formatWhen(row) || "Sin fecha";
+        return `<article class="deliv-hist-row" data-id="${escapeHtml(row.id)}">
+          <div class="deliv-hist-main">
+            <strong>${escapeHtml(row.name || "")}</strong>
+            <span>${escapeHtml(when)}</span>
+          </div>
+          <button type="button" class="danger" data-deliv-hist="delete">Eliminar</button>
+        </article>`;
+      }).join("");
+    }
+    function setDelivDeleteDialog(mode, row) {
+      const title = del.deleteOverlay ? del.deleteOverlay.querySelector("h2") : null;
+      const ok = document.getElementById("btnDelivDeleteOk");
+      pendingDelivDelete = row;
+      pendingDelivDeleteMode = mode === "purge" ? "purge" : "archive";
+      if (pendingDelivDeleteMode === "purge") {
+        if (title) title.textContent = "Eliminar del historial";
+        if (ok) ok.textContent = "Eliminar";
+        del.deleteText.textContent = row.status === "done"
+          ? "Se eliminará permanentemente a " + row.name + " del historial. La venta histórica y el inventario se conservarán."
+          : "Se eliminará permanentemente a " + row.name + " del historial. Esta acción no se puede deshacer.";
+      } else {
+        if (title) title.textContent = "Mover al historial";
+        if (ok) ok.textContent = "Mover al historial";
+        del.deleteText.textContent = "Se moverá a " + row.name + " al historial de entregas. No se elimina de forma permanente"
+          + (row.status === "done" ? " y el cobro de gasolina se conserva." : ".");
+      }
+      del.deleteOverlay.classList.add("open");
+    }
+    function resetDelivDeleteDialog() {
+      const title = del.deleteOverlay ? del.deleteOverlay.querySelector("h2") : null;
+      const ok = document.getElementById("btnDelivDeleteOk");
+      if (title) title.textContent = "Eliminar contacto";
+      if (ok) ok.textContent = "Eliminar";
+      pendingDelivDeleteMode = "archive";
+    }
     function renderDeliveries() {
       loadDelivStore();
       renderGasTank();
-      const pending = deliveries.filter((r) => r.status === "pending").length;
-      const done = deliveries.filter((r) => r.status === "done").length;
+      const activeDeliveries = deliveries.filter((r) => !isDeliveryArchived(r));
+      const historyDeliveries = deliveries.filter((r) => isDeliveryArchived(r));
+      const pending = activeDeliveries.filter((r) => r.status === "pending").length;
+      const done = activeDeliveries.filter((r) => r.status === "done").length;
       if (del.status) {
         del.status.textContent = pending + " pendiente" + (pending === 1 ? "" : "s") + " · " + done + " realizada" + (done === 1 ? "" : "s");
       }
       const q = (del.search && del.search.value || "").trim().toLowerCase();
-      const list = deliveries.filter((row) => {
+      const list = activeDeliveries.filter((row) => {
         if (delivFilter !== "all" && row.status !== delivFilter) return false;
         if (!q) return true;
         return (row.name || "").toLowerCase().includes(q) || (row.phone || "").toLowerCase().includes(q) || (row.address || "").toLowerCase().includes(q) || (row.date || "").includes(q) || (row.time || "").includes(q) || formatWhen(row).toLowerCase().includes(q);
       });
-      if (!del.grid) return;
+      if (del.grid) {
       if (!list.length) {
-        del.grid.innerHTML = `<div class="empty"><strong>${deliveries.length === 0 ? "Sin contactos aún" : "Sin resultados"}</strong>${deliveries.length === 0 ? "Agrega el primer contacto de entrega a domicilio." : "Prueba con otro filtro o búsqueda."}</div>`;
-        return;
-      }
+        del.grid.innerHTML = `<div class="empty"><strong>${activeDeliveries.length === 0 ? "Sin contactos aún" : "Sin resultados"}</strong>${activeDeliveries.length === 0 ? "Agrega el primer contacto de entrega a domicilio." : "Prueba con otro filtro o búsqueda."}</div>`;
+      } else {
       del.grid.innerHTML = list.map((row) => {
         const call = phoneHref(row.phone);
         const wa = whatsappHref(row.phone);
@@ -5171,6 +5282,9 @@
           </div>
         </article>`;
       }).join("");
+      }
+      }
+      renderDelivHistorial(historyDeliveries, q);
     }
 
     function setDelivPin(lat, lng, label) {
@@ -5904,48 +6018,66 @@
         })();
       }
       if (action === "delete") {
-        pendingDelivDelete = row;
-        del.deleteText.textContent = row.status === "done"
-          ? "Se quitará a " + row.name + " de la lista de entregas. La venta histórica y el inventario se conservarán."
-          : "Se quitará a " + row.name + " de la lista de entregas. Como aún está pendiente, el stock del catálogo no se modifica.";
-        del.deleteOverlay.classList.add("open");
+        setDelivDeleteDialog("archive", row);
       }
     });
+    const delivHistorialList = document.getElementById("delivHistorialList");
+    if (delivHistorialList) {
+      delivHistorialList.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-deliv-hist='delete']");
+        if (!btn) return;
+        const card = btn.closest("[data-id]");
+        const id = card && card.getAttribute("data-id");
+        const row = deliveries.find((r) => r.id === id && isDeliveryArchived(r));
+        if (!row) return;
+        setDelivDeleteDialog("purge", row);
+      });
+    }
+    const btnDelivHistorial = document.getElementById("btnDelivHistorial");
+    if (btnDelivHistorial) {
+      btnDelivHistorial.addEventListener("click", () => {
+        delivHistorialOpen = !delivHistorialOpen;
+        const body = document.getElementById("delivHistorialBody");
+        btnDelivHistorial.setAttribute("aria-expanded", delivHistorialOpen ? "true" : "false");
+        if (body) body.hidden = !delivHistorialOpen;
+      });
+    }
     document.getElementById("btnDelivDeleteCancel").addEventListener("click", () => {
       pendingDelivDelete = null;
+      resetDelivDeleteDialog();
       del.deleteOverlay.classList.remove("open");
     });
     document.getElementById("btnDelivDeleteOk").addEventListener("click", async () => {
       if (pendingDelivDelete) {
-        loadSalesStore();
-
         const rowToDelete = pendingDelivDelete;
-        const deletedDeliveryId = rowToDelete.id;
-        const wasDone = rowToDelete.status === "done";
-        const items = normalizeLineItems(rowToDelete.items, false);
-
-        if (!wasDone) {
-          // Entrega pendiente: el stock aún no se descontó (solo se descuenta al realizar).
-          // Al eliminarla, no hay inventario que devolver; solo se limpia venta huérfana si existiera.
-          await removeDeliverySale(deletedDeliveryId);
+        const mode = pendingDelivDeleteMode === "purge" ? "purge" : "archive";
+        if (mode === "archive") {
+          rowToDelete.archived = true;
+          rowToDelete.updatedAt = new Date().toISOString();
+          const saved = await saveDelivStore();
+          if (!saved) return;
+          delivHistorialOpen = true;
+          toast("Entrega movida al historial");
         } else {
-          // Entrega realizada: es una operación cerrada.
-          // Al eliminar SOLO la entrega, se conserva la venta histórica
-          // y el stock NO se regresa al catálogo.
+          loadSalesStore();
+          const deletedDeliveryId = rowToDelete.id;
+          const wasDone = rowToDelete.status === "done";
+          if (!wasDone) {
+            await removeDeliverySale(deletedDeliveryId);
+          }
+          deliveries = deliveries.filter((r) => r.id !== deletedDeliveryId);
+          const deleted = await deleteDeliveryFromSupabase(deletedDeliveryId);
+          if (!deleted) return;
+          await saveDelivStore();
+          renderSales();
+          toast(wasDone
+            ? "Entrega eliminada · venta e inventario conservados"
+            : "Entrega eliminada");
         }
-
-        deliveries = deliveries.filter((r) => r.id !== deletedDeliveryId);
-        const deleted = await deleteDeliveryFromSupabase(deletedDeliveryId);
-        if (!deleted) return;
-
-        await saveDelivStore();
-        renderSales();
-        toast(wasDone
-          ? "Entrega eliminada · venta e inventario conservados"
-          : "Entrega eliminada");
       }
 
       pendingDelivDelete = null;
+      resetDelivDeleteDialog();
       del.deleteOverlay.classList.remove("open");
       renderDeliveries();
     });
@@ -5961,6 +6093,7 @@
       if (e.key !== "Escape") return;
       if (del.deleteOverlay.classList.contains("open")) {
         pendingDelivDelete = null;
+        resetDelivDeleteDialog();
         del.deleteOverlay.classList.remove("open");
       } else if (del.overlay.classList.contains("open")) closeDelivForm();
       else if (document.getElementById("saleDeleteOverlay") && document.getElementById("saleDeleteOverlay").classList.contains("open")) {
