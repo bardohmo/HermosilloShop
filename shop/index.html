@@ -1098,15 +1098,17 @@
       margin:0 0 14px;padding:12px 14px;border-radius:16px;
       border:1px solid rgba(0,245,255,.28);background:rgba(8,12,28,.72);box-shadow:var(--shadow);
     }
-    .gas-tank-copy{display:grid;gap:4px;min-width:0}
+    .gas-tank-copy{display:grid;gap:4px;min-width:0;justify-items:start}
     .gas-tank-copy strong{font-size:.95rem;color:var(--text)}
     .gas-tank-copy span{color:var(--muted);font-size:.82rem;font-variant-numeric:tabular-nums}
-    .gas-tank{width:54px;flex:0 0 auto}
-    .gas-tank-cap{width:16px;height:8px;margin:0 auto 2px;border-radius:3px 3px 0 0;background:#243044;border:1px solid rgba(0,245,255,.5);border-bottom:0}
-    .gas-tank-body{position:relative;height:66px;border-radius:8px 8px 12px 12px;border:2px solid rgba(0,245,255,.55);background:rgba(0,0,0,.4);overflow:hidden;box-shadow:inset 0 0 12px rgba(0,0,0,.5)}
-    .gas-tank-fill{position:absolute;left:0;right:0;bottom:0;height:0%;background:linear-gradient(180deg,#ffe14a,#f5a524 55%,#d97706);box-shadow:0 0 12px rgba(245,165,36,.45);transition:height .35s ease}
-    .gas-tank-fill.is-full{height:100%;background:linear-gradient(180deg,#fff1a8,#ffb703 42%,#fb8500);box-shadow:0 0 16px rgba(255,183,3,.7)}
-    .gas-tank-body::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(255,255,255,.16),transparent 30%,transparent 72%,rgba(255,255,255,.08));pointer-events:none}
+    .gas-use-btn{
+      margin-top:4px;min-height:34px;padding:6px 12px;border-radius:999px;cursor:pointer;
+      border:1px solid rgba(245,165,36,.65);background:rgba(245,165,36,.14);
+      color:#ffe7a3;font:inherit;font-size:.78rem;font-weight:700;
+    }
+    .gas-tank{width:104px;height:80px;flex:0 0 auto}
+    .gas-tank-svg{width:100%;height:100%;display:block;overflow:visible}
+    .gas-tank-fill{transition:height .35s ease, y .35s ease}
     @media (max-width:640px) { .delivery-payment-grid { grid-template-columns:1fr; } }
     .sale-total-box {
       display: grid; gap: 10px; padding: 12px; border-radius: 14px;
@@ -2038,10 +2040,32 @@
         <div class="gas-tank-copy">
           <strong>Tanque de gasolina</strong>
           <span id="gasTankMeta">0 tanques llenos · 0 / 200</span>
+          <button type="button" class="gas-use-btn" id="btnUseGas">Usar gasolina</button>
         </div>
         <div class="gas-tank" aria-hidden="true">
-          <div class="gas-tank-cap"></div>
-          <div class="gas-tank-body"><div class="gas-tank-fill" id="gasTankFill"></div></div>
+          <svg class="gas-tank-svg" viewBox="0 0 108 82">
+            <defs>
+              <linearGradient id="gasFuelGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#ffe14a"/>
+                <stop offset="0.55" stop-color="#f5a524"/>
+                <stop offset="1" stop-color="#d97706"/>
+              </linearGradient>
+              <linearGradient id="gasFuelFull" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#fff1a8"/>
+                <stop offset="0.42" stop-color="#ffb703"/>
+                <stop offset="1" stop-color="#fb8500"/>
+              </linearGradient>
+              <clipPath id="gasTankClip">
+                <path d="M44 28H24C12 28 8 38 8 48v14c0 12 10 16 24 16h46c16 0 24-6 24-18V48c0-10-6-20-18-20H64V20c0-6-4-9-10-9h-2c-6 0-8 3-8 9v8z"/>
+              </clipPath>
+            </defs>
+            <path d="M44 28H24C12 28 8 38 8 48v14c0 12 10 16 24 16h46c16 0 24-6 24-18V48c0-10-6-20-18-20H64V20c0-6-4-9-10-9h-2c-6 0-8 3-8 9v8z" fill="#0c121c"/>
+            <rect id="gasTankFill" class="gas-tank-fill" x="6" y="76" width="96" height="0" clip-path="url(#gasTankClip)" fill="url(#gasFuelGrad)"/>
+            <path d="M44 28H24C12 28 8 38 8 48v14c0 12 10 16 24 16h46c16 0 24-6 24-18V48c0-10-6-20-18-20H64V20c0-6-4-9-10-9h-2c-6 0-8 3-8 9v8z" fill="none" stroke="#243044" stroke-width="3.5" stroke-linejoin="round"/>
+            <path d="M22 46c10-10 22-12 34-8" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="3" stroke-linecap="round"/>
+            <rect x="45" y="2" width="16" height="10" rx="3" fill="#1b2433" stroke="#243044" stroke-width="2.5"/>
+            <path d="M61 5h16c3.4 0 5.2 1.7 5.2 3.4S80.4 12 77 12H61" fill="#1b2433" stroke="#243044" stroke-width="2.4" stroke-linejoin="round"/>
+          </svg>
         </div>
       </section>
       <div class="toolbar">
@@ -2512,6 +2536,22 @@
     const SHOP_STATE_PATH = "app-state/shop-state.json";
     let shopStatePushTimer = 0;
 
+    function readGasUsedBaseline() {
+      try {
+        const n = Number(localStorage.getItem("hs_gas_used_baseline_v1"));
+        return Number.isFinite(n) && n > 0 ? n : 0;
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    function writeGasUsedBaseline(value) {
+      const n = Number(value);
+      const next = Math.max(readGasUsedBaseline(), Number.isFinite(n) && n > 0 ? n : 0);
+      try { localStorage.setItem("hs_gas_used_baseline_v1", String(next)); } catch (_) {}
+      return next;
+    }
+
     function readShopStateLocal() {
       let categories = [];
       let article_categories = {};
@@ -2528,7 +2568,7 @@
         const i = JSON.parse(localStorage.getItem("hs_investments_v1") || "[]");
         if (Array.isArray(i)) investments = i;
       } catch (_) {}
-      return { categories, article_categories, investments, updatedAt: new Date().toISOString() };
+      return { categories, article_categories, investments, gasUsedBaseline: readGasUsedBaseline(), updatedAt: new Date().toISOString() };
     }
 
     function writeShopStateLocal(state, { silent } = {}) {
@@ -2544,6 +2584,7 @@
         if (Array.isArray(state.investments)) {
           localStorage.setItem("hs_investments_v1", JSON.stringify(state.investments));
         }
+        if (state.gasUsedBaseline != null && state.gasUsedBaseline !== "") writeGasUsedBaseline(state.gasUsedBaseline);
       } catch (err) {
         console.warn("writeShopStateLocal", err);
       }
@@ -2600,21 +2641,28 @@
       if (!supabaseClient) return;
       const local = readShopStateLocal();
       const cloud = await pullShopStateFromCloud();
+      const localBaseline = readGasUsedBaseline();
+      const cloudBaselineNum = Number(cloud && cloud.gasUsedBaseline);
+      const cloudBaseline = Number.isFinite(cloudBaselineNum) && cloudBaselineNum > 0 ? cloudBaselineNum : 0;
+      const gasUsedBaseline = Math.max(localBaseline, cloudBaseline);
       const localHas =
         (local.categories && local.categories.length) ||
         (local.investments && local.investments.length) ||
-        (local.article_categories && Object.keys(local.article_categories).length);
+        (local.article_categories && Object.keys(local.article_categories).length) ||
+        localBaseline > 0;
       const cloudHas =
         cloud &&
         ((Array.isArray(cloud.categories) && cloud.categories.length) ||
           (Array.isArray(cloud.investments) && cloud.investments.length) ||
-          (cloud.article_categories && Object.keys(cloud.article_categories).length));
+          (cloud.article_categories && Object.keys(cloud.article_categories).length) ||
+          cloudBaseline > 0);
 
       if (cloudHas) {
         const merged = {
           categories: Array.isArray(cloud.categories) ? cloud.categories.slice() : [],
           article_categories: Object.assign({}, cloud.article_categories || {}),
           investments: Array.isArray(cloud.investments) ? cloud.investments.slice() : [],
+          gasUsedBaseline,
           updatedAt: new Date().toISOString(),
         };
         if (localHas) {
@@ -2641,6 +2689,7 @@
       } else if (localHas) {
         await pushShopStateToCloud(local);
       }
+      try { renderGasTank(); } catch (_) {}
     }
 
     window.schedulePushShopState = schedulePushShopState;
@@ -3484,7 +3533,8 @@
           shop_state: {
             categories: categoriesExport,
             article_categories: categoryMap,
-            investments: Array.isArray(investmentHistory) ? investmentHistory : []
+            investments: Array.isArray(investmentHistory) ? investmentHistory : [],
+            gasUsedBaseline: readGasUsedBaseline()
           }
         };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -4593,10 +4643,14 @@
     function deliveryGasAmount(row) {
       return normalizeDeliveryPayment(row && (row.payment || row.items)).deliveryFee || 0;
     }
-    function gasTankPesos() {
+    function gasTankGrossPesos() {
       const fromDel = (deliveries || []).reduce((sum, row) => sum + deliveryGasAmount(row), 0);
       const fromSales = (sales || []).reduce((sum, row) => sum + saleGasAmount(row), 0);
       return fromDel + fromSales;
+    }
+    function gasTankPesos() {
+      const net = gasTankGrossPesos() - readGasUsedBaseline();
+      return net > 0.001 ? net : 0;
     }
     function renderGasTank() {
       const fill = document.getElementById("gasTankFill");
@@ -4608,11 +4662,30 @@
       const fullTanks = Math.floor(total / 200);
       const remainder = total % 200;
       const pct = total <= 0 ? 0 : (remainder === 0 ? 100 : (remainder / 200) * 100);
-      fill.style.height = pct + "%";
-      fill.classList.toggle("is-full", total > 0 && remainder === 0);
+      const fuelTop = 14;
+      const fuelBottom = 76;
+      const h = ((fuelBottom - fuelTop) * pct) / 100;
+      fill.setAttribute("y", String(fuelBottom - h));
+      fill.setAttribute("height", String(h));
+      const full = total > 0 && remainder === 0;
+      fill.classList.toggle("is-full", full);
+      fill.setAttribute("fill", full ? "url(#gasFuelFull)" : "url(#gasFuelGrad)");
       const pesos = Math.abs(remainder - Math.round(remainder)) < 0.001 ? String(Math.round(remainder)) : remainder.toFixed(2);
       const tankLabel = fullTanks === 1 ? "tanque lleno" : "tanques llenos";
-      meta.textContent = fullTanks + " " + tankLabel + (remainder > 0 ? " · " + pesos + " / 200" : "");
+      const showRemainder = remainder > 0 || total <= 0;
+      meta.textContent = fullTanks + " " + tankLabel + (showRemainder ? " · " + pesos + " / 200" : "");
+    }
+    const btnUseGas = document.getElementById("btnUseGas");
+    if (btnUseGas && !btnUseGas.dataset.bound) {
+      btnUseGas.dataset.bound = "1";
+      btnUseGas.addEventListener("click", () => {
+        if (!confirm("¿Quieres usar gasolina?")) return;
+        loadDelivStore();
+        loadSalesStore();
+        writeGasUsedBaseline(gasTankGrossPesos());
+        try { schedulePushShopState(); } catch (_) {}
+        renderGasTank();
+      });
     }
     function saleItemsAndGas(rawItems, rawRow) {
       const wrapped = rawItems && typeof rawItems === "object" && !Array.isArray(rawItems) && Array.isArray(rawItems.lines);
