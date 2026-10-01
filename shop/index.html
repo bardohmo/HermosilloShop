@@ -1092,6 +1092,21 @@
     .deliv-payment-summary { display:flex; flex-wrap:wrap; gap:7px 12px; align-items:center; margin-top:8px; padding:9px 11px; border-radius:12px; border:1px solid rgba(0,245,255,.12); background:rgba(0,0,0,.18); color:var(--muted); font-size:.78rem; }
     .deliv-payment-summary strong { color:var(--text); }
     .deliv-payment-summary .change { color:var(--ok); }
+
+    .gas-tank-card{
+      display:flex;align-items:center;justify-content:space-between;gap:16px;
+      margin:0 0 14px;padding:12px 14px;border-radius:16px;
+      border:1px solid rgba(0,245,255,.28);background:rgba(8,12,28,.72);box-shadow:var(--shadow);
+    }
+    .gas-tank-copy{display:grid;gap:4px;min-width:0}
+    .gas-tank-copy strong{font-size:.95rem;color:var(--text)}
+    .gas-tank-copy span{color:var(--muted);font-size:.82rem;font-variant-numeric:tabular-nums}
+    .gas-tank{width:54px;flex:0 0 auto}
+    .gas-tank-cap{width:16px;height:8px;margin:0 auto 2px;border-radius:3px 3px 0 0;background:#243044;border:1px solid rgba(0,245,255,.5);border-bottom:0}
+    .gas-tank-body{position:relative;height:66px;border-radius:8px 8px 12px 12px;border:2px solid rgba(0,245,255,.55);background:rgba(0,0,0,.4);overflow:hidden;box-shadow:inset 0 0 12px rgba(0,0,0,.5)}
+    .gas-tank-fill{position:absolute;left:0;right:0;bottom:0;height:0%;background:linear-gradient(180deg,#ffe14a,#f5a524 55%,#d97706);box-shadow:0 0 12px rgba(245,165,36,.45);transition:height .35s ease}
+    .gas-tank-fill.is-full{height:100%;background:linear-gradient(180deg,#fff1a8,#ffb703 42%,#fb8500);box-shadow:0 0 16px rgba(255,183,3,.7)}
+    .gas-tank-body::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(255,255,255,.16),transparent 30%,transparent 72%,rgba(255,255,255,.08));pointer-events:none}
     @media (max-width:640px) { .delivery-payment-grid { grid-template-columns:1fr; } }
     .sale-total-box {
       display: grid; gap: 10px; padding: 12px; border-radius: 14px;
@@ -2019,6 +2034,16 @@
         <span class="status-dot ok"></span>
         <span id="delivStatus">0 pendientes · 0 realizadas</span>
       </div>
+      <section class="gas-tank-card" id="gasTankCard" aria-label="Tanque de gasolina">
+        <div class="gas-tank-copy">
+          <strong>Tanque de gasolina</strong>
+          <span id="gasTankMeta">0% · 0 / 200</span>
+        </div>
+        <div class="gas-tank" aria-hidden="true">
+          <div class="gas-tank-cap"></div>
+          <div class="gas-tank-body"><div class="gas-tank-fill" id="gasTankFill"></div></div>
+        </div>
+      </section>
       <div class="toolbar">
         <div class="search">
           <input type="search" id="delivSearch" placeholder="Buscar por nombre, celular o dirección..." autocomplete="off" />
@@ -2314,6 +2339,12 @@
             <div class="sale-total" id="saleFormTotal">Total a registrar: $0.00</div>
           </div>
         </div>
+        <label class="payment-field" id="saleGasField">
+          <span>¿Cuánto voy a cobrar de gasolina?</span>
+          <select id="saleGasFee" aria-label="¿Cuánto voy a cobrar de gasolina?">
+            <option value="0">$0 · Gratis</option><option value="20">$20</option><option value="30">$30</option><option value="40">$40</option><option value="50">$50</option>
+          </select>
+        </label>
         <div class="modal-actions">
           <button type="button" class="ghost" id="btnSaleCancel">Cancelar</button>
           <button type="submit" class="primary" id="btnSaleSave">Guardar venta</button>
@@ -4298,7 +4329,8 @@
           const parsed = JSON.parse(oldSaleRaw);
           if (Array.isArray(parsed) && parsed.length) {
             sales = parsed.filter((r) => r && r.id).map((r) => {
-              const items = normalizeLineItems(r.items, true);
+              const packed = saleItemsAndGas(r.items, r);
+              const items = packed.items;
               return {
                 id: String(r.id),
                 date: normalizeDate(r.date) || todayIso(),
@@ -4306,6 +4338,7 @@
                 deliveryId: r.deliveryId ? String(r.deliveryId) : null,
                 customer: String(r.customer || "").slice(0, 80),
                 items,
+                payment: packed.payment,
                 total: Number.isFinite(Number(r.total)) ? Number(r.total) : saleTotalOf(items),
                 customTotal: Boolean(r.customTotal),
                 createdAt: r.createdAt || new Date().toISOString(),
@@ -4542,12 +4575,56 @@
       const d = new Date();
       return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
     }
+
+    function allowedGasFee(value) {
+      const fee = Number(value);
+      return [0, 20, 30, 40, 50].includes(fee) ? fee : 0;
+    }
+    function saleGasAmount(row) {
+      if (!row) return 0;
+      if (row.payment && (row.payment.deliveryFee != null || row.payment.fee != null)) {
+        return allowedGasFee(row.payment.deliveryFee ?? row.payment.fee);
+      }
+      if (row.deliveryFee != null) return allowedGasFee(row.deliveryFee);
+      const wrapped = row.items && typeof row.items === "object" && !Array.isArray(row.items) ? row.items.payment : null;
+      if (wrapped) return allowedGasFee(wrapped.deliveryFee ?? wrapped.fee);
+      return 0;
+    }
+    function deliveryGasAmount(row) {
+      return normalizeDeliveryPayment(row && (row.payment || row.items)).deliveryFee || 0;
+    }
+    function gasTankPesos() {
+      const fromDel = (deliveries || []).reduce((sum, row) => sum + deliveryGasAmount(row), 0);
+      const fromSales = (sales || []).reduce((sum, row) => sum + saleGasAmount(row), 0);
+      return fromDel + fromSales;
+    }
+    function renderGasTank() {
+      const fill = document.getElementById("gasTankFill");
+      const meta = document.getElementById("gasTankMeta");
+      if (!fill || !meta) return;
+      loadDelivStore();
+      loadSalesStore();
+      const total = gasTankPesos();
+      const pct = total <= 0 ? 0 : Math.min(100, (total / 200) * 100);
+      fill.style.height = pct + "%";
+      fill.classList.toggle("is-full", total >= 200);
+      const pesos = Math.abs(total - Math.round(total)) < 0.001 ? String(Math.round(total)) : total.toFixed(2);
+      meta.textContent = Math.round(pct) + "% · " + pesos + " / 200";
+    }
+    function saleItemsAndGas(rawItems, rawRow) {
+      const wrapped = rawItems && typeof rawItems === "object" && !Array.isArray(rawItems) && Array.isArray(rawItems.lines);
+      const items = normalizeLineItems(wrapped ? rawItems.lines : rawItems, true);
+      const fee = saleGasAmount(rawRow || { items: rawItems });
+      return { items, payment: normalizeDeliveryPayment({ deliveryFee: fee }) };
+    }
+
     function loadSalesStore() {
       try {
         const raw = sessionStorage.getItem(SALES_KEY);
         const parsed = raw ? JSON.parse(raw) : [];
         sales = Array.isArray(parsed) ? parsed.filter((r) => r && r.id).map((r) => {
-          const items = normalizeLineItems(r.items, true);
+          const packed = saleItemsAndGas(r.items, r);
+          const items = packed.items;
           return {
             id: String(r.id),
             date: normalizeDate(r.date) || todayIso(),
@@ -4555,6 +4632,7 @@
             deliveryId: r.deliveryId ? String(r.deliveryId) : null,
             customer: String(r.customer || "").slice(0, 80),
             items,
+            payment: packed.payment,
             total: Number.isFinite(Number(r.total)) ? Number(r.total) : saleTotalOf(items),
             customTotal: r.customTotal === true || (Number.isFinite(Number(r.total)) && Math.abs(Number(r.total) - saleTotalOf(items)) > 0.009),
             createdAt: r.createdAt || "",
@@ -4577,7 +4655,8 @@
         return;
       }
       sales = (data || []).filter((r) => r && r.id).map((r) => {
-        const items = normalizeLineItems(r.items, true);
+        const packed = saleItemsAndGas(r.items, r);
+        const items = packed.items;
         return {
           id: String(r.id),
           date: normalizeDate(r.date) || todayIso(),
@@ -4585,6 +4664,7 @@
           deliveryId: r.deliveryId ? String(r.deliveryId) : null,
           customer: String(r.customer || "").slice(0, 80),
           items,
+          payment: packed.payment,
           total: Number.isFinite(Number(r.total)) ? Number(r.total) : saleTotalOf(items),
           customTotal: Boolean(r.customTotal),
           createdAt: r.createdAt || "",
@@ -4602,18 +4682,23 @@
         toast("Sin conexión a Supabase: la venta no se guardó en la nube");
         return false;
       }
-      const rows = sales.map((s) => ({
+      try { sessionStorage.setItem(SALES_KEY, JSON.stringify(sales)); } catch (_) {}
+      const rows = sales.map((s) => {
+        const fee = saleGasAmount(s);
+        const lines = normalizeLineItems(s.items, true);
+        return {
         id: String(s.id),
         date: normalizeDate(s.date) || todayIso(),
         source: s.source === "delivery" ? "delivery" : "manual",
         deliveryId: s.deliveryId ? String(s.deliveryId) : null,
         customer: String(s.customer || "").slice(0, 80),
-        items: normalizeLineItems(s.items, true),
+        items: fee ? { lines, payment: normalizeDeliveryPayment({ deliveryFee: fee }) } : lines,
         total: Number(s.total) || 0,
         customTotal: Boolean(s.customTotal),
         createdAt: s.createdAt || new Date().toISOString(),
         updatedAt: s.updatedAt || new Date().toISOString(),
-      }));
+      };
+      });
       if (!rows.length) return true;
       const { error } = await supabaseClient.from("sales").upsert(rows, { onConflict: "id" });
       if (error) {
@@ -4707,6 +4792,7 @@
         deliveryId: row.id,
         customer: row.name || "",
         items,
+        payment: prev && prev.payment ? normalizeDeliveryPayment(prev.payment) : normalizeDeliveryPayment({ deliveryFee: 0 }),
         total: (() => { const p = normalizeDeliveryPayment(row.payment); return p.totalToCharge != null ? p.totalToCharge : saleTotalOf(items) + p.deliveryFee; })(),
         customTotal: (() => { const p = normalizeDeliveryPayment(row.payment); return p.totalToCharge != null && Math.abs(p.totalToCharge - (saleTotalOf(items) + p.deliveryFee)) > 0.009; })(),
         createdAt: prev ? prev.createdAt : now,
@@ -4930,6 +5016,7 @@
 
     function renderDeliveries() {
       loadDelivStore();
+      renderGasTank();
       const pending = deliveries.filter((r) => r.status === "pending").length;
       const done = deliveries.filter((r) => r.status === "done").length;
       if (del.status) {
@@ -5844,6 +5931,7 @@
       customOn: document.getElementById("saleCustomOn"),
       customField: document.getElementById("saleCustomField"),
       customTotal: document.getElementById("saleCustomTotal"),
+      gasFee: document.getElementById("saleGasFee"),
       grid: document.getElementById("saleGrid"),
       search: document.getElementById("saleSearch"),
       viewMode: document.getElementById("saleViewMode"),
@@ -6190,6 +6278,7 @@
     }
     function renderSales() {
       loadSalesStore();
+      renderGasTank();
       const inYear = sales.filter((s) => s.date.startsWith(String(saleYear) + "-"));
       const total = inYear.reduce((s, r) => s + r.total, 0);
       if (saleEls.status) saleEls.status.textContent = inYear.length + " venta" + (inYear.length === 1 ? "" : "s") + " en " + saleYear + " · " + money(total);
@@ -6266,6 +6355,7 @@
       const isCustom = Boolean(row && row.customTotal);
       if (saleEls.customOn) saleEls.customOn.checked = isCustom;
       if (saleEls.customTotal) saleEls.customTotal.value = isCustom ? String(row.total) : (computed || "");
+      if (saleEls.gasFee) saleEls.gasFee.value = String(saleGasAmount(row));
       saleEls.overlay.classList.add("open");
       renderSaleItemsUI();
     }
@@ -6421,6 +6511,7 @@
               : null,
             customer: (saleEls.customer.value || "").trim().slice(0, 80),
             items: prepareSaleItemsWithCost(saleFormItems, prev ? prev.items : []),
+            payment: normalizeDeliveryPayment({ deliveryFee: saleEls.gasFee ? Number(saleEls.gasFee.value) : 0 }),
             total: 0,
             createdAt: prev ? prev.createdAt : now,
             updatedAt: now,
