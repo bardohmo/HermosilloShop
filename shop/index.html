@@ -7665,7 +7665,41 @@
   $("investmentCancelBtn")?.addEventListener("click",closeEdit);
   $("investmentOverlay")?.addEventListener("click",e=>{if(e.target===$("investmentOverlay"))closeEdit()});
   $("investmentForm")?.addEventListener("submit",e=>{e.preventDefault();if(!editingId)return;if(typeof requireEdit==="function"&&!requireEdit())return;const r=records.find(x=>x.id===editingId);if(!r)return;r.date=$("investmentDate").value;r.time=$("investmentTime").value;r.name=$("investmentName").value.trim();r.type=$("investmentType").value;r.qty=Math.max(0,Math.floor(Number($("investmentQty").value)||0));r.unitCost=Math.max(0,Number($("investmentUnitCost").value)||0);r.updatedAt=new Date().toISOString();write();closeEdit();render();if(typeof toast==="function")toast("Inversión actualizada")});
-  $("investmentGrid")?.addEventListener("click",e=>{const b=e.target.closest("[data-investment-action]");if(!b)return;const id=b.closest("[data-investment-id]")?.getAttribute("data-investment-id");if(!id)return;if(typeof requireEdit==="function"&&!requireEdit())return;if(b.dataset.investmentAction==="receive"){receiveIncoming(id);return;}if(b.dataset.investmentAction==="edit")openEdit(id);else if(confirm("¿Eliminar este movimiento del historial de inversiones?")){records=read().filter(r=>r.id!==id);write();render();if(typeof window.renderArticles==="function")window.renderArticles();if(typeof toast==="function")toast("Movimiento eliminado")}});
+  $("investmentGrid")?.addEventListener("click",async e=>{
+    const b=e.target.closest("[data-investment-action]");
+    if(!b)return;
+    const id=b.closest("[data-investment-id]")?.getAttribute("data-investment-id");
+    if(!id)return;
+    if(typeof requireEdit==="function"&&!requireEdit())return;
+    if(b.dataset.investmentAction==="receive"){receiveIncoming(id);return;}
+    if(b.dataset.investmentAction==="edit"){openEdit(id);return;}
+    if(b.dataset.investmentAction!=="delete")return;
+    records=read();
+    const r=records.find(x=>x.id===id);
+    if(!r)return;
+    const isReceived=r.type!=="out"&&r.status==="received"&&r.articleId&&(Number(r.qty)||0)>0;
+    const confirmMsg=isReceived
+      ?"¿Eliminar este movimiento? El stock que se sumó al catálogo al marcarlo Recibido se descontará."
+      :"¿Eliminar este movimiento del historial de inversiones?";
+    if(!confirm(confirmMsg))return;
+    if(isReceived){
+      if(typeof window.revertReceivedStock!=="function"){
+        if(typeof toast==="function") toast("No se pudo actualizar el catálogo");
+        return;
+      }
+      try{
+        await window.revertReceivedStock(r.articleId, r.qty, r.unitCost);
+      }catch(err){
+        if(typeof toast==="function") toast(err.message||"No se pudo descontar el stock");
+        return;
+      }
+    }
+    records=read().filter(x=>x.id!==id);
+    write();
+    render();
+    if(typeof window.renderArticles==="function")window.renderArticles();
+    if(typeof toast==="function")toast(isReceived?"Movimiento eliminado y stock descontado":"Movimiento eliminado");
+  });
   $("investmentAddBtn")?.addEventListener("click",()=>{
     if(typeof requireEdit==="function"&&!requireEdit())return;
     openAddPurchase();
