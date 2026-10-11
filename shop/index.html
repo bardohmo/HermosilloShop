@@ -3021,36 +3021,45 @@
       });
       return map;
     }
-    /** Meses calendario completos entre fromIso (YYYY-MM-DD) y hoy (fecha local). */
-    function fullMonthsSince(fromIso, today) {
+    /** Días de calendario (local, solo fecha) entre fromIso (YYYY-MM-DD) y hoy. */
+    function staleDaysSince(fromIso, today) {
       const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(fromIso || ""));
       if (!m) return 0;
-      const fy = Number(m[1]), fm = Number(m[2]) - 1, fd = Number(m[3]);
       const t = today instanceof Date ? today : new Date();
-      const ty = t.getFullYear(), tm = t.getMonth(), td = t.getDate();
-      let months = (ty - fy) * 12 + (tm - fm);
-      // Si el día aún no llega, el mes no está completo. Excepción: fin de mes
-      // (p. ej. 31 ene → 28/29 feb cuenta como 1 mes).
-      const lastDayThisMonth = new Date(ty, tm + 1, 0).getDate();
-      if (td < fd && !(td === lastDayThisMonth && fd > lastDayThisMonth)) months -= 1;
-      return Math.max(0, months);
+      const fromUtc = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      const toUtc = Date.UTC(t.getFullYear(), t.getMonth(), t.getDate());
+      return Math.max(0, Math.round((toUtc - fromUtc) / 86400000));
+    }
+    /** Meses de 30 días transcurridos: floor(días / 30). */
+    function staleMonthsSince(fromIso, today) {
+      return Math.floor(staleDaysSince(fromIso, today) / 30);
     }
     function staleSaleLabel(months) {
       const n = Math.floor(Number(months) || 0);
       if (n < 1) return "";
       return n + (n === 1 ? " mes" : " meses") + " sin venta";
     }
+    /** Fecha de referencia: última venta → primera llegada (Inversiones) → updated_at. */
+    function articleStaleRefDate(a, saleMap) {
+      if (!a) return "";
+      const map = saleMap || lastSaleDateMap();
+      const sold = map.get(String(a.id));
+      if (sold) return sold;
+      let arrival = "";
+      try { if (typeof window.earliestArrivalDateFor === "function") arrival = staleIsoDay(window.earliestArrivalDateFor(a.id) || ""); } catch (_) { arrival = ""; }
+      if (arrival) return arrival;
+      return staleIsoDay(a.updated_at || a.created_at || a.createdAt);
+    }
     function articleStaleMonths(a, saleMap, today) {
       if (!a || a.deleted || a.deleted_at) return 0;
-      const ref = saleMap.get(String(a.id)) || staleIsoDay(a.updated_at || a.created_at || a.createdAt);
-      return ref ? fullMonthsSince(ref, today) : 0;
+      return staleMonthsSince(articleStaleRefDate(a, saleMap), today);
     }
     let lastStaleSignature = "";
     function staleSignature() {
       const map = lastSaleDateMap();
       return Array.from(map.entries()).sort((x, y) => x[0].localeCompare(y[0])).map((e) => e[0] + ":" + e[1]).join("|");
     }
-    window.staleSaleHelpers = { fullMonthsSince, staleSaleLabel, lastSaleDateMap };
+    window.staleSaleHelpers = { staleDaysSince, staleMonthsSince, staleSaleLabel, lastSaleDateMap, articleStaleRefDate, articleStaleMonths };
 
     function render() {
       const list = filtered();
@@ -7421,7 +7430,21 @@
   const moneyInv=n=>new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",minimumFractionDigits:2}).format(Number(n)||0);
   const escInv=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
   const read=()=>{try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(_){return[]}};
-  const write=()=>{records.sort((a,b)=>String(b.date+" "+b.time).localeCompare(String(a.date+" "+a.time)));localStorage.setItem(KEY,JSON.stringify(records));try{if(typeof window.schedulePushShopState==="function")window.schedulePushShopState()}catch(_){}};
+  let staleRefreshTimer=null;
+  const refreshCatalogStale=()=>{clearTimeout(staleRefreshTimer);staleRefreshTimer=setTimeout(()=>{try{const v=document.getElementById("viewCatalog");if(v&&!v.hidden&&typeof window.renderArticles==="function")window.renderArticles()}catch(_){}},0)};
+  const write=()=>{records.sort((a,b)=>String(b.date+" "+b.time).localeCompare(String(a.date+" "+a.time)));localStorage.setItem(KEY,JSON.stringify(records));try{if(typeof window.schedulePushShopState==="function")window.schedulePushShopState()}catch(_){}refreshCatalogStale()};
+  /** Primera fecha (YYYY-MM-DD) de entrada/llegada registrada para un artículo; "" si no hay. */
+  let arrivalCacheRaw=null,arrivalCacheMap=null;
+  window.earliestArrivalDateFor=function(articleId){
+    const id=String(articleId??"").trim();if(!id)return"";
+    let raw="";try{raw=localStorage.getItem(KEY)||""}catch(_){raw=""}
+    if(raw!==arrivalCacheRaw||!arrivalCacheMap){
+      const map=new Map();
+      read().forEach(r=>{if(!r||r.type==="out")return;const rid=String(r.articleId||(r.articleSnapshot&&r.articleSnapshot.id)||"").trim();if(!rid)return;const m=/^(\d{4}-\d{2}-\d{2})/.exec(String(r.date||""));if(!m)return;const prev=map.get(rid);if(!prev||m[1]<prev)map.set(rid,m[1]);});
+      arrivalCacheRaw=raw;arrivalCacheMap=map;
+    }
+    return arrivalCacheMap.get(id)||"";
+  };
   const nowParts=()=>{const d=new Date();return{date:d.toISOString().slice(0,10),time:d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false})}};
   const total=r=>(Number(r.qty)||0)*(Number(r.unitCost)||0);
   const imgHtml=(url,name)=>url?'<img src="'+escInv(url)+'" alt="'+escInv(name)+'">':'<span aria-hidden="true">📦</span>';
