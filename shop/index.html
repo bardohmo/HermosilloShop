@@ -3057,6 +3057,8 @@
     }
     function articleStaleMonths(a, saleMap, today) {
       if (!a || a.deleted || a.deleted_at) return 0;
+      // Sin existencia (incluye pendiente de llegar con 0 en mano): no etiquetar.
+      if ((Number(a.stock) || 0) <= 0) return 0;
       return staleMonthsSince(articleStaleRefDate(a, saleMap), today);
     }
     let lastStaleSignature = "";
