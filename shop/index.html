@@ -371,6 +371,13 @@
       color: var(--text); font-weight: 600; font-size: 0.9rem;
     }
     .incoming-pending-check input { width: 18px; height: 18px; accent-color: var(--cyan); }
+    .stale-sale-chip {
+      align-self: flex-start; display: inline-block; margin-top: 1px;
+      padding: 1px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+      line-height: 1.5; letter-spacing: 0.01em; white-space: nowrap;
+      color: #ffc14d; background: rgba(255, 193, 77, 0.10); border: 1px solid rgba(255, 193, 77, 0.40);
+    }
+    .card.sold-out .stale-sale-chip { color: #999 !important; background: #242424 !important; border-color: #555 !important; }
     .incoming-note {
       margin-top: 6px; font-size: 0.78rem; color: #ffc14d; letter-spacing: 0.01em;
     }
@@ -2982,8 +2989,74 @@
       return result.filter((a) => a.name.toLowerCase().includes(q) || (a.description || "").toLowerCase().includes(q));
     }
 
+    /* ===== MESES SIN VENTA =====
+       Última venta por artículo = fecha (YYYY-MM-DD) más reciente de las ventas
+       cuyo renglón trae ese id con qty > 0. Si nunca se ha vendido, se usa
+       updated_at / created_at del artículo. Solo es una etiqueta: no toca
+       ventas, precios ni stock. */
+    function staleIsoDay(v) {
+      if (!v) return "";
+      const str = String(v).trim();
+      let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(str);
+      if (m && !/T|\s/.test(str.slice(10, 11))) return m[1] + "-" + m[2] + "-" + m[3];
+      const d = new Date(str);
+      if (!Number.isNaN(d.getTime())) {
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      }
+      return m ? m[1] + "-" + m[2] + "-" + m[3] : "";
+    }
+    function lastSaleDateMap() {
+      const map = new Map();
+      let list = [];
+      try { list = Array.isArray(sales) ? sales : []; } catch (_) { list = []; }
+      list.forEach((s) => {
+        const day = staleIsoDay(s && (s.date || s.createdAt || s.created_at));
+        if (!day) return;
+        (Array.isArray(s.items) ? s.items : []).forEach((it) => {
+          if (!it || it.id == null || !((Number(it.qty) || 0) > 0)) return;
+          const key = String(it.id);
+          const prev = map.get(key);
+          if (!prev || day > prev) map.set(key, day);
+        });
+      });
+      return map;
+    }
+    /** Meses calendario completos entre fromIso (YYYY-MM-DD) y hoy (fecha local). */
+    function fullMonthsSince(fromIso, today) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(fromIso || ""));
+      if (!m) return 0;
+      const fy = Number(m[1]), fm = Number(m[2]) - 1, fd = Number(m[3]);
+      const t = today instanceof Date ? today : new Date();
+      const ty = t.getFullYear(), tm = t.getMonth(), td = t.getDate();
+      let months = (ty - fy) * 12 + (tm - fm);
+      // Si el día aún no llega, el mes no está completo. Excepción: fin de mes
+      // (p. ej. 31 ene → 28/29 feb cuenta como 1 mes).
+      const lastDayThisMonth = new Date(ty, tm + 1, 0).getDate();
+      if (td < fd && !(td === lastDayThisMonth && fd > lastDayThisMonth)) months -= 1;
+      return Math.max(0, months);
+    }
+    function staleSaleLabel(months) {
+      const n = Math.floor(Number(months) || 0);
+      if (n < 1) return "";
+      return n + (n === 1 ? " mes" : " meses") + " sin venta";
+    }
+    function articleStaleMonths(a, saleMap, today) {
+      if (!a || a.deleted || a.deleted_at) return 0;
+      const ref = saleMap.get(String(a.id)) || staleIsoDay(a.updated_at || a.created_at || a.createdAt);
+      return ref ? fullMonthsSince(ref, today) : 0;
+    }
+    let lastStaleSignature = "";
+    function staleSignature() {
+      const map = lastSaleDateMap();
+      return Array.from(map.entries()).sort((x, y) => x[0].localeCompare(y[0])).map((e) => e[0] + ":" + e[1]).join("|");
+    }
+    window.staleSaleHelpers = { fullMonthsSince, staleSaleLabel, lastSaleDateMap };
+
     function render() {
       const list = filtered();
+      const staleMap = lastSaleDateMap();
+      const staleToday = new Date();
+      try { lastStaleSignature = staleSignature(); } catch (_) {}
       els.statCount.textContent = String(articles.length);
       els.statStock.textContent = String(articles.reduce((sum, a) => sum + (Number(a.stock) || 0), 0));
       const arriving = articles.reduce((sum, a) => sum + (typeof window.pendingQtyFor === "function" ? window.pendingQtyFor(a.id) : 0), 0);
@@ -3017,6 +3090,7 @@
           </div>
           <div class="card-body">
             <h3>${escapeHtml(a.name)}</h3>
+            ${(() => { const lbl = staleSaleLabel(articleStaleMonths(a, staleMap, staleToday)); return lbl ? `<span class="stale-sale-chip" title="Sin ventas registradas desde hace ${lbl.replace(" sin venta", "")}">${lbl}</span>` : ""; })()}
             <div class="price">${money(a.price)}</div>
             <div class="meta">Existencia: <strong style="color:var(--text)">${Number(a.stock) || 0}</strong></div>
             ${pendingIn > 0 ? `<div class="incoming-note">Pendiente de llegar: <strong>${pendingIn}</strong></div>` : ""}
@@ -6651,6 +6725,10 @@
     }
     function renderSales() {
       loadSalesStore();
+      try {
+        // Si cambió la última venta de algún artículo, refresca las etiquetas "N meses sin venta".
+        if (staleSignature() !== lastStaleSignature) setTimeout(() => { if (typeof window.renderArticles === "function") window.renderArticles(); }, 0);
+      } catch (_) {}
       renderGasTank();
       const inYear = sales.filter((s) => s.date.startsWith(String(saleYear) + "-"));
       const total = inYear.reduce((s, r) => s + r.total, 0);
