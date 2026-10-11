@@ -371,8 +371,13 @@
       color: var(--text); font-weight: 600; font-size: 0.9rem;
     }
     .incoming-pending-check input { width: 18px; height: 18px; accent-color: var(--cyan); }
+    .meta-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      min-width: 0;
+    }
+    .meta-row .meta { flex: 1; min-width: 0; }
     .stale-sale-chip {
-      align-self: flex-start; display: inline-block; margin-top: 1px;
+      flex: 0 0 auto; display: inline-block; margin-top: 0;
       padding: 1px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
       line-height: 1.5; letter-spacing: 0.01em; white-space: nowrap;
       color: #ffc14d; background: rgba(255, 193, 77, 0.10); border: 1px solid rgba(255, 193, 77, 0.40);
@@ -3099,9 +3104,11 @@
           </div>
           <div class="card-body">
             <h3>${escapeHtml(a.name)}</h3>
-            ${(() => { const lbl = staleSaleLabel(articleStaleMonths(a, staleMap, staleToday)); return lbl ? `<span class="stale-sale-chip" title="Sin ventas registradas desde hace ${lbl.replace(" sin venta", "")}">${lbl}</span>` : ""; })()}
             <div class="price">${money(a.price)}</div>
-            <div class="meta">Existencia: <strong style="color:var(--text)">${Number(a.stock) || 0}</strong></div>
+            <div class="meta-row">
+              <div class="meta">Existencia: <strong style="color:var(--text)">${Number(a.stock) || 0}</strong></div>
+              ${(() => { const lbl = staleSaleLabel(articleStaleMonths(a, staleMap, staleToday)); return lbl ? `<span class="stale-sale-chip" title="Sin ventas registradas desde hace ${lbl.replace(" sin venta", "")}">${lbl}</span>` : ""; })()}
+            </div>
             ${pendingIn > 0 ? `<div class="incoming-note">Pendiente de llegar: <strong>${pendingIn}</strong></div>` : ""}
             ${isUnlocked ? (() => {
               const hasPurchaseCost = a.purchase_price !== null && a.purchase_price !== undefined && String(a.purchase_price).trim() !== "" && Number(a.purchase_price) > 0;
