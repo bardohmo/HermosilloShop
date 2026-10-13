@@ -1169,6 +1169,7 @@
       border: 1px solid rgba(0,245,255,0.2); background: rgba(0,245,255,0.05);
     }
     .sale-total-box #saleItemsSum { color: var(--muted); font-size: 0.88rem; }
+    .sale-total-box #saleGasLine { color: var(--muted); font-size: 0.88rem; }
     .sale-custom-check { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 600; }
     .sale-custom-check input { width: 18px; height: 18px; accent-color: var(--cyan); }
     .sale-total { font-weight: 700; color: var(--cyan); font-size: 1.05rem; }
@@ -2431,8 +2432,15 @@
           <span>Artículos vendidos</span>
           <div id="saleItemsPicker" class="deliv-items-picker"></div>
           <div id="saleItemsSelected" class="deliv-items-selected"></div>
+          <label class="payment-field" id="saleGasField">
+            <span>¿Cuánto voy a cobrar de gasolina?</span>
+            <select id="saleGasFee" aria-label="¿Cuánto voy a cobrar de gasolina?">
+              <option value="0">$0 · Gratis</option><option value="20">$20</option><option value="30">$30</option><option value="40">$40</option><option value="50">$50</option>
+            </select>
+          </label>
           <div class="sale-total-box">
             <div id="saleItemsSum">Suma de artículos: $0.00</div>
+            <div id="saleGasLine" hidden>Gasolina: $0.00</div>
             <label class="sale-custom-check">
               <input type="checkbox" id="saleCustomOn" />
               Cobrar otro total
@@ -2444,12 +2452,6 @@
             <div class="sale-total" id="saleFormTotal">Total a registrar: $0.00</div>
           </div>
         </div>
-        <label class="payment-field" id="saleGasField">
-          <span>¿Cuánto voy a cobrar de gasolina?</span>
-          <select id="saleGasFee" aria-label="¿Cuánto voy a cobrar de gasolina?">
-            <option value="0">$0 · Gratis</option><option value="20">$20</option><option value="30">$30</option><option value="40">$40</option><option value="50">$50</option>
-          </select>
-        </label>
         <div class="modal-actions">
           <button type="button" class="ghost" id="btnSaleCancel">Cancelar</button>
           <button type="submit" class="primary" id="btnSaleSave">Guardar venta</button>
@@ -6591,12 +6593,21 @@
       const sum = saleTotalOf(saleFormItems);
       if (saleEls.customOn && saleEls.customOn.checked) {
         const n = Number(saleEls.customTotal && saleEls.customTotal.value);
-        return Number.isFinite(n) && n >= 0 ? n : sum;
+        return Number.isFinite(n) && n >= 0 ? n : sum + saleFormGas();
       }
-      return sum;
+      return sum + saleFormGas();
+    }
+    function saleFormGas() { return saleEls.gasFee ? allowedGasFee(saleEls.gasFee.value) : 0; }
+    function updateSaleGasLine() {
+      const el = document.getElementById("saleGasLine");
+      if (!el) return;
+      const g = saleFormGas();
+      el.hidden = !(g > 0);
+      el.textContent = "Gasolina: " + money(g);
     }
     function updateSaleTotalsOnly() {
       const sum = saleTotalOf(saleFormItems);
+      updateSaleGasLine();
       if (saleEls.itemsSum) saleEls.itemsSum.textContent = "Suma de artículos: " + money(sum);
       if (saleEls.total) saleEls.total.textContent = "Total a registrar: " + money(saleChargedTotal());
     }
@@ -6605,6 +6616,7 @@
       renderItemSelected(saleEls.selected, saleFormItems, true);
       if (saleEls.selected) saleEls.selected.querySelectorAll("[data-item-qty]").forEach(applyQtyStockWarning);
       const sum = saleTotalOf(saleFormItems);
+      updateSaleGasLine();
       if (saleEls.itemsSum) saleEls.itemsSum.textContent = "Suma de artículos: " + money(sum);
       if (saleEls.customField) saleEls.customField.hidden = !(saleEls.customOn && saleEls.customOn.checked);
       if (saleEls.total) saleEls.total.textContent = "Total a registrar: " + money(saleChargedTotal());
@@ -6821,10 +6833,13 @@
         saleEls.source.value = src;
       }
       const computed = saleTotalOf(saleFormItems);
-      const isCustom = Boolean(row && row.customTotal);
+      const rowGas = saleGasAmount(row);
+      // Legacy sales may have stored total without gas (or with it). If the saved total
+      // doesn't match items + gas, show it as a custom total so nothing changes on edit.
+      const isCustom = Boolean(row && (row.customTotal || Math.abs((Number(row.total) || 0) - (computed + rowGas)) > 0.009));
       if (saleEls.customOn) saleEls.customOn.checked = isCustom;
-      if (saleEls.customTotal) saleEls.customTotal.value = isCustom ? String(row.total) : (computed || "");
-      if (saleEls.gasFee) saleEls.gasFee.value = String(saleGasAmount(row));
+      if (saleEls.gasFee) saleEls.gasFee.value = String(rowGas);
+      if (saleEls.customTotal) saleEls.customTotal.value = isCustom ? String(row.total) : ((computed + rowGas) || "");
       saleEls.overlay.classList.add("open");
       renderSaleItemsUI();
     }
@@ -6942,13 +6957,14 @@
     if (saleEls.customOn) {
       saleEls.customOn.addEventListener("change", () => {
         if (saleEls.customOn.checked && saleEls.customTotal && !String(saleEls.customTotal.value).trim()) {
-          const sum = saleTotalOf(saleFormItems);
+          const sum = saleTotalOf(saleFormItems) + saleFormGas();
           saleEls.customTotal.value = sum ? String(sum) : "";
         }
         renderSaleItemsUI();
       });
     }
     if (saleEls.customTotal) saleEls.customTotal.addEventListener("input", renderSaleItemsUI);
+    if (saleEls.gasFee) saleEls.gasFee.addEventListener("change", updateSaleTotalsOnly);
     if (saleEls.form) {
       saleEls.form.addEventListener("submit", (e) => {
         e.preventDefault();
