@@ -1917,7 +1917,7 @@
       <div class="stats">
         <div class="stat">Artículos: <strong id="statCount">0</strong></div>
         <div class="stat">Stock total: <strong id="statStock">0</strong></div>
-        <div class="stat incoming-stat">Por llegar: <strong id="statIncoming">0</strong></div>
+        <div class="stat incoming-stat" id="statIncomingBox" hidden>Por llegar: <strong id="statIncoming">0</strong></div>
       </div>
     </div>
 
@@ -3078,7 +3078,7 @@
       els.statCount.textContent = String(articles.length);
       els.statStock.textContent = String(articles.reduce((sum, a) => sum + (Number(a.stock) || 0), 0));
       const arriving = articles.reduce((sum, a) => sum + (typeof window.pendingQtyFor === "function" ? window.pendingQtyFor(a.id) : 0), 0);
-      if (els.statIncoming) els.statIncoming.textContent = String(arriving);
+      if (els.statIncoming) els.statIncoming.textContent = String(arriving); { const bx = document.getElementById("statIncomingBox"); if (bx) bx.hidden = !(Number(arriving) > 0); }
       if (list.length === 0) {
         els.grid.innerHTML = `<div class="empty"><strong>${articles.length === 0 ? "Sin artículos aún" : "Sin resultados"}</strong>${articles.length === 0 ? "Toca “Agregar artículo” para crear el primero en la nube." : "Prueba con otro término de búsqueda."}</div>`;
         return;
