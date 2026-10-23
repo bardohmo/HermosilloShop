@@ -2343,7 +2343,8 @@ function renderInvestRowPrice([sym]){
 }
 async function refreshBinancePrices(force){
   const rows=investedByCoin();
-  const pairs=[...new Set(rows.map(([s])=>binancePair(s)).filter(Boolean))];
+  const balSyms=Object.keys(balances||{}).filter(s=>qtyOf(s)>0);
+  const pairs=[...new Set(rows.map(([s])=>binancePair(s)).concat(balSyms.map(s=>binancePair(s))).filter(Boolean))];
   if(!pairs.length){
     renderInvestPricesOnly();
     return;
@@ -2594,10 +2595,8 @@ function valueMxnOfQty(sym, qty){
   // Pesos en plataforma: 1 unidad MXN = 1 peso
   if(s==='MXN') return q;
   if(typeof STABLES!=='undefined' && STABLES.has(s)) return usdtMxn>0 ? q*usdtMxn : null;
-  const pair=binancePair(s);
-  const px=pair!=null ? Number(priceMap[pair]) : NaN;
-  if(!Number.isFinite(px) || !(usdtMxn>0)) return null;
-  return q * px * usdtMxn;
+  const unit=currentUnitPriceMxn(s);
+  return unit==null ? null : q * unit;
 }
 /** MXN neto invertido por plataforma y moneda (fallback si no hay qty en ops) */
 function investedMxnByPlatformCoin(){
