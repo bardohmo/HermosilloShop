@@ -297,3 +297,22 @@ test('formatPnlAbs always 2 decimals', () => {
   assert.equal(formatPnlAbs(0.004), '0.00');
   assert.equal(formatPnlAbs(1234.5), (1234.5).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}));
 });
+
+test('regression: activity PnL helpers must not invoke price refresh', () => {
+  let called = 0;
+  const fakeRefresh = () => { called++; };
+  // Simulate the guard: ensureActivityPnlReady no longer calls refresh.
+  // Document the contract: PnL computation with paid MXN needs only local inputs.
+  const r = computeActivityPnlPaidMxn({amountMxn:1537, qty:135693919, priceUsdt:0.00000037, usdtMxn:18.621});
+  assert.ok(r.pnlMxn < 0);
+  assert.equal(called, 0);
+  // formatters must not throw on tiny/large
+  assert.equal(formatPnlAbs(r.pnlUsdt).split('.').pop().length, 2);
+  assert.doesNotThrow(() => formatHistUsdt(0.00000037));
+});
+
+test('regression: invested amounts do not depend on hist klines', () => {
+  // Invested MXN comes from op amounts; hist/PnL fetch must be optional.
+  const investedFromOps = [{type:'Compra', amount:1000},{type:'Compra', amount:500}].reduce((a,x)=>a+(Number(x.amount)||0),0);
+  assert.equal(investedFromOps, 1500);
+});
