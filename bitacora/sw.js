@@ -1,5 +1,5 @@
 /* Cripto Bitácora PWA (scope: ./bitacora/) */
-const CACHE = 'cripto-bitacora-v32';
+const CACHE = 'cripto-bitacora-v33';
 const ASSETS = [
   './',
   './index.html',
