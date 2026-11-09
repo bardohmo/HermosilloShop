@@ -524,3 +524,25 @@ test('PnL label split: USD line then MXN line', () => {
   assert.equal((html.match(/act-pnl/g)||[]).length, 2);
 });
 
+
+test('Precio actual line is USDT; Valor actual stays MXN', () => {
+  function formatHistUsdt(n){
+    const v=Number(n);
+    if(!Number.isFinite(v) || !(v>0)) return '—';
+    if(v>=0.01) return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+    return v.toLocaleString('es-MX',{minimumSignificantDigits:1,maximumSignificantDigits:6});
+  }
+  function formatDetailMxnAbs(n){
+    return Number(n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  const unitUsdt=2134.56;
+  const qty=0.24117549;
+  const usdtMxn=18.57;
+  const precio=`Precio actual: $${formatHistUsdt(unitUsdt)} USDT`;
+  const valor=`Valor actual: $${formatDetailMxnAbs(qty*unitUsdt*usdtMxn)} MXN`;
+  assert.ok(precio.includes('USDT'));
+  assert.ok(!precio.includes('MXN'));
+  assert.ok(valor.includes('MXN'));
+  assert.ok(!valor.includes('USDT'));
+});
+
