@@ -400,7 +400,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .type-chip .type-icon{margin-right:0}
 .item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .item-head strong{display:inline-flex;align-items:center;min-width:0}
-.item-when{font-size:11px;color:#8b97a6;font-weight:700;white-space:nowrap}.item .amt{white-space:normal}.hist-price{display:block;margin-top:5px;font-size:11px;font-weight:800;color:#ffd96b;line-height:1.35;max-width:240px;white-space:normal}.hist-price.is-loading{color:#6f7b88}.hist-price.is-ready{color:#a8b3c0}.hist-price.is-missing{color:#8793a1}.act-pnl{display:block;margin-top:3px;font-size:10px;font-weight:800;line-height:1.35;max-width:260px;white-space:normal}.act-pnl.is-loading{color:#6f7b88}.act-pnl.gain{color:#20c980}.act-pnl.loss{color:#f6465d}.detailsBtn{display:inline-block;margin-top:6px;padding:5px 9px;background:#1c2530;border:1px solid #2c3744;color:#a8b3c0;font-size:10px;font-weight:700;border-radius:8px;cursor:pointer;letter-spacing:.2px}.detailsBtn:hover,.detailsBtn[aria-expanded="true"]{color:#ffd96b;border-color:#3d4a5a}.act-details{margin-top:4px;max-width:260px}.act-details[hidden]{display:none!important}
+.item-when{font-size:11px;color:#8b97a6;font-weight:700;white-space:nowrap}.item .amt{white-space:normal}.hist-price{display:block;margin-top:5px;font-size:11px;font-weight:800;line-height:1.35;max-width:260px;white-space:normal}.hist-price.is-loading{color:#6f7b88}.hist-price.is-missing{color:#8793a1}.hist-price.is-ready,.hist-price.kind-buy{color:#f0b429}.hist-price.kind-spot{color:#5ec8ff}.hist-price.kind-value{color:#c4b5fd}.act-pnl{display:block;margin-top:3px;font-size:10px;font-weight:800;line-height:1.35;max-width:260px;white-space:normal}.act-pnl.is-loading{color:#6f7b88}.act-pnl.gain{color:#20c980}.act-pnl.loss{color:#f6465d}.detailsBtn{display:inline-block;margin-top:6px;padding:5px 9px;background:#1c2530;border:1px solid #2c3744;color:#a8b3c0;font-size:10px;font-weight:700;border-radius:8px;cursor:pointer;letter-spacing:.2px}.detailsBtn:hover,.detailsBtn[aria-expanded="true"]{color:#ffd96b;border-color:#3d4a5a}.act-details{margin-top:4px;max-width:260px}.act-details[hidden]{display:none!important}
 .crypto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:10000;display:none;padding:18px;overflow:auto;scroll-behavior:smooth}
 .crypto-overlay.show{display:flex;align-items:flex-start;justify-content:center;padding-top:18px}
 .crypto-panel{width:min(720px,100%);max-height:92vh;overflow:auto;scroll-behavior:smooth;background:#0a1119;border:1px solid #263544;border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
@@ -1208,12 +1208,12 @@ async function syncFromSupabase(){
     try{
       const cloudBal=await pullBalancesFromCloud();
       const localBal=JSON.parse(localStorage.getItem(BAL_KEY)||'{}');
-      if(cloudBal&&Object.keys(cloudBal).length){balances=cloudBal;persistBalancesLocal();repairInflatedBalances();}
-      else if(localBal&&Object.keys(localBal).length){balances=localBal;repairInflatedBalances();await pushAllBalancesToCloud(balances);}
+      if(cloudBal&&Object.keys(cloudBal).length){balances=cloudBal;persistBalancesLocal();repairInflatedBalances();repairPhantomPlatformBalances();}
+      else if(localBal&&Object.keys(localBal).length){balances=localBal;repairInflatedBalances();repairPhantomPlatformBalances();await pushAllBalancesToCloud(balances);}
       else {balances={};persistBalancesLocal();}
     }catch(e){console.warn('balances sync',e);}
 
-    sbReady=true; repairInflatedBalances();
+    sbReady=true; repairInflatedBalances(); repairPhantomPlatformBalances();
     toastSb('Respaldo en la nube activo'); setTimeout(()=>toastSb(''),2500);
     renderCoinSelect();renderCoinAdmin();render();
   }catch(err){
@@ -2150,6 +2150,55 @@ function repairInflatedBalances(){
   return fixed;
 }
 
+/** Corrige BTC@plat / balance global cuando ops dejan una plataforma en negativo
+ *  (compra sin qty) y el saldo manual/nube quedó inflado repartido a otra wallet. */
+function repairPhantomPlatformBalances(){
+  const qtyMap=qtyByPlatformFromOps();
+  const syms=new Set();
+  Object.values(qtyMap||{}).forEach(m=>Object.keys(m||{}).forEach(s=>syms.add(s)));
+  Object.keys(balances||{}).forEach(raw=>{
+    if(String(raw).includes('@')){
+      const p=parsePlatBalanceKey(raw); if(p?.sym) syms.add(p.sym);
+    } else {
+      const s=normalizeCoinSymbol(raw); if(s) syms.add(s);
+    }
+  });
+  let fixed=0;
+  syms.forEach(sym=>{
+    const s=normalizeCoinSymbol(sym);
+    if(!s) return;
+    let posSum=0, negAbs=0;
+    const clamped={};
+    Object.keys(qtyMap||{}).forEach(p=>{
+      if(!hasQtyOpsOnPlatform(p, s)) return;
+      const raw=Number(qtyMap[p]?.[s])||0;
+      if(raw < -1e-12) negAbs += -raw;
+      const c=Math.max(0, raw);
+      clamped[p]=c;
+      posSum += c;
+    });
+    if(!(negAbs > posSum + 1e-10)) return;
+    const bal=qtyOf(s);
+    if(!(bal > posSum + 1e-8)) {
+      // Aún así alinear @plat si están inflados
+      const over=getPlatBalanceMap(s);
+      const overSum=Object.values(over).reduce((a,v)=>a+(Number(v)||0),0);
+      if(!(overSum > posSum + 1e-8)) return;
+    }
+    // Solo memoria/local: no escribir a Supabase (ops/balances nube intactos).
+    setBalanceSym(s, posSum);
+    const plats=new Set([...Object.keys(clamped), ...Object.keys(getPlatBalanceMap(s))]);
+    plats.forEach(p=>{
+      const q=Number(clamped[p])||0;
+      balances[platBalanceKey(s,p)]=q;
+    });
+    fixed++;
+    console.info('[Bitácora] saldo fantasma (local) corregido', s, bal, '→', posSum, clamped);
+  });
+  if(fixed){ persistBalancesLocal(); }
+  return fixed;
+}
+
 
 function isPlatBalanceKey(sym){
   return String(sym||'').includes('@');
@@ -2823,18 +2872,51 @@ function qtyHeldByPlatformForSymbol(sym){
   const out={};
   plats.forEach(p=>{ out[p]=0; });
   const bal=Math.max(0, qtyOf(s));
-  if(!(bal>0)) return out;
 
-  // Saldos manuales por plataforma (Cantidad → Editar)
+  // Ops con qty por plataforma (pueden ser negativas si hubo compra sin qty).
+  let posSum=0, negAbs=0, hasQtyPlat=false;
+  const clamped={};
+  plats.forEach(p=>{
+    if(!hasQtyOpsOnPlatform(p, s)) return;
+    hasQtyPlat=true;
+    const raw=Number(qtyMap[p]?.[s])||0;
+    if(raw < -1e-12) negAbs += -raw;
+    const c=Math.max(0, raw);
+    clamped[p]=c;
+    posSum += c;
+  });
+
+  // Agujero contable: se vendió/convertio más qty de la registrada (p.ej. Compra con qty=0).
+  // No repartir el balance global inflado sobre Ledger/otras: usar solo max(0, ops).
+  if(hasQtyPlat && negAbs > posSum + 1e-10){
+    Object.keys(out).forEach(p=>{ out[p]=0; });
+    Object.keys(clamped).forEach(p=>{ out[p]=clamped[p]; });
+    return out;
+  }
+
+  if(!(bal>0) && posSum<=1e-12) return out;
+
+  // Saldos manuales por plataforma (Cantidad → Editar), solo si no hay agujero.
   const over=getPlatBalanceMap(s);
   const overKeys=Object.keys(over);
-  if(overKeys.length){
+  if(overKeys.length && !(hasQtyPlat && negAbs > posSum + 1e-10)){
     let sum=overKeys.reduce((a,p)=>a+(Number(over[p])||0),0);
     if(sum>1e-12){
-      const scale=bal/sum;
-      overKeys.forEach(p=>{ out[p]=(Number(over[p])||0)*scale; });
-      Object.keys(out).forEach(p=>{ if(!overKeys.includes(p)) out[p]=0; });
-      return out;
+      // Si el override manual coincide a grandes rasgos con ops positivas, úsalo;
+      // si lo infla mucho respecto a ops (y hay ops), preferir ops absolutas.
+      if(hasQtyPlat && posSum>1e-12 && sum > posSum*1.0000001 + 1e-8 && bal > posSum + 1e-8){
+        // Override obsoleto/inflado con ops confiables y sin agujero grande ya filtrado arriba:
+        // repartir el balance real por pesos de ops (comportamiento previo).
+      } else if(hasQtyPlat && posSum>1e-12 && Math.abs(sum-posSum)<=Math.max(1e-8, posSum*1e-6) && Math.abs(bal-posSum)<=Math.max(1e-8, posSum*1e-6)){
+        Object.keys(out).forEach(p=>{ out[p]=0; });
+        Object.keys(clamped).forEach(p=>{ out[p]=clamped[p]; });
+        return out;
+      } else {
+        const scale=bal>0 ? bal/sum : 1;
+        overKeys.forEach(p=>{ out[p]=(Number(over[p])||0)*scale; });
+        Object.keys(out).forEach(p=>{ if(!overKeys.includes(p)) out[p]=0; });
+        return out;
+      }
     }
   }
 
@@ -2845,8 +2927,6 @@ function qtyHeldByPlatformForSymbol(sym){
     else if((Number(mxnMap[p]?.[s])||0)>0) mxnPlats.push(p);
   });
 
-  // Cantidad = total en todas las plataformas.
-  // Las ops solo definen el peso de cada wallet (no “comerse” Ledger).
   if(qtyPlats.length){
     const weights={};
     let weightSum=0;
@@ -2855,16 +2935,23 @@ function qtyHeldByPlatformForSymbol(sym){
       weights[p]=w;
       weightSum+=w;
     });
-    if(weightSum>0){
+    if(weightSum>0 && bal>0){
       qtyPlats.forEach(p=>{ out[p]=bal*(weights[p]/weightSum); });
       return out;
     }
-    const each=bal/qtyPlats.length;
-    qtyPlats.forEach(p=>{ out[p]=each; });
-    return out;
+    if(weightSum>0){
+      Object.keys(out).forEach(p=>{ out[p]=0; });
+      qtyPlats.forEach(p=>{ out[p]=weights[p]; });
+      return out;
+    }
+    if(bal>0){
+      const each=bal/qtyPlats.length;
+      qtyPlats.forEach(p=>{ out[p]=each; });
+      return out;
+    }
   }
 
-  if(mxnPlats.length){
+  if(mxnPlats.length && bal>0){
     let mxnSum=0;
     mxnPlats.forEach(p=>{ mxnSum+=Math.max(0, Number(mxnMap[p]?.[s])||0); });
     if(mxnSum>0){
@@ -2878,7 +2965,7 @@ function qtyHeldByPlatformForSymbol(sym){
     return out;
   }
 
-  out.binance=bal;
+  if(bal>0) out.binance=bal;
   return out;
 }
 
@@ -3134,6 +3221,12 @@ function normalizeCoinSymbol(v){
 }
 function holdingQty(sym){
   const s=normalizeCoinSymbol(sym);
+  // Preferir desglose por plataforma (corrige balance global inflado por agujero contable).
+  try{
+    const held=qtyHeldByPlatformForSymbol(s);
+    const sum=Object.values(held||{}).reduce((a,b)=>a+(Number(b)||0),0);
+    if(sum>1e-12) return sum;
+  }catch(_){}
   const direct=qtyOf(s);
   if(direct>0) return direct;
   let q=0;
@@ -3600,7 +3693,7 @@ function renderInvestByCoin(){
  refreshBinancePrices(false);
 }
 
-/* ===== Precio histórico de Compra (referencia 1m Binance, no ejecución) ===== */
+/* ===== Valor en compra (referencia 1m Binance, no ejecución) ===== */
 const HIST_PRICE_LS_KEY='cripto_bitacora_hist_price_v1';
 const HIST_PRICE_CONCURRENCY=1;
 const HIST_PRICE_TIMEOUT_MS=8000;
@@ -3687,9 +3780,9 @@ function activityCurrentMxnHtml(x){
     else {
       try{ unitUsdt=usdPriceOfSym(sym); }catch(_){ unitUsdt=null; }
     }
-    if(!(unitUsdt>0)) return `<span class="hist-price is-loading">Precio actual: …</span>`;
+    if(!(unitUsdt>0)) return `<span class="hist-price is-loading kind-spot">Precio actual: …</span>`;
     const unitTxt=formatHistUsdt(unitUsdt); // 2 decimales; <0.01 conserva cifras
-    let html=`<span class="hist-price is-ready" title="Precio unitario actual en USDT (priceMap / respaldo).">Precio actual: $${esc(unitTxt)} USDT</span>`;
+    let html=`<span class="hist-price is-ready kind-spot" title="Precio unitario actual en USDT (priceMap / respaldo).">Precio actual: $${esc(unitTxt)} USDT</span>`;
     // Valor actual sigue en MXN
     let unitMxn=null;
     try{ unitMxn=currentUnitPriceMxn(sym); }catch(_){ unitMxn=null; }
@@ -3697,7 +3790,7 @@ function activityCurrentMxnHtml(x){
     const qty=activityCurrentQty(x);
     if(qty>0 && unitMxn>0){
       const val=qty*unitMxn;
-      html+=`<span class="hist-price is-ready" title="Cantidad de la operación × precio actual MXN.">Valor actual: $${esc(formatDetailMxnAbs(val))} MXN</span>`;
+      html+=`<span class="hist-price is-ready kind-value" title="Cantidad de la operación × precio actual MXN.">Valor actual: $${esc(formatDetailMxnAbs(val))} MXN</span>`;
     }
     return html;
   }catch(e){
@@ -3729,13 +3822,13 @@ function persistHistPriceCacheSoon(){
   }, 400);
 }
 function histPriceLabelHtml(entry){
-  if(!entry) return `<span class="hist-price is-loading">Precio histórico: …</span>`;
-  if(entry.status==='loading') return `<span class="hist-price is-loading">Precio histórico: …</span>`;
+  if(!entry) return `<span class="hist-price is-loading kind-buy">Valor en compra: …</span>`;
+  if(entry.status==='loading') return `<span class="hist-price is-loading kind-buy">Valor en compra: …</span>`;
   if(entry.status!=='ok'){
-    return `<span class="hist-price is-missing">Precio histórico: No disponible</span>`;
+    return `<span class="hist-price is-missing kind-buy">Valor en compra: No disponible</span>`;
   }
   const usdtTxt=formatHistUsdt(entry.usdt);
-  return `<span class="hist-price is-ready" title="Referencia de la vela 1 minuto de Binance en esa fecha/hora. No es el precio exacto de ejecución.">Precio histórico: $${esc(usdtTxt)} USDT · ref. 1 min Binance</span>`;
+  return `<span class="hist-price is-ready kind-buy" title="Referencia de la vela 1 minuto de Binance en esa fecha/hora (valor al momento de la compra). No es el precio exacto de ejecución.">Valor en compra: $${esc(usdtTxt)} USDT · ref. 1 min Binance</span>`;
 }
 function histBuySymbol(x){
   // Compra y Depósito: referencia de mercado 1m en USDT (no stables/MXN).
@@ -3764,7 +3857,7 @@ function histBuySymbol(x){
   if(!binancePair(sym)) return '';
   return sym;
 }
-/** HTML del precio histórico para Compra/Depósito (misma marca data-hist-buy para hidratar). */
+/** HTML de Valor en compra para Compra/Depósito (misma marca data-hist-buy para hidratar). */
 function compraHistPriceSlotHtml(x){
   try{
   const buySym=histBuySymbol(x);
@@ -3781,7 +3874,7 @@ function compraHistPriceSlotHtml(x){
     else entry={status:'loading'};
   }
   if(entry.status==='loading'){
-    return `<span class="hist-price is-loading" data-hist-buy="1" data-hist-sym="${esc(buySym)}" data-hist-date="${esc(x.date||'')}">Precio histórico: …</span>`;
+    return `<span class="hist-price is-loading kind-buy" data-hist-buy="1" data-hist-sym="${esc(buySym)}" data-hist-date="${esc(x.date||'')}">Valor en compra: …</span>`;
   }
   return histPriceLabelHtml(entry);
   }catch(e){ console.warn('compraHistPriceSlotHtml', e); return ''; }
@@ -4049,7 +4142,7 @@ async function ensureActivityPnlReady(x){
   }
   return computeActivityPnl(x);
 }
-/** ¿Este movimiento admite Precio histórico / Ganancia-pérdida? Sin fetch. */
+/** ¿Este movimiento admite Valor en compra / Ganancia-pérdida? Sin fetch. */
 function activityDetailsApplicable(x){
   if(!x) return false;
   const type=String(x.type||'');
@@ -4138,7 +4231,7 @@ async function loadActivityDetailsForOp(id){
     }
     if(!activityDetailsExpanded.has(key) || !box.isConnected) return;
     box.classList.remove('is-loading');
-    // Orden: histórico → precio/valor actual MXN → ganancia (USDT luego MXN)
+    // Orden: Valor en compra → Precio actual USDT → Valor actual MXN → P&L
     const html=(histHtml||'')+(nowHtml||'')+(pnlHtml||'');
     box.innerHTML=html || '<span class="hist-price is-missing">Sin detalles disponibles</span>';
   }catch(e){
@@ -5402,7 +5495,7 @@ render=function(){
   if(!h || !data.length) return;
 
   // Siempre redibujar el historial con renderHistoryItem para unificar UI
-  // (incluye Precio histórico en Compra) y respetar filtros avanzados.
+  // (incluye Valor en compra bajo Ver detalles) y respetar filtros avanzados.
   const hasFilter=!!(
     historySearchTerm.trim() ||
     historyTypeFilter!=='Todas' ||
