@@ -3658,6 +3658,25 @@ function computeActivityPnl(x){
     if(!sym) return {status:'skip'};
     const qty=opQtyValue(x);
     if(!(qty>0)) return {status:'skip'};
+    const paidMxn=Number(x.amount)||0;
+    // Preferir lo pagado/registrado en MXN vs valor actual (lo que el usuario realmente puso).
+    // En Depósito el amount también es la referencia MXN que guarda la app.
+    if(paidMxn>0){
+      if(!(Number(usdtMxn)>0)) return {status:'loading'};
+      let unitMxn=null;
+      try{ unitMxn=currentUnitPriceMxn(sym); }catch(_){ unitMxn=null; }
+      if(!(unitMxn>0)){
+        const cur=usdPriceOfSym(sym);
+        if(!(cur>0)) return {status:'loading'};
+        unitMxn=cur*Number(usdtMxn);
+      }
+      const valueNowMxn=qty*unitMxn;
+      const pnlMxn=valueNowMxn-paidMxn;
+      const pct=(pnlMxn/paidMxn)*100;
+      const pnlUsdt=pnlMxn/Number(usdtMxn);
+      return {status:'ok', pnlUsdt, pct, basis:'paid_mxn', valueNowMxn, paidMxn};
+    }
+    // Fallback: sin monto MXN → método histórico Binance (precio actual − 1m) × qty
     const minuteMs=histMinuteMs(x.date);
     if(minuteMs==null || minuteMs>Date.now()) return {status:'nd'};
     const pair=binancePair(sym);
@@ -3669,7 +3688,7 @@ function computeActivityPnl(x){
     if(!(cur>0) || !(Number(usdtMxn)>0)) return {status:'loading'};
     const pnlUsdt=(cur-hist.usdt)*qty;
     const pct=((cur-hist.usdt)/hist.usdt)*100;
-    return {status:'ok', pnlUsdt, pct};
+    return {status:'ok', pnlUsdt, pct, basis:'hist_price'};
   }
   if(type==='Conversión'){
     const pair=parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin);
@@ -3769,7 +3788,7 @@ async function ensureActivityPnlReady(x){
   if(!(Number(usdtMxn)>0) || (typeof priceMap==='object' && !Object.keys(priceMap||{}).length)){
     try{ if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false); }catch(_){}
   }
-  if(type==='Compra' || type==='Depósito' || type==='Venta'){
+  if(type==='Venta' || ((type==='Compra' || type==='Depósito') && !(Number(x.amount)>0))){
     const sym = type==='Venta' ? resolveActivityCoinSymbol(x.coin||'') : histBuySymbol(x);
     if(sym){
       const minuteMs=histMinuteMs(x.date);
