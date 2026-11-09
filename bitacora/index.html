@@ -3466,9 +3466,10 @@ function histPriceKey(pair, minuteMs){ return String(pair)+'|'+String(minuteMs);
 function formatHistUsdt(n){
   const v=Number(n);
   if(!Number.isFinite(v) || !(v>0)) return '—';
-  if(v>=1000) return v.toLocaleString('es-MX',{maximumFractionDigits:2});
-  if(v>=1) return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:4});
-  return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:8});
+  // Precios unitarios >= 0.01 → exactamente 2 decimales.
+  // Si es < 0.01 (PEPE/SHIB/etc.) se conservan dígitos significativos para no mostrar $0.00.
+  if(v>=0.01) return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return v.toLocaleString('es-MX',{minimumSignificantDigits:1,maximumSignificantDigits:6});
 }
 function persistHistPriceCacheSoon(){
   if(histPricePersistTimer) return;
@@ -3645,9 +3646,8 @@ function avgCostMxnBeforeOp(target){
 function formatPnlAbs(n){
   const v=Math.abs(Number(n));
   if(!Number.isFinite(v)) return '—';
-  if(v>=1000) return v.toLocaleString('es-MX',{maximumFractionDigits:2});
-  if(v>=1) return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:4});
-  return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:8});
+  // Montos de ganancia/pérdida USDT y MXN: siempre 2 decimales.
+  return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 /** @returns {{status:'skip'|'loading'|'nd'|'ok', pnlUsdt?:number, pct?:number}} */
 function computeActivityPnl(x){
