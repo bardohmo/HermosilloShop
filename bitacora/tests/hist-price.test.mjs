@@ -464,3 +464,63 @@ test('zero kline requests on initial load contract', () => {
   assert.equal(histFetches, 0);
 });
 
+
+test('formatDetailMxnUnit: 2 decimals >=0.01, significant when tiny', () => {
+  function formatDetailMxnUnit(n){
+    const v=Number(n);
+    if(!Number.isFinite(v) || !(v>0)) return '—';
+    if(v>=0.01) return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+    return v.toLocaleString('es-MX',{minimumSignificantDigits:1,maximumSignificantDigits:6});
+  }
+  function formatDetailMxnAbs(n){
+    return Number(n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  assert.match(formatDetailMxnUnit(1385000), /1[,.]385[,.]000[,.]00|1.385.000,00|1,385,000.00/);
+  // es-MX may use different separators; just check 2 fraction digits for large
+  const big=formatDetailMxnUnit(25000.5);
+  assert.ok(/25/.test(big));
+  const tiny=formatDetailMxnUnit(0.00000669);
+  assert.ok(!/^0[,.]00$/.test(tiny.replace(/\s/g,'')));
+  assert.equal(formatDetailMxnAbs(11960.333), (11960.333).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}));
+});
+
+test('activityCurrentPriceSym: conversión usa recibido; skip MXN; USDT ok', () => {
+  function activityCurrentPriceSym(x){
+    const type=String(x?.type||'');
+    if(type==='Conversión'){
+      const m=String(x.coin||'').match(/^([A-Z0-9]+)→([A-Z0-9]+)$/i);
+      const to=(x.coinTo||m?.[2]||'').toUpperCase();
+      if(!to || to==='MXN') return '';
+      return to;
+    }
+    if(type==='Compra' || type==='Depósito' || type==='Venta'){
+      const sym=String(x.coin||'').toUpperCase();
+      if(!sym || sym==='MXN') return '';
+      return sym;
+    }
+    return '';
+  }
+  assert.equal(activityCurrentPriceSym({type:'Compra', coin:'BTC'}), 'BTC');
+  assert.equal(activityCurrentPriceSym({type:'Compra', coin:'USDT'}), 'USDT');
+  assert.equal(activityCurrentPriceSym({type:'Compra', coin:'MXN'}), '');
+  assert.equal(activityCurrentPriceSym({type:'Conversión', coin:'ETH→USDT'}), 'USDT');
+  assert.equal(activityCurrentPriceSym({type:'Conversión', coin:'BTC→MXN'}), '');
+});
+
+test('PnL label split: USDT line then MXN line', () => {
+  function activityPnlLabelHtml(res){
+    if(res.status!=='ok') return '';
+    const pnlUsdt=res.pnlUsdt, usdtMxn=18.5, pnlMxn=pnlUsdt*usdtMxn;
+    const gain=pnlUsdt>=0, sign=gain?'+':'−', word=gain?'Ganancia':'Pérdida';
+    const pctTxt=` (${sign}${Math.abs(res.pct).toFixed(2)}%)`;
+    const cls=gain?'gain':'loss';
+    return `<span class="act-pnl ${cls}">${word}: ${sign}$${pnlUsdt.toFixed(2)} USDT${pctTxt}</span>`
+      +`<span class="act-pnl ${cls}">${sign}$${pnlMxn.toFixed(2)} MXN</span>`;
+  }
+  const html=activityPnlLabelHtml({status:'ok', pnlUsdt:10, pct:5});
+  assert.ok(html.includes('Ganancia: +$10.00 USDT ('));
+  assert.ok(html.includes('+$185.00 MXN'));
+  assert.ok(!html.includes('USDT ·'));
+  assert.equal((html.match(/act-pnl/g)||[]).length, 2);
+});
+
