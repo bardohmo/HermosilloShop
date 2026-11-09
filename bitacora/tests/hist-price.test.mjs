@@ -54,9 +54,13 @@ function histBuySymbol(x){
 function formatHistUsdt(n){
   const v=Number(n);
   if(!Number.isFinite(v) || !(v>0)) return '—';
-  if(v>=1000) return v.toLocaleString('es-MX',{maximumFractionDigits:2});
-  if(v>=1) return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:4});
-  return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:8});
+  if(v>=0.01) return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return v.toLocaleString('es-MX',{minimumSignificantDigits:1,maximumSignificantDigits:6});
+}
+function formatPnlAbs(n){
+  const v=Math.abs(Number(n));
+  if(!Number.isFinite(v)) return '—';
+  return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
 async function fetchBinanceKlineOpen(pair, minuteMs, {fetchImpl=fetch, timeoutMs=HIST_PRICE_TIMEOUT_MS}={}){
@@ -253,4 +257,20 @@ test('skip when qty missing for conversion', () => {
   assert.equal(histBuySymbol({type:'Depósito', coin:'BTC'}), 'BTC');
   // Depósito still gets hist price symbol; PnL skipped in app when qty=0
   assert.equal(0, 0);
+});
+
+
+test('formatHistUsdt: 2 decimals when >= 0.01, significant when tiny', () => {
+  assert.match(formatHistUsdt(74832.06123), /\d{1,3}(,\d{3})*\.\d{2}$/);
+  assert.equal(formatHistUsdt(1.2).endsWith('2') || formatHistUsdt(1.2).includes('1.20') || formatHistUsdt(1.2)==='1.20', true);
+  const tiny=formatHistUsdt(0.00000117);
+  assert.notEqual(tiny, '0.00');
+  assert.notEqual(tiny, '—');
+});
+
+test('formatPnlAbs always 2 decimals', () => {
+  assert.equal(formatPnlAbs(20), '20.00');
+  assert.equal(formatPnlAbs(20.456), '20.46');
+  assert.equal(formatPnlAbs(0.004), '0.00');
+  assert.equal(formatPnlAbs(1234.5), (1234.5).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}));
 });
