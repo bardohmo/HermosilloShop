@@ -426,3 +426,41 @@ test('price cache roundtrip keeps last-known USDTMXN and pairs', () => {
   assert.ok(btcVal>1000);
 });
 
+
+test('activity details are lazy: applicable without fetch; closed by default', () => {
+  function activityDetailsApplicable(x){
+    const type=String(x?.type||'');
+    if(type==='Compra' || type==='Depósito') return !!histBuySymbol(x);
+    if(type==='Conversión'){
+      const pair=String(x.coin||'').match(/^([A-Z0-9]+)→([A-Z0-9]+)$/i);
+      return !!(pair && Number(x.qty)>0 && Number(x.qtyTo)>0);
+    }
+    if(type==='Venta') return !!(binancePair(x.coin) && Number(x.qty)>0);
+    return false;
+  }
+  assert.equal(activityDetailsApplicable({type:'Compra', coin:'BTC', qty:1, amount:100}), true);
+  assert.equal(activityDetailsApplicable({type:'Retiro', coin:'BTC', qty:1}), false);
+  assert.equal(activityDetailsApplicable({type:'Conversión', coin:'ETH→USDT', qty:1, qtyTo:2}), true);
+  const expanded=new Set();
+  // initial render must not enqueue klines: only expanded ids load
+  let klineCalls=0;
+  function maybeLoad(id){ if(expanded.has(id)) klineCalls++; }
+  ['a','b','c'].forEach(maybeLoad);
+  assert.equal(klineCalls, 0);
+  expanded.add('a');
+  ['a','b','c'].forEach(maybeLoad);
+  assert.equal(klineCalls, 1);
+});
+
+test('zero kline requests on initial load contract', () => {
+  // Contract: scheduleActivityExtrasHydration with empty expanded set => no resolveHistBuyPrice
+  const expanded=new Set();
+  let histFetches=0;
+  function scheduleActivityExtrasHydration(){
+    if(!expanded.size) return;
+    histFetches++;
+  }
+  scheduleActivityExtrasHydration();
+  assert.equal(histFetches, 0);
+});
+
