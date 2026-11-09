@@ -343,3 +343,86 @@ test('dashboard price cache not poisoned by MXN holdings', () => {
   assert.equal(pricesFreshForPairs(poisoned, priceMap, 18.5, Date.now()-1000), false);
 });
 
+
+/* ===== v31: Binance blocked → CoinGecko + cache + backoff ===== */
+const COINGECKO_IDS={
+  BTC:'bitcoin', ETH:'ethereum', SOL:'solana', DOGE:'dogecoin',
+  AVAX:'avalanche-2', DOT:'polkadot', PEPE:'pepe', SHIB:'shiba-inu',
+  BTTC:'bittorrent', FLOKI:'floki', BONK:'bonk', WIF:'dogwifcoin',
+  CGPT:'chaingpt', USDT:'tether'
+};
+
+function markBinanceFailureState(state, status){
+  state.binanceFailing=true;
+  const st=Number(status)||0;
+  const ms=(st===418 || st===429) ? 5*60*1000 : 60*1000;
+  state.binanceBackoffUntil=Math.max(state.binanceBackoffUntil||0, Date.now()+ms);
+}
+function binanceIsCoolingDownState(state, now=Date.now()){
+  return !!(state.binanceFailing || now<(state.binanceBackoffUntil||0));
+}
+
+async function applyCoinGeckoPayload(syms, payload, priceMap, fx){
+  let usdtMxn=Number(fx)||0;
+  const tetherMxn=Number(payload?.tether?.mxn);
+  if(tetherMxn>0) usdtMxn=tetherMxn;
+  for(const sym of syms){
+    const id=COINGECKO_IDS[sym];
+    if(!id) continue;
+    const row=payload?.[id];
+    if(!row) continue;
+    const usd=Number(row.usd), mxn=Number(row.mxn);
+    const pair=binancePair(sym);
+    if(!pair) continue;
+    if(mxn>0){
+      priceMap[pair+'_MXN']=mxn;
+      if(!(Number(priceMap[pair])>0)) priceMap[pair]=usdtMxn>0?mxn/usdtMxn:(usd>0?usd:0);
+    } else if(usd>0){
+      priceMap[pair]=usd;
+      if(usdtMxn>0) priceMap[pair+'_MXN']=usd*usdtMxn;
+    }
+  }
+  return usdtMxn;
+}
+
+test('Binance blocked: CoinGecko fills Ledger symbols (no ellipsis path)', async () => {
+  const syms=['BTC','ETH','SOL','DOGE','AVAX','DOT','BONK','WIF','CGPT','BTTC','PEPE','SHIB','FLOKI'];
+  const payload={
+    bitcoin:{usd:70000,mxn:1300000}, ethereum:{usd:2000,mxn:37000}, solana:{usd:80,mxn:1500},
+    dogecoin:{usd:0.07,mxn:1.3}, 'avalanche-2':{usd:8,mxn:150}, polkadot:{usd:0.9,mxn:16},
+    bonk:{usd:2e-6,mxn:4e-5}, dogwifcoin:{usd:0.15,mxn:2.8}, chaingpt:{usd:0.02,mxn:0.35},
+    bittorrent:{usd:3.5e-7,mxn:6.5e-6}, pepe:{usd:5e-6,mxn:9e-5}, 'shiba-inu':{usd:4e-6,mxn:8e-5},
+    floki:{usd:2e-5,mxn:0.0004}, tether:{usd:1,mxn:18.6}
+  };
+  const priceMap={};
+  const usdtMxn=await applyCoinGeckoPayload(syms, payload, priceMap, 0);
+  assert.ok(usdtMxn>0);
+  for(const s of syms){
+    const pair=binancePair(s);
+    assert.ok(Number(priceMap[pair])>0, 'missing '+s);
+  }
+  // value path: qty * unit MXN should be finite
+  const ethMxn = 0.61095368 * Number(priceMap.ETHUSDT) * usdtMxn;
+  assert.ok(ethMxn>100, 'ETH ledger value should be meaningful, got '+ethMxn);
+});
+
+test('429/418 backoff skips hist klines', () => {
+  const state={binanceFailing:false, binanceBackoffUntil:0};
+  assert.equal(binanceIsCoolingDownState(state), false);
+  markBinanceFailureState(state, 429);
+  assert.equal(binanceIsCoolingDownState(state), true);
+  assert.ok(state.binanceBackoffUntil > Date.now()+60000);
+});
+
+test('price cache roundtrip keeps last-known USDTMXN and pairs', () => {
+  const saved={usdtMxn:18.5, fetchedAt:Date.now()-1000, priceMap:{BTCUSDT:70000,ETHUSDT:2000}, changeMap:{BTCUSDT:1.2}};
+  const priceMap={}; let usdtMxn=0;
+  Object.assign(priceMap, saved.priceMap);
+  usdtMxn=saved.usdtMxn;
+  assert.equal(usdtMxn, 18.5);
+  assert.equal(priceMap.BTCUSDT, 70000);
+  // With cache, Ledger modal can render numbers before network
+  const btcVal = 0.00864478 * priceMap.BTCUSDT * usdtMxn;
+  assert.ok(btcVal>1000);
+});
+
