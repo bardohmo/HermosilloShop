@@ -3469,13 +3469,6 @@ function formatHistUsdt(n){
   if(v>=1) return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:4});
   return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:8});
 }
-function formatHistMxn(n){
-  const v=Number(n);
-  if(!Number.isFinite(v) || !(v>0)) return '—';
-  if(v>=1000) return v.toLocaleString('es-MX',{maximumFractionDigits:2});
-  if(v>=1) return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:4});
-  return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:8});
-}
 function persistHistPriceCacheSoon(){
   if(histPricePersistTimer) return;
   histPricePersistTimer=setTimeout(()=>{
@@ -3486,7 +3479,7 @@ function persistHistPriceCacheSoon(){
       Object.keys(histPriceMem).forEach(k=>{
         const v=histPriceMem[k];
         if(!v || (v.status!=='ok' && v.status!=='nd')) return;
-        out[k]={status:v.status, usdt:v.usdt, mxn:v.mxn, minuteMs:v.minuteMs, pair:v.pair};
+        out[k]={status:v.status, usdt:v.usdt, minuteMs:v.minuteMs, pair:v.pair};
         n++;
       });
       // Cap local cache size
@@ -3505,13 +3498,7 @@ function histPriceLabelHtml(entry){
     return `<span class="hist-price is-missing">Precio histórico: No disponible</span>`;
   }
   const usdtTxt=formatHistUsdt(entry.usdt);
-  let body='';
-  if(Number(entry.mxn)>0){
-    body=`$${esc(formatHistMxn(entry.mxn))} MXN ≈ $${esc(usdtTxt)} USDT`;
-  } else {
-    body=`$${esc(usdtTxt)} USDT`;
-  }
-  return `<span class="hist-price is-ready" title="Referencia de la vela 1 minuto de Binance en esa fecha/hora. No es el precio exacto de ejecución.">Precio histórico: ${body} · ref. 1 min Binance</span>`;
+  return `<span class="hist-price is-ready" title="Referencia de la vela 1 minuto de Binance en esa fecha/hora. No es el precio exacto de ejecución.">Precio histórico: $${esc(usdtTxt)} USDT · ref. 1 min Binance</span>`;
 }
 function histBuySymbol(x){
   if(!x || String(x.type||'')!=='Compra') return '';
@@ -3590,12 +3577,7 @@ async function resolveHistBuyPrice(sym, dateIso){
         persistHistPriceCacheSoon();
         return nd;
       }
-      let mxn=null;
-      try{
-        const fx=await fetchBinanceKlineOpen('USDTMXN', minuteMs);
-        if(fx>0) mxn=usdt*fx;
-      }catch(_){ /* sin FX histórico: solo USDT */ }
-      const ok={status:'ok', pair, minuteMs, usdt, mxn: (mxn>0?mxn:null)};
+      const ok={status:'ok', pair, minuteMs, usdt};
       histPriceMem[key]=ok;
       persistHistPriceCacheSoon();
       return ok;

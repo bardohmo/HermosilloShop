@@ -1,5 +1,5 @@
 /**
- * Targeted tests for historical Compra price helpers.
+ * Targeted tests for historical Compra price helpers (USDT-only).
  * Mirrors the logic in bitacora/index.html (keep in sync).
  */
 import assert from 'node:assert/strict';
@@ -79,12 +79,7 @@ async function resolveHistBuyPrice(sym, dateIso, deps={}){
   try{
     const usdt=await fetchBinanceKlineOpen(pair, minuteMs, deps);
     if(!(usdt>0)) return {status:'nd', pair, minuteMs};
-    let mxn=null;
-    try{
-      const fx=await fetchBinanceKlineOpen('USDTMXN', minuteMs, deps);
-      if(fx>0) mxn=usdt*fx;
-    }catch(_){}
-    return {status:'ok', pair, minuteMs, usdt, mxn: (mxn>0?mxn:null)};
+    return {status:'ok', pair, minuteMs, usdt};
   }catch(e){
     return {status:'err', pair, minuteMs};
   }
@@ -93,11 +88,7 @@ async function resolveHistBuyPrice(sym, dateIso, deps={}){
 function histPriceLabelText(entry){
   if(!entry || entry.status==='loading') return 'Precio histórico: …';
   if(entry.status!=='ok') return 'Precio histórico: No disponible';
-  const usdtTxt=formatHistUsdt(entry.usdt);
-  if(Number(entry.mxn)>0){
-    return `Precio histórico: $${formatHistUsdt(entry.mxn)} MXN ≈ $${usdtTxt} USDT · ref. 1 min Binance`;
-  }
-  return `Precio histórico: $${usdtTxt} USDT · ref. 1 min Binance`;
+  return `Precio histórico: $${formatHistUsdt(entry.usdt)} USDT · ref. 1 min Binance`;
 }
 
 test('histMinuteMs floors to UTC minute', () => {
@@ -118,11 +109,13 @@ test('binancePair mapping', () => {
   assert.equal(binancePair('USDT'), '');
 });
 
-test('label never uses ellipsis for nd/ok', () => {
+test('label is USDT-only and never ellipsis for nd/ok', () => {
   assert.equal(histPriceLabelText({status:'nd'}), 'Precio histórico: No disponible');
-  assert.match(histPriceLabelText({status:'ok', usdt:0.00000117, mxn:null}), /USDT/);
-  assert.doesNotMatch(histPriceLabelText({status:'ok', usdt:1.5, mxn:null}), /…/);
-  assert.match(histPriceLabelText({status:'ok', usdt:100, mxn:1800}), /MXN/);
+  const ok = histPriceLabelText({status:'ok', usdt:0.00000117});
+  assert.match(ok, /USDT/);
+  assert.doesNotMatch(ok, /MXN/);
+  assert.doesNotMatch(ok, /…/);
+  assert.doesNotMatch(histPriceLabelText({status:'ok', usdt:65000}), /MXN/);
 });
 
 test('resolveHistBuyPrice: invalid date / future / stable', async () => {
@@ -132,38 +125,21 @@ test('resolveHistBuyPrice: invalid date / future / stable', async () => {
   assert.equal((await resolveHistBuyPrice('USDT', '2024-06-15T18:23:00.000Z')).status, 'nd');
 });
 
-test('mocked fetch: ok USDT without inventing MXN when FX missing', async () => {
+test('mocked fetch: ok USDT only, no MXN field', async () => {
   const minute = Date.parse('2024-06-15T18:23:00.000Z');
+  let called = 0;
   const fetchImpl = async (url) => {
-    if(url.includes('symbol=BTCUSDT')){
-      return { status:200, ok:true, json: async()=>[[minute,'65000.00','65100','64900','65050','1',minute+59999,'1',1,'1','1','0']] };
-    }
-    if(url.includes('symbol=USDTMXN')){
-      return { status:200, ok:true, json: async()=>[] };
-    }
-    return { status:400, ok:false, json: async()=>({}) };
+    called++;
+    assert.match(url, /symbol=BTCUSDT/);
+    assert.doesNotMatch(url, /USDTMXN/);
+    return { status:200, ok:true, json: async()=>[[minute,'65000.00','65100','64900','65050','1',minute+59999,'1',1,'1','1','0']] };
   };
   const r = await resolveHistBuyPrice('BTC', '2024-06-15T18:23:40.000Z', {fetchImpl});
   assert.equal(r.status, 'ok');
   assert.equal(r.usdt, 65000);
-  assert.equal(r.mxn, null);
+  assert.equal('mxn' in r, false);
+  assert.equal(called, 1);
   assert.doesNotMatch(histPriceLabelText(r), /MXN/);
-});
-
-test('mocked fetch: genuine MXN when USDTMXN candle exists same minute', async () => {
-  const minute = Date.parse('2024-06-15T18:23:00.000Z');
-  const fetchImpl = async (url) => {
-    if(url.includes('symbol=BTCUSDT')){
-      return { status:200, ok:true, json: async()=>[[minute,'65000.00','1','1','1','1',minute+59999,'1',1,'1','1','0']] };
-    }
-    if(url.includes('symbol=USDTMXN')){
-      return { status:200, ok:true, json: async()=>[[minute,'18.50','1','1','1','1',minute+59999,'1',1,'1','1','0']] };
-    }
-    return { status:400, ok:false, json: async()=>({}) };
-  };
-  const r = await resolveHistBuyPrice('BTC', '2024-06-15T18:23:40.000Z', {fetchImpl});
-  assert.equal(r.status, 'ok');
-  assert.equal(r.mxn, 65000*18.5);
 });
 
 test('mocked fetch: wrong openTime treated as unavailable', async () => {
@@ -182,18 +158,17 @@ test('mocked fetch: invalid symbol -> nd, not current price', async () => {
   assert.equal(r.status, 'nd');
 });
 
-test('live API: BTCUSDT and USDTMXN for a recent past minute', async () => {
+test('live API: BTCUSDT and PEPEUSDT for a recent past minute', async () => {
   const minute = Math.floor(Date.now()/60000)*60000 - 60*60000; // 1h ago
   const usdt = await fetchBinanceKlineOpen('BTCUSDT', minute);
   assert.ok(usdt > 1000, 'BTC open should be > 1000, got '+usdt);
-  const fx = await fetchBinanceKlineOpen('USDTMXN', minute);
-  assert.ok(fx > 10 && fx < 40, 'USDTMXN open reasonable, got '+fx);
   const pepe = await fetchBinanceKlineOpen('PEPEUSDT', minute);
   assert.ok(pepe > 0 && pepe < 0.01, 'PEPE small price, got '+pepe);
 });
 
-test('live API: endTime constraint returns empty before USDTMXN listing', async () => {
-  const beforeListing = Date.parse('2023-11-08T00:00:00.000Z');
-  const fx = await fetchBinanceKlineOpen('USDTMXN', beforeListing);
-  assert.equal(fx, null);
+test('live API: endTime constraint returns empty for bad window', async () => {
+  // Far-future minute should yield no candle
+  const futureMin = Math.floor(Date.now()/60000)*60000 + 365*24*60*60000;
+  const px = await fetchBinanceKlineOpen('BTCUSDT', futureMin);
+  assert.equal(px, null);
 });
