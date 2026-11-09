@@ -483,6 +483,20 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
   .analisis-title h2{font-size:11px}
   .analisis-card{padding:14px 11px 12px}
 }
+
+/* ===== Secciones pesadas colapsables (v40) ===== */
+.heavy-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 2px}
+.heavy-head .heavy-titles{min-width:0;flex:1}
+.heavy-head .heavy-sub{font-size:11px;font-weight:750;color:#ffd96b;margin-top:3px}
+.heavy-head .heavy-sub.muted{color:#8b97a6;font-weight:650}
+.heavy-toggle{flex-shrink:0;border:1px solid rgba(245,184,63,.45)!important;border-radius:999px!important;padding:8px 12px!important;background:linear-gradient(145deg,rgba(255,217,107,.18),rgba(20,28,38,.95))!important;color:#ffd96b!important;font-size:11px!important;font-weight:900!important;letter-spacing:.3px;box-shadow:none!important;cursor:pointer}
+.heavy-toggle:active{transform:translateY(1px)}
+.heavy-body[hidden]{display:none!important}
+.heavy-placeholder{padding:14px 10px;text-align:center;color:#8b97a6;font-size:12px;font-weight:700;border:1px dashed rgba(245,184,63,.22);border-radius:12px;margin-top:8px}
+.portfolio-distribution .distribution-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.portfolio-distribution .distribution-head .invest-pane-title{margin:0}
+.portfolio-distribution .distribution-head .distribution-total{flex:1;min-width:0;text-align:right}
+.portfolio-distribution .distribution-head .heavy-toggle{margin-left:0}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -818,7 +832,15 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
       <div class="platform-saldo-label" style="margin-top:12px">Dónde está invertido</div>
       <div class="platform-breakdown" id="investPlatformBreakdown" aria-label="Inversión por plataforma"></div>
     </div>
-    <div class="invest-wrap" style="margin-top:15px">
+    <div class="invest-wrap heavy-collapse" id="investHeavy" style="margin-top:15px">
+      <div class="heavy-head">
+        <div class="heavy-titles">
+          <div class="invest-pane-title" id="investHeavyTitle">Inversiones</div>
+          <div class="heavy-sub muted" id="investHeavySub">Toca Desplegar para cargar detalle</div>
+        </div>
+        <button type="button" class="heavy-toggle" id="investHeavyToggle" aria-expanded="false">Desplegar</button>
+      </div>
+      <div class="heavy-body" id="investHeavyBody" hidden>
       <div class="invest-swipe" id="investSwipe">
         <div class="invest-track" id="investTrack">
           <div class="invest-pane" id="investPane0">
@@ -851,6 +873,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
         <button type="button" data-page="1" aria-label="Cantidad"></button>
         <button type="button" data-page="2" aria-label="Precio USD"></button>
       </div>
+      </div>
     </div>
     <div class="grid">
       <div class="mini"><span class="label">Operaciones</span><b id="ops">0</b></div>
@@ -859,12 +882,15 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
   </div>
 
 
-  <div class="card portfolio-distribution" id="portfolioDistribution">
-    <div class="distribution-head">
+  <div class="card portfolio-distribution heavy-collapse" id="portfolioDistribution">
+    <div class="distribution-head heavy-head">
       <h3 class="invest-pane-title">Distribución</h3>
       <span class="distribution-total" id="distributionTotal">Sin inversiones</span>
+      <button type="button" class="heavy-toggle" id="distHeavyToggle" aria-expanded="false">Desplegar</button>
     </div>
-    <div id="donutContent" class="donut-empty">Aún no hay inversiones para mostrar.</div>
+    <div class="heavy-body" id="distHeavyBody" hidden>
+      <div id="donutContent" class="donut-empty">Aún no hay inversiones para mostrar.</div>
+    </div>
   </div>
 
   <div class="section">
@@ -1046,6 +1072,90 @@ let BAL_KEY=BAL_KEYS[activeUser];
 let balances=JSON.parse(localStorage.getItem(BAL_KEY)||'{}');
 let data=JSON.parse(localStorage.getItem(KEY)||'[]');
 let investPage=0;
+let investHeavyExpanded=false; // no persistir: cada carga empieza colapsado
+let distHeavyExpanded=false;
+
+function updateInvestHeavyHeader(totalInv){
+  const title=document.getElementById('investHeavyTitle');
+  const sub=document.getElementById('investHeavySub');
+  const btn=document.getElementById('investHeavyToggle');
+  const n=Number(totalInv)||0;
+  if(title) title.textContent=n>0?('Inversiones · '+money(n)):'Inversiones';
+  if(sub){
+    if(investHeavyExpanded){
+      sub.textContent='Detalle cargado · Cantidad / Precio / P&L';
+      sub.classList.remove('muted');
+    } else {
+      sub.textContent=n>0?('Total invertido '+money(n)+' · toca Desplegar'):'Toca Desplegar para cargar detalle';
+      sub.classList.add('muted');
+    }
+  }
+  if(btn){
+    btn.textContent=investHeavyExpanded?'Minimizar':'Desplegar';
+    btn.setAttribute('aria-expanded', investHeavyExpanded?'true':'false');
+  }
+}
+function setInvestHeavyExpanded(on){
+  investHeavyExpanded=!!on;
+  const body=document.getElementById('investHeavyBody');
+  if(body) body.hidden=!investHeavyExpanded;
+  if(investHeavyExpanded){
+    try{ renderInvestByCoin(); }catch(e){ console.warn(e); }
+  } else {
+    // Liberar DOM pesado y cortar ciclo/precios
+    try{
+      const a=document.getElementById('investByCoin'); if(a) a.innerHTML='';
+      const b=document.getElementById('investByQty'); if(b) b.innerHTML='';
+      const c=document.getElementById('investByPrice'); if(c) c.innerHTML='';
+      if(investCycleTimer){ clearInterval(investCycleTimer); investCycleTimer=null; }
+    }catch(_){}
+    try{
+      const rows=investedByCoin();
+      const total=rows.reduce((s,r)=>s+(Number(r[1])||0),0);
+      updateInvestHeavyHeader(total);
+    }catch(_){ updateInvestHeavyHeader(0); }
+  }
+}
+function updateDistHeavyHeader(){
+  const btn=document.getElementById('distHeavyToggle');
+  if(btn){
+    btn.textContent=distHeavyExpanded?'Minimizar':'Desplegar';
+    btn.setAttribute('aria-expanded', distHeavyExpanded?'true':'false');
+  }
+}
+function setDistHeavyExpanded(on){
+  distHeavyExpanded=!!on;
+  const body=document.getElementById('distHeavyBody');
+  if(body) body.hidden=!distHeavyExpanded;
+  updateDistHeavyHeader();
+  if(distHeavyExpanded){
+    try{ renderPortfolioDistribution(true); }catch(e){ console.warn(e); }
+    try{ bindPortfolioSelection(); }catch(_){}
+  } else {
+    const box=document.getElementById('donutContent');
+    if(box){ box.className='donut-empty'; box.textContent='Minimizado — toca Desplegar para cargar.'; }
+    // Total barato en el header
+    try{
+      const rows=investedByCoin();
+      const total=rows.reduce((s,r)=>s+(Number(r[1])||0),0);
+      const totalEl=document.getElementById('distributionTotal');
+      if(totalEl) totalEl.textContent=total>0?('Total invertido '+money(total)):'Sin inversiones';
+    }catch(_){}
+  }
+}
+function wireHeavyCollapses(){
+  const ib=document.getElementById('investHeavyToggle');
+  if(ib && !ib.dataset.wired){
+    ib.dataset.wired='1';
+    ib.addEventListener('click',()=>setInvestHeavyExpanded(!investHeavyExpanded));
+  }
+  const db=document.getElementById('distHeavyToggle');
+  if(db && !db.dataset.wired){
+    db.dataset.wired='1';
+    db.addEventListener('click',()=>setDistHeavyExpanded(!distHeavyExpanded));
+  }
+}
+
 let editIndex=-1;
 const money=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
 function moneyUnit(n){
@@ -2311,7 +2421,7 @@ function setInvestPage(page){
     track.classList.toggle('page2', investPage===2);
   }
   document.querySelectorAll('#investDots button').forEach((d,i)=>d.classList.toggle('on', i===investPage));
-  if(investPage===2) refreshBinancePrices();
+  if(investHeavyExpanded && investPage===2) refreshBinancePrices();
   requestAnimationFrame(()=>{ syncInvestHeight(); requestAnimationFrame(syncInvestHeight); });
 }
 function wireInvestSwipe(){
@@ -2562,10 +2672,14 @@ function dashboardPriceSyms(){
 }
 function paintInvestPricesNow(){
   priceLoading=false;
-  try{ renderInvestPricesOnly(); }catch(_){}
-  try{ refreshInvestPnlFaces(); }catch(_){}
-  try{ updateDistributionPerformanceOnly(); }catch(e){ console.warn('Distribución rendimiento',e); }
-  try{ requestAnimationFrame(syncInvestHeight); }catch(_){}
+  if(investHeavyExpanded){
+    try{ renderInvestPricesOnly(); }catch(_){}
+    try{ refreshInvestPnlFaces(); }catch(_){}
+    try{ requestAnimationFrame(syncInvestHeight); }catch(_){}
+  }
+  if(distHeavyExpanded){
+    try{ updateDistributionPerformanceOnly(); }catch(e){ console.warn('Distribución rendimiento',e); }
+  }
   // Rehidratar modal abierto (Ledger/Binance) para que deje de mostrar «…»
   try{
     if(openPlatMiniId && document.getElementById('platMini')?.classList.contains('show')){
@@ -3457,7 +3571,7 @@ function stepInvestCycle(dir){
   investCycleMode=(Number(investCycleMode)+d+4)%4;
   updateInvestCycleHint();
   applyInvestCycleMode();
-  if(investCycleMode!==0) refreshBinancePrices(false);
+  if(investHeavyExpanded && investCycleMode!==0) refreshBinancePrices(false);
 }
 function bindInvestCycleSwipe(){
   const el=document.getElementById('investCycleHint');
@@ -3511,11 +3625,15 @@ function bindInvestCycleSwipe(){
    });
 }
 function ensureInvestCycle(){
+  if(!investHeavyExpanded){
+    if(investCycleTimer){ clearInterval(investCycleTimer); investCycleTimer=null; }
+    return;
+  }
   bindInvestCycleSwipe();
   if(investCyclePaused) return;
   if(investCycleTimer) return;
   investCycleTimer=setInterval(()=>{
-    if(investCyclePaused) return;
+    if(!investHeavyExpanded || investCyclePaused) return;
     investCycleMode=(Number(investCycleMode)+1)%4;
     updateInvestCycleHint();
     applyInvestCycleMode();
@@ -3624,15 +3742,21 @@ function renderQtyActions(){
   }
 }
 function renderInvestByCoin(){
+ const rows=investedByCoin();
+ const totalInv=rows.reduce((a,r)=>a+(Number(r[1])||0),0);
+ updateInvestHeavyHeader(totalInv);
+ wireHeavyCollapses();
+ if(!investHeavyExpanded){
+   // Colapsado: solo total en cabecera — sin filas, sin qty, sin fetch de precios.
+   return;
+ }
  const box=document.getElementById('investByCoin'); if(!box) return;
  const qtyBox=document.getElementById('investByQty');
- const rows=investedByCoin();
  const limit=6;
  const visible=investExpanded?rows:rows.slice(0,limit);
  const hidden=Math.max(0, rows.length-limit);
  renderQtyActions();
  const priceBox=document.getElementById('investByPrice');
- const totalInv=rows.reduce((a,r)=>a+(Number(r[1])||0),0);
  const head=document.querySelector('#investPane0 .invest-pane-title');
  if(head) head.textContent=totalInv>0?('Inversiones · '+money(totalInv)):'Inversiones';
  if(!rows.length){
@@ -5142,6 +5266,7 @@ function portfolioMetalFor(sym, index){
   return [`hsl(${h} 95% 88%)`,`hsl(${h} 72% 48%)`,`hsl(${h} 72% 22%)`];
 }
 function updateDistributionPerformanceOnly(){
+  if(!distHeavyExpanded) return;
   const box=document.getElementById('donutContent');
   if(!box) return;
   const cards=[...box.querySelectorAll('.range-card[data-card-seg]')];
@@ -5197,9 +5322,18 @@ let distributionRenderKey='';
 function renderPortfolioDistribution(force=false){
   const box=document.getElementById('donutContent');
   const totalEl=document.getElementById('distributionTotal');
-  if(!box)return;
+  wireHeavyCollapses();
+  updateDistHeavyHeader();
   let rows=[];
   try{rows=investedByCoin().map(([sym,amount])=>[String(sym||'').trim().toUpperCase(),Number(amount)||0]);}catch(e){rows=[];}
+  const cheapTotal=rows.reduce((s,r)=>s+(Number(r[1])||0),0);
+  if(totalEl) totalEl.textContent=cheapTotal>0?('Total invertido '+money(cheapTotal)):'Sin inversiones';
+  if(!distHeavyExpanded){
+    // Colapsado: no SVG, no slide de rendimiento, no precios.
+    if(box){ box.className='donut-empty'; box.textContent='Minimizado — toca Desplegar para cargar el gráfico.'; }
+    return;
+  }
+  if(!box)return;
   if(!rows.length&&Array.isArray(data)){
     const map={};const add=(s,v)=>{s=String(s||'').trim().toUpperCase();v=Number(v)||0;if(s)map[s]=(map[s]||0)+v;};
     data.forEach(x=>{const amt=Number(x.amount)||0;if(!(amt>0))return;if(['Compra','Depósito','Staking'].includes(x.type))add(x.coin,amt);else if(['Venta','Retiro','Comisión'].includes(x.type))add(x.coin,-amt);else if(x.type==='Conversión'){const pair=parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin);if(pair?.from&&pair?.to){add(pair.from,-amt);add(pair.to,amt);}}});
@@ -5684,10 +5818,11 @@ function bindBackupTools(){
 const _renderOriginal=render;
 render=function(){
   _renderOriginal();
+  wireHeavyCollapses();
   bindHistoryTools();
   renderHistoryControls();
   renderPortfolioDistribution();
-  bindPortfolioSelection();
+  if(distHeavyExpanded){ try{ bindPortfolioSelection(); }catch(_){ } }
   bindBackupTools();
 
   const filtered=getFilteredHistory();
