@@ -33,7 +33,8 @@ function normalizeCoinSymbol(v){
 const coins=[{name:'Bitcoin',symbol:'BTC'},{name:'Ethereum',symbol:'ETH'}];
 function coinBySymbol(symbol){return coins.find(c=>c.symbol.toUpperCase()===String(symbol||'').toUpperCase());}
 function histBuySymbol(x){
-  if(!x || String(x.type||'')!=='Compra') return '';
+  const type=String(x?.type||'');
+  if(type!=='Compra' && type!=='Depósito') return '';
   if(x.coinFrom && x.coinTo) return '';
   let raw=String(x.coin||'').trim();
   if(!raw || raw.toLowerCase()==='cripto') return '';
@@ -108,10 +109,13 @@ test('histMinuteMs floors to UTC minute', () => {
   assert.equal(histMinuteMs('nope'), null);
 });
 
-test('histBuySymbol only for Compra non-stable', () => {
+test('histBuySymbol for Compra and Depósito non-stable', () => {
   assert.equal(histBuySymbol({type:'Compra', coin:'BTC'}), 'BTC');
+  assert.equal(histBuySymbol({type:'Depósito', coin:'ETH'}), 'ETH');
   assert.equal(histBuySymbol({type:'Venta', coin:'BTC'}), '');
   assert.equal(histBuySymbol({type:'Compra', coin:'USDT'}), '');
+  assert.equal(histBuySymbol({type:'Depósito', coin:'USDT'}), '');
+  assert.equal(histBuySymbol({type:'Depósito', coin:'MXN'}), '');
   assert.equal(histBuySymbol({type:'Compra', coinFrom:'BTC', coinTo:'ETH'}), '');
 });
 
