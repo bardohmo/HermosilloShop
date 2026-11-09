@@ -507,20 +507,20 @@ test('activityCurrentPriceSym: conversión usa recibido; skip MXN; USDT ok', () 
   assert.equal(activityCurrentPriceSym({type:'Conversión', coin:'BTC→MXN'}), '');
 });
 
-test('PnL label split: USDT line then MXN line', () => {
+test('PnL label split: USD line then MXN line', () => {
   function activityPnlLabelHtml(res){
     if(res.status!=='ok') return '';
     const pnlUsdt=res.pnlUsdt, usdtMxn=18.5, pnlMxn=pnlUsdt*usdtMxn;
     const gain=pnlUsdt>=0, sign=gain?'+':'−', word=gain?'Ganancia':'Pérdida';
     const pctTxt=` (${sign}${Math.abs(res.pct).toFixed(2)}%)`;
     const cls=gain?'gain':'loss';
-    return `<span class="act-pnl ${cls}">${word}: ${sign}$${pnlUsdt.toFixed(2)} USDT${pctTxt}</span>`
+    return `<span class="act-pnl ${cls}">${word}: ${sign}$${pnlUsdt.toFixed(2)} USD${pctTxt}</span>`
       +`<span class="act-pnl ${cls}">${sign}$${pnlMxn.toFixed(2)} MXN</span>`;
   }
   const html=activityPnlLabelHtml({status:'ok', pnlUsdt:10, pct:5});
-  assert.ok(html.includes('Ganancia: +$10.00 USDT ('));
+  assert.ok(html.includes('Ganancia: +$10.00 USD ('));
   assert.ok(html.includes('+$185.00 MXN'));
-  assert.ok(!html.includes('USDT ·'));
+  assert.ok(!html.includes(' USDT'));
   assert.equal((html.match(/act-pnl/g)||[]).length, 2);
 });
 

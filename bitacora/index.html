@@ -3999,8 +3999,8 @@ function activityPnlLabelHtml(res, opId){
   const pctTxt=Number.isFinite(pct)?` (${sign}${Math.abs(pct).toFixed(2)}%)`:'';
   const cls=gain?'gain':'loss';
   const tip='Referencia con precios actuales / históricos de mercado. No es liquidación real.';
-  // Dos líneas: USDT (+%) y MXN debajo, mismo color.
-  return `<span class="act-pnl ${cls}" data-act-pnl="1"${idAttr} title="${esc(tip)}">${esc(word)}: ${sign}$${esc(formatPnlAbs(pnlUsdt))} USDT${esc(pctTxt)}</span>`
+  // Dos líneas: etiqueta USD (monto sigue siendo USDT≈USD) (+%) y MXN debajo.
+  return `<span class="act-pnl ${cls}" data-act-pnl="1"${idAttr} title="${esc(tip)}">${esc(word)}: ${sign}$${esc(formatPnlAbs(pnlUsdt))} USD${esc(pctTxt)}</span>`
     +`<span class="act-pnl ${cls}" title="${esc(tip)}">${sign}$${esc(formatPnlAbs(pnlMxn))} MXN</span>`;
 }
 function activityPnlSlotHtml(x){
