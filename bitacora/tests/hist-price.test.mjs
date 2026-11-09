@@ -30,12 +30,24 @@ function normalizeCoinSymbol(v){
   if(s!=='USDC' && s.length>4 && s.endsWith('USDC')) s=s.slice(0,-4);
   return s;
 }
+const coins=[{name:'Bitcoin',symbol:'BTC'},{name:'Ethereum',symbol:'ETH'}];
+function coinBySymbol(symbol){return coins.find(c=>c.symbol.toUpperCase()===String(symbol||'').toUpperCase());}
 function histBuySymbol(x){
   if(!x || String(x.type||'')!=='Compra') return '';
   if(x.coinFrom && x.coinTo) return '';
-  const sym=normalizeCoinSymbol(x.coin||'');
+  let raw=String(x.coin||'').trim();
+  if(!raw || raw.toLowerCase()==='cripto') return '';
+  const cc=coinBySymbol(raw);
+  if(cc?.symbol) raw=cc.symbol;
+  else {
+    const up=raw.toUpperCase();
+    const byName=coins.find(c=>String(c.name||'').toUpperCase()===up || String(c.symbol||'').toUpperCase()===up);
+    if(byName?.symbol) raw=byName.symbol;
+  }
+  const sym=normalizeCoinSymbol(raw);
   if(!sym || sym==='MXN') return '';
   if(STABLES.has(sym)) return '';
+  if(!binancePair(sym)) return '';
   return sym;
 }
 function formatHistUsdt(n){
@@ -102,6 +114,13 @@ test('histBuySymbol only for Compra non-stable', () => {
   assert.equal(histBuySymbol({type:'Compra', coin:'USDT'}), '');
   assert.equal(histBuySymbol({type:'Compra', coinFrom:'BTC', coinTo:'ETH'}), '');
 });
+
+test('histBuySymbol resolves catalog name Bitcoin->BTC', () => {
+  assert.equal(histBuySymbol({type:'Compra', coin:'Bitcoin'}), 'BTC');
+  assert.equal(histBuySymbol({type:'Compra', coin:'Cripto'}), '');
+});
+
+
 
 test('binancePair mapping', () => {
   assert.equal(binancePair('btc'), 'BTCUSDT');
