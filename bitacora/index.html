@@ -3501,7 +3501,9 @@ function histPriceLabelHtml(entry){
   return `<span class="hist-price is-ready" title="Referencia de la vela 1 minuto de Binance en esa fecha/hora. No es el precio exacto de ejecución.">Precio histórico: $${esc(usdtTxt)} USDT · ref. 1 min Binance</span>`;
 }
 function histBuySymbol(x){
-  if(!x || String(x.type||'')!=='Compra') return '';
+  // Compra y Depósito: referencia de mercado 1m en USDT (no stables/MXN).
+  const type=String(x?.type||'');
+  if(type!=='Compra' && type!=='Depósito') return '';
   const pair=typeof parseConvertPair==='function'
     ? parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin)
     : null;
@@ -3520,11 +3522,12 @@ function histBuySymbol(x){
   }catch(_){}
   const sym=normalizeCoinSymbol(raw);
   if(!sym || sym==='MXN') return '';
+  // USDT y otros stables: sin línea (no inventar $1).
   if(typeof STABLES!=='undefined' && STABLES.has(sym)) return '';
   if(!binancePair(sym)) return '';
   return sym;
 }
-/** HTML del precio histórico para una Compra (misma marca data-hist-buy para hidratar). */
+/** HTML del precio histórico para Compra/Depósito (misma marca data-hist-buy para hidratar). */
 function compraHistPriceSlotHtml(x){
   const buySym=histBuySymbol(x);
   if(!buySym) return '';
