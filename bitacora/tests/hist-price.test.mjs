@@ -547,21 +547,6 @@ test('Precio actual line is USDT; Valor actual stays MXN', () => {
 });
 
 
-test('phantom accounting hole: do not dump inflated bal onto Ledger', () => {
-  // Binance ops negative (missing compra qty), Ledger deposit positive.
-  const qtyMap={ binance:{BTC:-0.007562201942429441}, ledger:{BTC:0.00205814} };
-  let posSum=0, negAbs=0; const clamped={};
-  for(const p of Object.keys(qtyMap)){
-    const raw=Number(qtyMap[p].BTC)||0;
-    if(raw<-1e-12) negAbs+=-raw;
-    clamped[p]=Math.max(0,raw); posSum+=clamped[p];
-  }
-  assert.ok(negAbs > posSum);
-  const held = negAbs > posSum ? clamped : {ledger:0.00864478};
-  assert.equal(held.ledger, 0.00205814);
-  assert.equal(held.binance||0, 0);
-  assert.equal(Object.values(held).reduce((a,b)=>a+b,0), 0.00205814);
-});
 
 test('tiny negative platform does not trigger phantom rule (ETH-like)', () => {
   const qtyMap={ binance:{ETH:-0.000788}, ledger:{ETH:0.4003} };
@@ -578,5 +563,17 @@ test('Valor en compra label replaces Precio histórico', () => {
   const label='Valor en compra: $2,493.61 USDT · ref. 1 min Binance';
   assert.ok(label.startsWith('Valor en compra:'));
   assert.ok(!label.includes('Precio histórico'));
+});
+
+
+test('holdings follow balance and @plat override (v35 behavior, no phantom clamp)', () => {
+  // Mirrors pre-v36 split: BTC@ledger override scales full balance onto Ledger.
+  const bal=0.00864478;
+  const over={ledger:0.00864478};
+  const sum=Object.values(over).reduce((a,b)=>a+b,0);
+  const held={};
+  Object.keys(over).forEach(p=>{ held[p]=(over[p]/sum)*bal; });
+  assert.equal(held.ledger, 0.00864478);
+  assert.equal(Object.values(held).reduce((a,b)=>a+b,0), 0.00864478);
 });
 

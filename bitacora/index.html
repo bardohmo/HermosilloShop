@@ -1208,12 +1208,12 @@ async function syncFromSupabase(){
     try{
       const cloudBal=await pullBalancesFromCloud();
       const localBal=JSON.parse(localStorage.getItem(BAL_KEY)||'{}');
-      if(cloudBal&&Object.keys(cloudBal).length){balances=cloudBal;persistBalancesLocal();repairInflatedBalances();repairPhantomPlatformBalances();}
-      else if(localBal&&Object.keys(localBal).length){balances=localBal;repairInflatedBalances();repairPhantomPlatformBalances();await pushAllBalancesToCloud(balances);}
+      if(cloudBal&&Object.keys(cloudBal).length){balances=cloudBal;persistBalancesLocal();repairInflatedBalances();}
+      else if(localBal&&Object.keys(localBal).length){balances=localBal;repairInflatedBalances();await pushAllBalancesToCloud(balances);}
       else {balances={};persistBalancesLocal();}
     }catch(e){console.warn('balances sync',e);}
 
-    sbReady=true; repairInflatedBalances(); repairPhantomPlatformBalances();
+    sbReady=true; repairInflatedBalances();
     toastSb('Respaldo en la nube activo'); setTimeout(()=>toastSb(''),2500);
     renderCoinSelect();renderCoinAdmin();render();
   }catch(err){
@@ -2150,56 +2150,6 @@ function repairInflatedBalances(){
   return fixed;
 }
 
-/** Corrige BTC@plat / balance global cuando ops dejan una plataforma en negativo
- *  (compra sin qty) y el saldo manual/nube quedó inflado repartido a otra wallet. */
-function repairPhantomPlatformBalances(){
-  const qtyMap=qtyByPlatformFromOps();
-  const syms=new Set();
-  Object.values(qtyMap||{}).forEach(m=>Object.keys(m||{}).forEach(s=>syms.add(s)));
-  Object.keys(balances||{}).forEach(raw=>{
-    if(String(raw).includes('@')){
-      const p=parsePlatBalanceKey(raw); if(p?.sym) syms.add(p.sym);
-    } else {
-      const s=normalizeCoinSymbol(raw); if(s) syms.add(s);
-    }
-  });
-  let fixed=0;
-  syms.forEach(sym=>{
-    const s=normalizeCoinSymbol(sym);
-    if(!s) return;
-    let posSum=0, negAbs=0;
-    const clamped={};
-    Object.keys(qtyMap||{}).forEach(p=>{
-      if(!hasQtyOpsOnPlatform(p, s)) return;
-      const raw=Number(qtyMap[p]?.[s])||0;
-      if(raw < -1e-12) negAbs += -raw;
-      const c=Math.max(0, raw);
-      clamped[p]=c;
-      posSum += c;
-    });
-    if(!(negAbs > posSum + 1e-10)) return;
-    const bal=qtyOf(s);
-    if(!(bal > posSum + 1e-8)) {
-      // Aún así alinear @plat si están inflados
-      const over=getPlatBalanceMap(s);
-      const overSum=Object.values(over).reduce((a,v)=>a+(Number(v)||0),0);
-      if(!(overSum > posSum + 1e-8)) return;
-    }
-    // Solo memoria/local: no escribir a Supabase (ops/balances nube intactos).
-    setBalanceSym(s, posSum);
-    const plats=new Set([...Object.keys(clamped), ...Object.keys(getPlatBalanceMap(s))]);
-    plats.forEach(p=>{
-      const q=Number(clamped[p])||0;
-      balances[platBalanceKey(s,p)]=q;
-    });
-    fixed++;
-    console.info('[Bitácora] saldo fantasma (local) corregido', s, bal, '→', posSum, clamped);
-  });
-  if(fixed){ persistBalancesLocal(); }
-  return fixed;
-}
-
-
 function isPlatBalanceKey(sym){
   return String(sym||'').includes('@');
 }
@@ -2872,51 +2822,18 @@ function qtyHeldByPlatformForSymbol(sym){
   const out={};
   plats.forEach(p=>{ out[p]=0; });
   const bal=Math.max(0, qtyOf(s));
+  if(!(bal>0)) return out;
 
-  // Ops con qty por plataforma (pueden ser negativas si hubo compra sin qty).
-  let posSum=0, negAbs=0, hasQtyPlat=false;
-  const clamped={};
-  plats.forEach(p=>{
-    if(!hasQtyOpsOnPlatform(p, s)) return;
-    hasQtyPlat=true;
-    const raw=Number(qtyMap[p]?.[s])||0;
-    if(raw < -1e-12) negAbs += -raw;
-    const c=Math.max(0, raw);
-    clamped[p]=c;
-    posSum += c;
-  });
-
-  // Agujero contable: se vendió/convertio más qty de la registrada (p.ej. Compra con qty=0).
-  // No repartir el balance global inflado sobre Ledger/otras: usar solo max(0, ops).
-  if(hasQtyPlat && negAbs > posSum + 1e-10){
-    Object.keys(out).forEach(p=>{ out[p]=0; });
-    Object.keys(clamped).forEach(p=>{ out[p]=clamped[p]; });
-    return out;
-  }
-
-  if(!(bal>0) && posSum<=1e-12) return out;
-
-  // Saldos manuales por plataforma (Cantidad → Editar), solo si no hay agujero.
+  // Saldos manuales por plataforma (Cantidad → Editar)
   const over=getPlatBalanceMap(s);
   const overKeys=Object.keys(over);
-  if(overKeys.length && !(hasQtyPlat && negAbs > posSum + 1e-10)){
+  if(overKeys.length){
     let sum=overKeys.reduce((a,p)=>a+(Number(over[p])||0),0);
     if(sum>1e-12){
-      // Si el override manual coincide a grandes rasgos con ops positivas, úsalo;
-      // si lo infla mucho respecto a ops (y hay ops), preferir ops absolutas.
-      if(hasQtyPlat && posSum>1e-12 && sum > posSum*1.0000001 + 1e-8 && bal > posSum + 1e-8){
-        // Override obsoleto/inflado con ops confiables y sin agujero grande ya filtrado arriba:
-        // repartir el balance real por pesos de ops (comportamiento previo).
-      } else if(hasQtyPlat && posSum>1e-12 && Math.abs(sum-posSum)<=Math.max(1e-8, posSum*1e-6) && Math.abs(bal-posSum)<=Math.max(1e-8, posSum*1e-6)){
-        Object.keys(out).forEach(p=>{ out[p]=0; });
-        Object.keys(clamped).forEach(p=>{ out[p]=clamped[p]; });
-        return out;
-      } else {
-        const scale=bal>0 ? bal/sum : 1;
-        overKeys.forEach(p=>{ out[p]=(Number(over[p])||0)*scale; });
-        Object.keys(out).forEach(p=>{ if(!overKeys.includes(p)) out[p]=0; });
-        return out;
-      }
+      const scale=bal/sum;
+      overKeys.forEach(p=>{ out[p]=(Number(over[p])||0)*scale; });
+      Object.keys(out).forEach(p=>{ if(!overKeys.includes(p)) out[p]=0; });
+      return out;
     }
   }
 
@@ -2927,6 +2844,8 @@ function qtyHeldByPlatformForSymbol(sym){
     else if((Number(mxnMap[p]?.[s])||0)>0) mxnPlats.push(p);
   });
 
+  // Cantidad = total en todas las plataformas.
+  // Las ops solo definen el peso de cada wallet (no “comerse” Ledger).
   if(qtyPlats.length){
     const weights={};
     let weightSum=0;
@@ -2935,23 +2854,16 @@ function qtyHeldByPlatformForSymbol(sym){
       weights[p]=w;
       weightSum+=w;
     });
-    if(weightSum>0 && bal>0){
+    if(weightSum>0){
       qtyPlats.forEach(p=>{ out[p]=bal*(weights[p]/weightSum); });
       return out;
     }
-    if(weightSum>0){
-      Object.keys(out).forEach(p=>{ out[p]=0; });
-      qtyPlats.forEach(p=>{ out[p]=weights[p]; });
-      return out;
-    }
-    if(bal>0){
-      const each=bal/qtyPlats.length;
-      qtyPlats.forEach(p=>{ out[p]=each; });
-      return out;
-    }
+    const each=bal/qtyPlats.length;
+    qtyPlats.forEach(p=>{ out[p]=each; });
+    return out;
   }
 
-  if(mxnPlats.length && bal>0){
+  if(mxnPlats.length){
     let mxnSum=0;
     mxnPlats.forEach(p=>{ mxnSum+=Math.max(0, Number(mxnMap[p]?.[s])||0); });
     if(mxnSum>0){
@@ -2965,7 +2877,7 @@ function qtyHeldByPlatformForSymbol(sym){
     return out;
   }
 
-  if(bal>0) out.binance=bal;
+  out.binance=bal;
   return out;
 }
 
@@ -3221,12 +3133,6 @@ function normalizeCoinSymbol(v){
 }
 function holdingQty(sym){
   const s=normalizeCoinSymbol(sym);
-  // Preferir desglose por plataforma (corrige balance global inflado por agujero contable).
-  try{
-    const held=qtyHeldByPlatformForSymbol(s);
-    const sum=Object.values(held||{}).reduce((a,b)=>a+(Number(b)||0),0);
-    if(sum>1e-12) return sum;
-  }catch(_){}
   const direct=qtyOf(s);
   if(direct>0) return direct;
   let q=0;
