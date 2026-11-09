@@ -497,6 +497,18 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .portfolio-distribution .distribution-head .invest-pane-title{margin:0}
 .portfolio-distribution .distribution-head .distribution-total{flex:1;min-width:0;text-align:right}
 .portfolio-distribution .distribution-head .heavy-toggle{margin-left:0}
+
+/* Precio promedio compra: etiquetas MXN / USDT (v41) */
+.invest-val .avg-ccy{font-size:10px;font-weight:800;letter-spacing:.2px;opacity:.95}
+.invest-val .avg-per{color:#8b97a6;font-weight:700;font-size:10px}
+.invest-val .avg-usdt{display:block;margin-top:2px;font-size:10px;font-weight:700;line-height:1.25;white-space:normal;max-width:150px;text-align:right}
+.invest-row .invest-val{max-width:48%;min-width:0}
+.invest-row .invest-val .amt.avg-mxn{display:block;white-space:normal;line-height:1.2;font-size:13px;word-break:break-word}
+@media(max-width:400px){
+  .invest-val .avg-usdt{font-size:9px;max-width:130px}
+  .invest-row .invest-val .amt.avg-mxn{font-size:12px}
+  .invest-val .avg-ccy,.invest-val .avg-per{font-size:9px}
+}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -3507,12 +3519,13 @@ function avgFaceHtml(sym){
   if(avg==null){
     return `<span class="amt muted">${q>0?'Sin invertido':'Sin cant.'}</span>`;
   }
+  // ≈ es USDT: precio promedio MXN / tipo USDTMXN
   const usd=(usdtMxn>0)?(avg/usdtMxn):null;
   const usdTxt=(usd!=null && Number.isFinite(usd))
-    ? (usd>=1?usd.toLocaleString('en-US',{maximumFractionDigits:2}):usd.toLocaleString('en-US',{maximumFractionDigits:6}))
+    ? (usd>=1?usd.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}):usd.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:6}))
     : null;
-  return `<span class="amt">${moneyUnit(avg)}<span style="color:#8b97a6;font-weight:700;font-size:10px"> /u</span></span>`
-    +(usdTxt?`<span class="chg flat">≈ $${usdTxt}</span>`:'');
+  return `<span class="amt avg-mxn">${moneyUnit(avg)}<span class="avg-ccy"> MXN</span><span class="avg-per"> /u</span></span>`
+    +(usdTxt?`<span class="chg flat avg-usdt">≈ $${usdTxt} USDT</span>`:'');
 }
 function investModeClass(){
   const m=Number(investCycleMode)||0;
