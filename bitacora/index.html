@@ -2267,6 +2267,8 @@ const STABLES=new Set(['USDT','USDC','BUSD','FDUSD','TUSD','DAI','USD']);
 function binancePair(sym){
   const s=String(sym||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
   if(!s) return '';
+  // Fiat / no-spot: nunca pedir MXNUSDT (CORS + rompe el cache de 45s).
+  if(s==='MXN' || s==='EUR' || s==='USD' || s==='GBP') return '';
   if(STABLES.has(s)) return '';
   if(s==='1000SATS') return '1000SATSUSDT';
   if(s==='BTTC') return 'BTTCUSDT';
@@ -2341,17 +2343,32 @@ function renderInvestRowPrice([sym]){
   const tip=canOpen?'Abrir gráfica en Binance':'';
   return `<div class="invest-row${canOpen?' price-link':''}" data-open-sym="${esc(sym)}" title="${esc(tip)}"><span class="left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${name}</span></span><span class="price-cell"><span class="amt">${priceLabel}</span>${chgHtml}</span></div>`;
 }
+let binancePriceInflight=null;
+function paintInvestPricesNow(){
+  priceLoading=false;
+  try{ renderInvestPricesOnly(); }catch(_){}
+  try{ refreshInvestPnlFaces(); }catch(_){}
+  try{ updateDistributionPerformanceOnly(); }catch(e){ console.warn('Distribución rendimiento',e); }
+  try{ requestAnimationFrame(syncInvestHeight); }catch(_){}
+}
 async function refreshBinancePrices(force){
+  // Single-flight: el ciclo de caras + render no deben apilar 24hr de 2MB.
+  if(binancePriceInflight){
+    if(!force) return binancePriceInflight;
+    // force: espera al actual y luego refresca de verdad
+    try{ await binancePriceInflight; }catch(_){}
+  }
+  const run=(async()=>{
   const rows=investedByCoin();
   const balSyms=Object.keys(balances||{}).filter(s=>qtyOf(s)>0);
   const pairs=[...new Set(rows.map(([s])=>binancePair(s)).concat(balSyms.map(s=>binancePair(s))).filter(Boolean))];
   if(!pairs.length){
-    renderInvestPricesOnly();
+    paintInvestPricesNow();
     return;
   }
   const fresh=Date.now()-priceFetchedAt<45000;
-  if(!force && fresh && pairs.every(p=>priceMap[p]!=null) && usdtMxn>0){
-    renderInvestPricesOnly();
+  if(!force && fresh && pairs.every(p=>Number(priceMap[p])>0) && usdtMxn>0){
+    paintInvestPricesNow();
     return;
   }
   priceLoading=true;
@@ -2368,7 +2385,7 @@ async function refreshBinancePrices(force){
       const px=Number(row.lastPrice!=null?row.lastPrice:row.price);
       if(sym==='USDTMXN' && Number.isFinite(px) && px>0) usdtMxn=px;
       if(!want.has(sym)) return;
-      if(Number.isFinite(px)) priceMap[sym]=px;
+      if(Number.isFinite(px) && px>0) priceMap[sym]=px;
       const chg=Number(row.priceChangePercent);
       if(Number.isFinite(chg)) changeMap[sym]=chg;
     });
@@ -2396,42 +2413,46 @@ async function refreshBinancePrices(force){
         if(!r.ok) continue;
         const j=await r.json();
         const px=Number(j.lastPrice!=null?j.lastPrice:j.price);
-        if(Number.isFinite(px)) priceMap[pair]=px;
+        if(Number.isFinite(px) && px>0) priceMap[pair]=px;
         const chg=Number(j.priceChangePercent);
         if(Number.isFinite(chg)) changeMap[pair]=chg;
       }catch(_){}
     }
     priceFetchedAt=Date.now();
-  }finally{
-    if(!(usdtMxn>0)) await fetchUsdtMxnFallback();
-    // Respaldo independiente de Binance para precios MXN de PEPE, SHIB, BTTC y FLOKI.
-    // Esto evita que la segunda cara quede en N/D cuando el endpoint de Binance está bloqueado.
-    try{
-      const cgIds={PEPE:'pepe',SHIB:'shiba-inu',BTTC:'bittorrent',FLOKI:'floki'};
-      const syms=Object.keys(cgIds).filter(s=>pairs.includes(binancePair(s)) && !(Number(priceMap[binancePair(s)+'_MXN'])>0));
-      if(syms.length){
-        const ids=syms.map(s=>cgIds[s]).join(',');
-        const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids='+encodeURIComponent(ids)+'&vs_currencies=mxn,usd',{cache:'no-store'});
+  }
+  // Pintar YA con precios de Binance (Invertido / Binance saldo). No esperar CoinGecko.
+  if(!(usdtMxn>0)){
+    try{ await fetchUsdtMxnFallback(); }catch(_){}
+  }
+  paintInvestPricesNow();
+  // Respaldo CoinGecko con timeout corto; no debe bloquear el dashboard.
+  try{
+    const cgIds={PEPE:'pepe',SHIB:'shiba-inu',BTTC:'bittorrent',FLOKI:'floki'};
+    const syms=Object.keys(cgIds).filter(s=>pairs.includes(binancePair(s)) && !(Number(priceMap[binancePair(s)+'_MXN'])>0));
+    if(syms.length){
+      const ids=syms.map(s=>cgIds[s]).join(',');
+      const ctrl=new AbortController();
+      const timer=setTimeout(()=>ctrl.abort(), 4000);
+      try{
+        const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids='+encodeURIComponent(ids)+'&vs_currencies=mxn,usd',{cache:'no-store',signal:ctrl.signal});
         if(r.ok){
           const j=await r.json();
+          let changed=false;
           syms.forEach(s=>{
             const row=j?.[cgIds[s]];
             const mxn=Number(row?.mxn), usd=Number(row?.usd);
-            if(mxn>0){ priceMap[binancePair(s)]=usdtMxn>0?mxn/usdtMxn:usd; priceMap[binancePair(s)+'_MXN']=mxn; }
+            if(mxn>0){ priceMap[binancePair(s)]=usdtMxn>0?mxn/usdtMxn:usd; priceMap[binancePair(s)+'_MXN']=mxn; changed=true; }
           });
+          if(changed) paintInvestPricesNow();
         }
-      }
-    }catch(e){ console.warn('CoinGecko fallback',e); }
-    priceLoading=false;
-    renderInvestPricesOnly();
-    refreshInvestPnlFaces();
-    try{ scheduleActivityPnlHydration(document.getElementById('history')); }catch(_){}
-    // Actualizar la segunda cara sin reconstruir el pastel completo.
-    // Reconstruir #donutContent aquí provocaba un destello/parpadeo visible
-    // cada vez que se refrescaban las cotizaciones.
-    try{ updateDistributionPerformanceOnly(); }catch(e){ console.warn('Distribución rendimiento',e); }
-    requestAnimationFrame(syncInvestHeight);
-  }
+      } finally { clearTimeout(timer); }
+    }
+  }catch(e){ console.warn('CoinGecko fallback',e); }
+  try{ scheduleActivityPnlHydration(document.getElementById('history')); }catch(_){}
+  })();
+  binancePriceInflight=run;
+  try{ return await run; }
+  finally{ if(binancePriceInflight===run) binancePriceInflight=null; }
 }
 function renderInvestPricesOnly(){
   try{ renderPlatformBreakdown(); }catch(_){}
@@ -3841,14 +3862,22 @@ function scheduleActivityPnlHydration(root){
 }
 let activityExtrasTimer=null;
 function scheduleActivityExtrasHydration(root){
-  // Diferir para no competir con el primer refresh de precios de Invertido.
+  // Solo después de que el dashboard tenga precios actuales (o timeout).
+  // Nunca llama refreshBinancePrices: los klines históricos van aparte y acotados.
   const target=root||document.getElementById('history');
   if(activityExtrasTimer) clearTimeout(activityExtrasTimer);
-  activityExtrasTimer=setTimeout(()=>{
+  const started=Date.now();
+  const kick=()=>{
     activityExtrasTimer=null;
+    const ready=(Number(usdtMxn)>0 && Object.keys(priceMap||{}).length>0) || (Date.now()-started>5000);
+    if(!ready){
+      activityExtrasTimer=setTimeout(kick, 400);
+      return;
+    }
     try{ scheduleHistPriceHydration(target); }catch(e){ console.warn('hist hydrate', e); }
     try{ scheduleActivityPnlHydration(target); }catch(e){ console.warn('pnl hydrate', e); }
-  }, 1800);
+  };
+  activityExtrasTimer=setTimeout(kick, 1200);
 }
 
 const klineOpenInflight=new Map();
