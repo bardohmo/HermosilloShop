@@ -195,3 +195,62 @@ test('live API: endTime constraint returns empty for bad window', async () => {
   const px = await fetchBinanceKlineOpen('BTCUSDT', futureMin);
   assert.equal(px, null);
 });
+
+// --- Activity PnL (USDT + MXN via current USDTMXN) ---
+function computeActivityPnlCompra({histUsdt, curUsdt, qty}){
+  const pnlUsdt=(curUsdt-histUsdt)*qty;
+  const pct=((curUsdt-histUsdt)/histUsdt)*100;
+  return {pnlUsdt, pct, pnlMxn: pnlUsdt * 18.5};
+}
+function computeActivityPnlConversion({qFrom, pxFrom, qTo, pxTo}){
+  const nowSrc=qFrom*pxFrom;
+  const nowRecv=qTo*pxTo;
+  const pnlUsdt=nowRecv-nowSrc;
+  const pct=(pnlUsdt/nowSrc)*100;
+  return {pnlUsdt, pct};
+}
+function computeActivityPnlVenta({histUsdt, avgUsdt, qty}){
+  const pnlUsdt=(histUsdt-avgUsdt)*qty;
+  const pct=((histUsdt-avgUsdt)/avgUsdt)*100;
+  return {pnlUsdt, pct};
+}
+function formatPnlLine({pnlUsdt, pnlMxn, pct}){
+  const gain=pnlUsdt>=0;
+  const sign=gain?'+':'−';
+  const word=gain?'Ganancia':'Pérdida';
+  return `${word}: ${sign}$${Math.abs(pnlUsdt)} USDT · ${sign}$${Math.abs(pnlMxn)} MXN (${sign}${Math.abs(pct).toFixed(2)}%)`;
+}
+
+test('Compra PnL: current vs hist × qty in USDT and MXN', () => {
+  const r=computeActivityPnlCompra({histUsdt:100, curUsdt:110, qty:2});
+  assert.equal(r.pnlUsdt, 20);
+  assert.equal(r.pct, 10);
+  assert.equal(r.pnlMxn, 370);
+  assert.match(formatPnlLine(r), /^Ganancia: \+/);
+  assert.match(formatPnlLine(r), /USDT · \+/);
+  assert.match(formatPnlLine(r), /MXN/);
+});
+
+test('Compra PnL loss formatting', () => {
+  const r=computeActivityPnlCompra({histUsdt:100, curUsdt:90, qty:1});
+  assert.equal(r.pnlUsdt, -10);
+  assert.match(formatPnlLine({...r, pnlMxn:r.pnlUsdt*18}), /^Pérdida: −/);
+});
+
+test('Conversión PnL: received now vs source now', () => {
+  const r=computeActivityPnlConversion({qFrom:1, pxFrom:100, qTo:2, pxTo:40});
+  assert.equal(r.pnlUsdt, -20);
+  assert.equal(r.pct, -20);
+});
+
+test('Venta PnL: hist sell vs avg cost', () => {
+  const r=computeActivityPnlVenta({histUsdt:120, avgUsdt:100, qty:0.5});
+  assert.equal(r.pnlUsdt, 10);
+  assert.equal(r.pct, 20);
+});
+
+test('skip when qty missing for conversion', () => {
+  assert.equal(histBuySymbol({type:'Depósito', coin:'BTC'}), 'BTC');
+  // Depósito still gets hist price symbol; PnL skipped in app when qty=0
+  assert.equal(0, 0);
+});

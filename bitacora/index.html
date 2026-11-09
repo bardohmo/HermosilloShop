@@ -400,7 +400,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .type-chip .type-icon{margin-right:0}
 .item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .item-head strong{display:inline-flex;align-items:center;min-width:0}
-.item-when{font-size:11px;color:#8b97a6;font-weight:700;white-space:nowrap}.item .amt{white-space:normal}.hist-price{display:block;margin-top:5px;font-size:11px;font-weight:800;color:#ffd96b;line-height:1.35;max-width:240px;white-space:normal}.hist-price.is-loading{color:#6f7b88}.hist-price.is-ready{color:#a8b3c0}.hist-price.is-missing{color:#8793a1}
+.item-when{font-size:11px;color:#8b97a6;font-weight:700;white-space:nowrap}.item .amt{white-space:normal}.hist-price{display:block;margin-top:5px;font-size:11px;font-weight:800;color:#ffd96b;line-height:1.35;max-width:240px;white-space:normal}.hist-price.is-loading{color:#6f7b88}.hist-price.is-ready{color:#a8b3c0}.hist-price.is-missing{color:#8793a1}.act-pnl{display:block;margin-top:3px;font-size:10px;font-weight:800;line-height:1.35;max-width:260px;white-space:normal}.act-pnl.is-loading{color:#6f7b88}.act-pnl.gain{color:#20c980}.act-pnl.loss{color:#f6465d}
 .crypto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:10000;display:none;padding:18px;overflow:auto;scroll-behavior:smooth}
 .crypto-overlay.show{display:flex;align-items:flex-start;justify-content:center;padding-top:18px}
 .crypto-panel{width:min(720px,100%);max-height:92vh;overflow:auto;scroll-behavior:smooth;background:#0a1119;border:1px solid #263544;border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
@@ -2425,6 +2425,7 @@ async function refreshBinancePrices(force){
     priceLoading=false;
     renderInvestPricesOnly();
     refreshInvestPnlFaces();
+    try{ scheduleActivityPnlHydration(document.getElementById('history')); }catch(_){}
     // Actualizar la segunda cara sin reconstruir el pastel completo.
     // Reconstruir #donutContent aquí provocaba un destello/parpadeo visible
     // cada vez que se refrescaban las cotizaciones.
@@ -3547,6 +3548,278 @@ function compraHistPriceSlotHtml(x){
   }
   return histPriceLabelHtml(entry);
 }
+
+function resolveActivityCoinSymbol(rawIn){
+  let raw=String(rawIn||'').trim();
+  if(!raw || raw.toLowerCase()==='cripto') return '';
+  try{
+    const cc=typeof coinBySymbol==='function'?coinBySymbol(raw):null;
+    if(cc?.symbol) raw=cc.symbol;
+    else if(typeof coins!=='undefined' && Array.isArray(coins)){
+      const up=raw.toUpperCase();
+      const byName=coins.find(c=>String(c.name||'').toUpperCase()===up || String(c.symbol||'').toUpperCase()===up);
+      if(byName?.symbol) raw=byName.symbol;
+    }
+  }catch(_){}
+  const sym=normalizeCoinSymbol(raw);
+  if(!sym || sym==='MXN') return '';
+  if(typeof STABLES!=='undefined' && STABLES.has(sym)) return '';
+  if(!binancePair(sym)) return '';
+  return sym;
+}
+/** Costo promedio MXN de la moneda justo antes de aplicar esta Venta (FIFO/avg del ledger). */
+function avgCostMxnBeforeOp(target){
+  if(!target) return null;
+  const pos={};
+  const get=(sym)=>{
+    const s=normalizeCoinSymbol(sym);
+    if(!s) return null;
+    if(!pos[s]) pos[s]={qty:0,cost:0};
+    return pos[s];
+  };
+  const ops=[...(data||[])].map((op,i)=>({op,i})).sort((a,b)=>{
+    const da=Date.parse(a.op?.date)||0, db=Date.parse(b.op?.date)||0;
+    return da-db || a.i-b.i;
+  });
+  for(const {op} of ops){
+    const isTarget = (target.id && op.id && String(target.id)===String(op.id)) || op===target;
+    const type=op?.type||'';
+    if(type==='Conversión'){
+      const pair=parseConvertPair(op.coinFrom||op.coinTo?{coinFrom:op.coinFrom,coinTo:op.coinTo}:op.coin);
+      const from=normalizeCoinSymbol(op.coinFrom||pair?.from||'');
+      const to=normalizeCoinSymbol(op.coinTo||pair?.to||'');
+      const qFrom=opQtyValue(op), qTo=opQtyToValue(op);
+      if(!from || !to || !(qTo>0)){
+        if(isTarget) return null;
+        continue;
+      }
+      const src=get(from), dst=get(to);
+      let carryCost=0;
+      if(qFrom>0 && src.qty>0 && src.cost>0){
+        const take=Math.min(qFrom,src.qty);
+        const avg=src.cost/src.qty;
+        carryCost=avg*take;
+        src.qty-=take;
+        src.cost=Math.max(0,src.cost-carryCost);
+      }
+      if(!(carryCost>0)){
+        const amt=Number(op.amount)||0;
+        if(amt>0) carryCost=amt;
+      }
+      dst.qty+=qTo;
+      if(carryCost>0) dst.cost+=carryCost;
+      if(isTarget) return null;
+      continue;
+    }
+    const coin=normalizeCoinSymbol(op.coin);
+    if(!coin){ if(isTarget) return null; continue; }
+    const q=opQtyValue(op), amt=Number(op.amount)||0;
+    if(type==='Compra' || type==='Depósito' || type==='Staking'){
+      if(q>0){
+        const dst=get(coin);
+        dst.qty+=q;
+        if(amt>0) dst.cost+=amt;
+      }
+      if(isTarget) return null;
+    }else if(type==='Venta' || type==='Retiro' || type==='Comisión'){
+      if(isTarget && type==='Venta'){
+        const src=get(coin);
+        if(src && src.qty>0 && src.cost>0) return src.cost/src.qty;
+        return null;
+      }
+      if(q>0){
+        const src=get(coin);
+        const take=Math.min(q,Math.max(0,src.qty));
+        if(take>0 && src.qty>0){
+          const avg=src.cost/src.qty;
+          src.cost=Math.max(0,src.cost-avg*take);
+          src.qty=Math.max(0,src.qty-take);
+        }
+      }
+    }else if(isTarget){
+      return null;
+    }
+  }
+  return null;
+}
+function formatPnlAbs(n){
+  const v=Math.abs(Number(n));
+  if(!Number.isFinite(v)) return '—';
+  if(v>=1000) return v.toLocaleString('es-MX',{maximumFractionDigits:2});
+  if(v>=1) return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:4});
+  return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:8});
+}
+/** @returns {{status:'skip'|'loading'|'nd'|'ok', pnlUsdt?:number, pct?:number}} */
+function computeActivityPnl(x){
+  if(!x) return {status:'skip'};
+  const type=String(x.type||'');
+  if(type==='Compra' || type==='Depósito'){
+    const sym=histBuySymbol(x);
+    if(!sym) return {status:'skip'};
+    const qty=opQtyValue(x);
+    if(!(qty>0)) return {status:'skip'};
+    const minuteMs=histMinuteMs(x.date);
+    if(minuteMs==null || minuteMs>Date.now()) return {status:'nd'};
+    const pair=binancePair(sym);
+    if(!pair) return {status:'nd'};
+    const hist=histPriceMem[histPriceKey(pair, minuteMs)];
+    if(!hist) return {status:'loading'};
+    if(hist.status!=='ok' || !(hist.usdt>0)) return {status:'nd'};
+    const cur=usdPriceOfSym(sym);
+    if(!(cur>0) || !(Number(usdtMxn)>0)) return {status:'loading'};
+    const pnlUsdt=(cur-hist.usdt)*qty;
+    const pct=((cur-hist.usdt)/hist.usdt)*100;
+    return {status:'ok', pnlUsdt, pct};
+  }
+  if(type==='Conversión'){
+    const pair=parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin);
+    const from=normalizeCoinSymbol(x.coinFrom||pair?.from||'');
+    const to=normalizeCoinSymbol(x.coinTo||pair?.to||'');
+    const qFrom=opQtyValue(x), qTo=opQtyToValue(x);
+    if(!from || !to || !(qFrom>0) || !(qTo>0)) return {status:'skip'};
+    if(!(Number(usdtMxn)>0)) return {status:'loading'};
+    let nowSrc=null, nowRecv=null;
+    if(from==='MXN') nowSrc=qFrom/usdtMxn;
+    else if(STABLES.has(from)) nowSrc=qFrom;
+    else {
+      const px=usdPriceOfSym(from);
+      if(!(px>0)) return {status:'loading'};
+      nowSrc=qFrom*px;
+    }
+    if(to==='MXN') nowRecv=qTo/usdtMxn;
+    else if(STABLES.has(to)) nowRecv=qTo;
+    else {
+      const px=usdPriceOfSym(to);
+      if(!(px>0)) return {status:'loading'};
+      nowRecv=qTo*px;
+    }
+    if(!(nowSrc>0) || nowRecv==null || !Number.isFinite(nowRecv)) return {status:'nd'};
+    const pnlUsdt=nowRecv-nowSrc;
+    const pct=(pnlUsdt/nowSrc)*100;
+    return {status:'ok', pnlUsdt, pct};
+  }
+  if(type==='Venta'){
+    const sym=resolveActivityCoinSymbol(x.coin||'');
+    if(!sym) return {status:'skip'};
+    const qty=opQtyValue(x);
+    if(!(qty>0)) return {status:'skip'};
+    const avgMxn=avgCostMxnBeforeOp(x);
+    if(!(avgMxn>0)) return {status:'skip'};
+    if(!(Number(usdtMxn)>0)) return {status:'loading'};
+    const avgUsdt=avgMxn/usdtMxn;
+    if(!(avgUsdt>0)) return {status:'nd'};
+    const minuteMs=histMinuteMs(x.date);
+    if(minuteMs==null || minuteMs>Date.now()) return {status:'nd'};
+    const pair=binancePair(sym);
+    if(!pair) return {status:'nd'};
+    const hist=histPriceMem[histPriceKey(pair, minuteMs)];
+    if(!hist) return {status:'loading'};
+    if(hist.status!=='ok' || !(hist.usdt>0)) return {status:'nd'};
+    const pnlUsdt=(hist.usdt-avgUsdt)*qty;
+    const pct=((hist.usdt-avgUsdt)/avgUsdt)*100;
+    return {status:'ok', pnlUsdt, pct};
+  }
+  // Retiro, Staking, Comisión, etc.: sin definición honesta → omitir
+  return {status:'skip'};
+}
+function activityPnlLabelHtml(res, opId){
+  const idAttr=opId?` data-pnl-id="${esc(String(opId))}"`:'';
+  if(!res || res.status==='skip') return '';
+  if(res.status==='loading'){
+    return `<span class="act-pnl is-loading" data-act-pnl="1"${idAttr}>—</span>`;
+  }
+  if(res.status!=='ok' || !Number.isFinite(res.pnlUsdt)){
+    return '';
+  }
+  if(!(Number(usdtMxn)>0)){
+    return `<span class="act-pnl is-loading" data-act-pnl="1"${idAttr}>—</span>`;
+  }
+  const pnlUsdt=Number(res.pnlUsdt);
+  const pnlMxn=pnlUsdt*Number(usdtMxn);
+  const gain=pnlUsdt>=0;
+  const sign=gain?'+':'−';
+  const word=gain?'Ganancia':'Pérdida';
+  const pct=Number(res.pct);
+  const pctTxt=Number.isFinite(pct)?` (${sign}${Math.abs(pct).toFixed(2)}%)`:'';
+  const cls=gain?'gain':'loss';
+  return `<span class="act-pnl ${cls}" data-act-pnl="1"${idAttr} title="Referencia con precios actuales / históricos de mercado. No es liquidación real.">${esc(word)}: ${sign}$${esc(formatPnlAbs(pnlUsdt))} USDT · ${sign}$${esc(formatPnlAbs(pnlMxn))} MXN${esc(pctTxt)}</span>`;
+}
+function activityPnlSlotHtml(x){
+  const res=computeActivityPnl(x);
+  if(!res || res.status==='skip') return '';
+  return activityPnlLabelHtml(res, x.id);
+}
+function fillActivityPnlEl(el, res){
+  if(!el) return;
+  const id=el.getAttribute('data-pnl-id')||'';
+  const html=activityPnlLabelHtml(res, id);
+  if(!html){
+    el.remove();
+    return;
+  }
+  const tmp=document.createElement('div');
+  tmp.innerHTML=html;
+  const next=tmp.firstElementChild;
+  if(!next) return;
+  el.replaceWith(next);
+}
+async function ensureActivityPnlReady(x){
+  const type=String(x?.type||'');
+  // Asegura precios actuales
+  if(!(Number(usdtMxn)>0) || (typeof priceMap==='object' && !Object.keys(priceMap||{}).length)){
+    try{ if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false); }catch(_){}
+  }
+  if(type==='Compra' || type==='Depósito' || type==='Venta'){
+    const sym = type==='Venta' ? resolveActivityCoinSymbol(x.coin||'') : histBuySymbol(x);
+    if(sym){
+      const minuteMs=histMinuteMs(x.date);
+      if(minuteMs!=null){
+        const pair=binancePair(sym);
+        if(pair){
+          const key=histPriceKey(pair, minuteMs);
+          const cached=histPriceMem[key];
+          if(!cached || (cached.status!=='ok' && cached.status!=='nd')){
+            await resolveHistBuyPrice(sym, x.date);
+          }
+        }
+      }
+    }
+  }
+  return computeActivityPnl(x);
+}
+function scheduleActivityPnlHydration(root){
+  const gen=histPriceGen; // share generation with hist hydrate bumps
+  const scope=root||document.getElementById('history')||document;
+  const nodes=Array.from(scope.querySelectorAll('[data-act-pnl="1"]'));
+  if(!nodes.length) return;
+  const run=async (el)=>{
+    if(gen!==histPriceGen) return;
+    if(!el.isConnected) return;
+    const id=el.getAttribute('data-pnl-id')||'';
+    const op=(data||[]).find(o=>String(o.id)===String(id));
+    if(!op){ el.remove(); return; }
+    const res=await ensureActivityPnlReady(op);
+    if(gen!==histPriceGen) return;
+    if(!el.isConnected) return;
+    if(res.status==='loading'){
+      // keep em-dash; retry once prices/hist arrive
+      return;
+    }
+    fillActivityPnlEl(el, res);
+  };
+  nodes.forEach(el=>run(el));
+  // Reintento corto por si los precios actuales llegan un instante después
+  setTimeout(()=>{
+    if(gen!==histPriceGen) return;
+    const left=Array.from((root||document.getElementById('history')||document).querySelectorAll('.act-pnl.is-loading[data-act-pnl="1"]'));
+    left.forEach(el=>run(el));
+  }, 1200);
+}
+function scheduleActivityExtrasHydration(root){
+  try{ scheduleHistPriceHydration(root); }catch(e){ console.warn('hist hydrate', e); }
+  try{ scheduleActivityPnlHydration(root); }catch(e){ console.warn('pnl hydrate', e); }
+}
+
 const klineOpenInflight=new Map();
 async function fetchBinanceKlineOpen(pair, minuteMs){
   const key=histPriceKey(pair, minuteMs);
@@ -3664,9 +3937,11 @@ function scheduleHistPriceHydration(root){
     if(!el.isConnected) return;
     if(entry.status==='err'){
       fillHistPriceEl(el, {status:'nd'});
+      try{ scheduleActivityPnlHydration(el.parentElement||document.getElementById('history')); }catch(_){}
       return;
     }
     fillHistPriceEl(el, entry);
+    try{ scheduleActivityPnlHydration(el.parentElement||document.getElementById('history')); }catch(_){}
   };
   // Encolar de inmediato (cola con concurrencia). IO solo prioriza visibles.
   nodes.forEach(el=>run(el));
@@ -3787,6 +4062,7 @@ function render(){
      <div class="amt">
        ${activityAmountHtml(x)}
        ${compraHistPriceSlotHtml(x)}
+       ${activityPnlSlotHtml(x)}
        <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:7px">
          <button type="button" class="editBtn" data-id="${esc(x.id)}"
            style="padding:7px 9px;background:#29333e;color:#fff;font-size:11px">EDITAR</button>
@@ -3796,7 +4072,7 @@ function render(){
      </div>
    </div>`;
  }).join('');
- try{ scheduleHistPriceHydration(h); }catch(e){ console.warn('hist hydrate', e); }
+ try{ scheduleActivityExtrasHydration(h); }catch(e){ console.warn('activity extras', e); }
 }
 
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
@@ -4752,7 +5028,7 @@ render=function(){
   h.innerHTML=rows.length
     ? rows.slice().reverse().map(x=>renderHistoryItem(x)).join('')
     : '<div class="history-no-results"><strong>Sin resultados</strong>No hay operaciones que coincidan con tu búsqueda.</div>';
-  try{ scheduleHistPriceHydration(h); }catch(e){ console.warn('hist hydrate', e); }
+  try{ scheduleActivityExtrasHydration(h); }catch(e){ console.warn('activity extras', e); }
 };
 
 function renderHistoryItem(x){
@@ -4785,6 +5061,7 @@ function renderHistoryItem(x){
     <div class="amt">
       ${activityAmountHtml(x)}
       ${histHtml}
+      ${activityPnlSlotHtml(x)}
       <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:7px">
         <button type="button" class="editBtn" data-id="${esc(x.id)}" style="padding:7px 9px;background:#29333e;color:#fff;font-size:11px">EDITAR</button>
         <button type="button" class="deleteBtn" data-id="${esc(x.id)}" style="padding:7px 9px;background:#b3261e;color:#fff;font-size:11px;cursor:pointer">BORRAR</button>
