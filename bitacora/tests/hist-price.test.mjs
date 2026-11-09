@@ -17,11 +17,20 @@ function histPriceKey(pair, minuteMs){ return String(pair)+'|'+String(minuteMs);
 function binancePair(sym){
   const s=String(sym||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
   if(!s) return '';
+  if(s==='MXN' || s==='EUR' || s==='USD' || s==='GBP') return '';
   if(STABLES.has(s)) return '';
   if(s==='1000SATS') return '1000SATSUSDT';
   if(s==='BTTC') return 'BTTCUSDT';
   if(s.endsWith('USDT')||s.endsWith('USDC')) return s;
   return s+'USDT';
+}
+/** Mirrors dashboard pair list: MXN must not create MXNUSDT or the 45s cache never hits. */
+function dashboardPricePairs(investedSyms, balSyms=[]){
+  return [...new Set([...(investedSyms||[]), ...(balSyms||[])].map(s=>binancePair(s)).filter(Boolean))];
+}
+function pricesFreshForPairs(pairs, priceMap, usdtMxn, priceFetchedAt, now=Date.now()){
+  const fresh=now-priceFetchedAt<45000;
+  return !!(fresh && (pairs||[]).every(p=>Number(priceMap[p])>0) && usdtMxn>0);
 }
 function normalizeCoinSymbol(v){
   let s=String(v||'').trim().toUpperCase().replace(/\s+/g,'');
@@ -316,3 +325,21 @@ test('regression: invested amounts do not depend on hist klines', () => {
   const investedFromOps = [{type:'Compra', amount:1000},{type:'Compra', amount:500}].reduce((a,x)=>a+(Number(x.amount)||0),0);
   assert.equal(investedFromOps, 1500);
 });
+
+test('binancePair skips MXN fiat (no MXNUSDT)', () => {
+  assert.equal(binancePair('MXN'), '');
+  assert.equal(binancePair('BTC'), 'BTCUSDT');
+  assert.equal(binancePair('USDT'), '');
+});
+
+test('dashboard price cache not poisoned by MXN holdings', () => {
+  const pairs = dashboardPricePairs(['BTC','ETH','USDT','MXN','SOL'], ['BTC','MXN']);
+  assert.deepEqual(pairs.sort(), ['BTCUSDT','ETHUSDT','SOLUSDT'].sort());
+  assert.ok(!pairs.includes('MXNUSDT'));
+  const priceMap = { BTCUSDT:1, ETHUSDT:1, SOLUSDT:1 };
+  assert.equal(pricesFreshForPairs(pairs, priceMap, 18.5, Date.now()-1000), true);
+  // Old bug: including MXNUSDT made every() fail forever
+  const poisoned = [...pairs, 'MXNUSDT'];
+  assert.equal(pricesFreshForPairs(poisoned, priceMap, 18.5, Date.now()-1000), false);
+});
+
