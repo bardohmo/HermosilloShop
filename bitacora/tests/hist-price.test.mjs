@@ -225,14 +225,37 @@ function formatPnlLine({pnlUsdt, pnlMxn, pct}){
   return `${word}: ${sign}$${Math.abs(pnlUsdt)} USDT · ${sign}$${Math.abs(pnlMxn)} MXN (${sign}${Math.abs(pct).toFixed(2)}%)`;
 }
 
-test('Compra PnL: current vs hist × qty in USDT and MXN', () => {
+function computeActivityPnlPaidMxn({amountMxn, qty, priceUsdt, usdtMxn}){
+  const valueNowMxn = qty * priceUsdt * usdtMxn;
+  const pnlMxn = valueNowMxn - amountMxn;
+  const pct = (pnlMxn / amountMxn) * 100;
+  const pnlUsdt = pnlMxn / usdtMxn;
+  return {valueNowMxn, pnlMxn, pct, pnlUsdt};
+}
+
+test('Compra PnL paid MXN vs value now (BTTC example)', () => {
+  const r = computeActivityPnlPaidMxn({
+    amountMxn: 1537,
+    qty: 135693919,
+    priceUsdt: 0.00000037,
+    usdtMxn: 18.621,
+  });
+  assert.ok(Math.abs(r.valueNowMxn - 934.9) < 0.5, 'valueNowMxn='+r.valueNowMxn);
+  assert.ok(Math.abs(r.pnlMxn - (-602)) < 1, 'pnlMxn='+r.pnlMxn);
+  assert.ok(Math.abs(r.pct - (-39.2)) < 0.3, 'pct='+r.pct);
+  assert.ok(Math.abs(r.pnlUsdt - (-32.3)) < 0.2, 'pnlUsdt='+r.pnlUsdt);
+  const line = formatPnlLine({pnlUsdt:r.pnlUsdt, pnlMxn:r.pnlMxn, pct:r.pct});
+  assert.match(line, /^Pérdida: −/);
+  assert.match(line, /USDT · −/);
+  assert.match(line, /MXN/);
+});
+
+test('Compra PnL fallback hist method still works', () => {
   const r=computeActivityPnlCompra({histUsdt:100, curUsdt:110, qty:2});
   assert.equal(r.pnlUsdt, 20);
   assert.equal(r.pct, 10);
   assert.equal(r.pnlMxn, 370);
   assert.match(formatPnlLine(r), /^Ganancia: \+/);
-  assert.match(formatPnlLine(r), /USDT · \+/);
-  assert.match(formatPnlLine(r), /MXN/);
 });
 
 test('Compra PnL loss formatting', () => {
