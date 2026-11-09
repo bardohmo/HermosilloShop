@@ -417,6 +417,58 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .crypto-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.crypto-actions button{border:0;border-radius:10px;padding:10px 12px;font-weight:800;cursor:pointer}
 .crypto-list{display:grid;gap:8px;margin-top:12px}.crypto-row{display:flex;align-items:center;gap:10px;padding:9px;border:1px solid #263544;border-radius:12px;background:#0d151e}.crypto-row img{width:36px;height:36px;object-fit:contain;border-radius:50%}.crypto-info{min-width:0;flex:1}.crypto-info b,.crypto-info small{display:block}.crypto-info small{color:#8d99a8}.crypto-row button{border:0;border-radius:8px;padding:8px 9px;background:#29333e;color:#fff;font-size:11px;font-weight:800}.crypto-row .danger{background:#a92822}.coin-preview{width:36px;height:36px;object-fit:contain;border-radius:50%;background:#17212c;padding:3px;display:none}.coin-select-wrap{display:flex;align-items:center;gap:9px}.coin-select{flex:1}
 @media(max-width:560px){.crypto-panel .coin-form{grid-template-columns:1fr}.crypto-panel .coin-form .full{grid-column:auto}.crypto-row button{padding:7px}.crypto-overlay{padding:10px}}
+
+/* ===== Análisis de inversión modal (v38) ===== */
+.analisis-overlay{position:fixed;inset:0;z-index:120000;display:none;align-items:center;justify-content:center;padding:14px;background:rgba(0,0,0,.78);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);overflow:auto}
+.analisis-overlay.show{display:flex}
+.analisis-card{position:relative;width:min(400px,100%);max-height:min(92vh,860px);overflow:auto;-webkit-overflow-scrolling:touch;margin:auto;padding:16px 14px 14px;border-radius:22px;background:linear-gradient(160deg,#071018 0%,#0a1520 55%,#081018 100%);border:1.5px solid rgba(0,229,255,.55);box-shadow:0 0 0 1px rgba(0,229,255,.18),0 0 28px rgba(0,229,255,.28),0 18px 48px rgba(0,0,0,.65)}
+.analisis-close{position:absolute;top:10px;right:10px;z-index:3;width:34px;height:34px;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:rgba(20,28,38,.92);color:#e8eef6;font-size:16px;font-weight:800;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.analisis-close:active{opacity:.8}
+.analisis-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-right:36px;margin:2px 2px 14px}
+.analisis-title{display:inline-flex;align-items:center;gap:8px;min-width:0}
+.analisis-title .ico{display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;border-radius:9px;background:rgba(0,229,255,.12);border:1px solid rgba(0,229,255,.35);color:#5ef0ff;flex-shrink:0}
+.analisis-title h2{margin:0;font-size:13px;letter-spacing:.9px;font-weight:900;color:#eaf7ff;text-transform:uppercase;line-height:1.2}
+.analisis-badge{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+.analisis-badge.loss{color:#fff;background:linear-gradient(135deg,#c62828,#e53935);box-shadow:0 0 14px rgba(229,57,53,.45)}
+.analisis-badge.gain{color:#062114;background:linear-gradient(135deg,#00c853,#69f0ae);box-shadow:0 0 14px rgba(0,200,83,.4)}
+.analisis-badge.flat{color:#cfd8dc;background:#263238;box-shadow:none}
+.analisis-box{border-radius:16px;padding:12px 12px 11px;margin-bottom:10px;background:rgba(6,12,20,.88);position:relative}
+.analisis-box .box-lab{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:850;letter-spacing:.7px;text-transform:uppercase;margin-bottom:6px}
+.analisis-box .box-val{font-size:26px;font-weight:900;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:.2px}
+.analisis-box .box-sub{margin-top:5px;font-size:10px;font-weight:650;opacity:.78}
+.analisis-box.buy{border:1.5px solid rgba(240,180,41,.75);box-shadow:0 0 18px rgba(240,180,41,.28),inset 0 0 18px rgba(240,180,41,.05)}
+.analisis-box.buy .box-lab,.analisis-box.buy .box-val{color:#f0b429}
+.analisis-box.buy .box-sub{color:#d4a84a}
+.analisis-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.analisis-box.spot{border:1.5px solid rgba(0,229,255,.7);box-shadow:0 0 16px rgba(0,229,255,.28),inset 0 0 14px rgba(0,229,255,.04)}
+.analisis-box.spot .box-lab,.analisis-box.spot .box-val{color:#5ec8ff}
+.analisis-box.value{border:1.5px solid rgba(179,136,255,.75);box-shadow:0 0 16px rgba(179,136,255,.3),inset 0 0 14px rgba(179,136,255,.05)}
+.analisis-box.value .box-lab,.analisis-box.value .box-val{color:#c4b5fd}
+.analisis-box.spot .box-val,.analisis-box.value .box-val{font-size:20px}
+.analisis-box.rend{margin-bottom:4px}
+.analisis-box.rend.loss{border:1.5px solid rgba(246,70,93,.8);box-shadow:0 0 20px rgba(246,70,93,.32),inset 0 0 16px rgba(246,70,93,.05)}
+.analisis-box.rend.gain{border:1.5px solid rgba(32,201,128,.8);box-shadow:0 0 20px rgba(32,201,128,.32),inset 0 0 16px rgba(32,201,128,.05)}
+.analisis-box.rend .box-lab{width:100%;justify-content:space-between}
+.analisis-box.rend.loss .box-lab,.analisis-box.rend.loss .box-val{color:#ff6b7a}
+.analisis-box.rend.gain .box-lab,.analisis-box.rend.gain .box-val{color:#20c980}
+.analisis-pill{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:9px;font-weight:900;letter-spacing:.4px}
+.analisis-box.rend.loss .analisis-pill{background:rgba(246,70,93,.18);color:#ff8a95;border:1px solid rgba(246,70,93,.35)}
+.analisis-box.rend.gain .analisis-pill{background:rgba(32,201,128,.16);color:#69f0ae;border:1px solid rgba(32,201,128,.35)}
+.analisis-spark{display:block;width:100%;height:28px;margin:8px 0 6px;opacity:.85}
+.analisis-split{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.analisis-split .cell{padding:8px 8px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);font-size:13px;font-weight:850;text-align:center;font-variant-numeric:tabular-nums}
+.analisis-box.rend.loss .analisis-split .cell{color:#ff8a95}
+.analisis-box.rend.gain .analisis-split .cell{color:#69f0ae}
+.analisis-foot{margin-top:8px;font-size:10px;font-weight:650;opacity:.75;text-align:center}
+.analisis-loading{padding:28px 12px;text-align:center;color:#8b97a6;font-weight:750;font-size:13px}
+.analisis-loading .spin{display:inline-block;width:22px;height:22px;margin-bottom:10px;border:2px solid rgba(0,229,255,.25);border-top-color:#5ec8ff;border-radius:50%;animation:analisisSpin .8s linear infinite}
+@keyframes analisisSpin{to{transform:rotate(360deg)}}
+.analisis-empty{padding:22px 10px;text-align:center;color:#8793a1;font-size:12px;font-weight:700}
+@media(max-width:380px){
+  .analisis-box .box-val{font-size:22px}
+  .analisis-box.spot .box-val,.analisis-box.value .box-val{font-size:17px}
+  .analisis-title h2{font-size:11px}
+}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -848,6 +900,24 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
  </div>
 </div>
 <div class="note">Los datos se guardan en este dispositivo y se respaldan en la nube (Supabase).</div>
+</div>
+
+
+<!-- Análisis de inversión (Ver detalles) -->
+<div id="analisisOverlay" class="analisis-overlay" aria-hidden="true">
+  <div class="analisis-card" role="dialog" aria-modal="true" aria-labelledby="analisisTitle" id="analisisCard">
+    <button type="button" class="analisis-close" id="analisisCloseBtn" aria-label="Cerrar">✕</button>
+    <div class="analisis-head">
+      <div class="analisis-title">
+        <span class="ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16v-5"/><path d="M12 16V8"/><path d="M16 16v-3"/></svg>
+        </span>
+        <h2 id="analisisTitle">Análisis de inversión</h2>
+      </div>
+      <span id="analisisBadge" class="analisis-badge flat" hidden></span>
+    </div>
+    <div id="analisisBody" class="analisis-loading"><div class="spin" aria-hidden="true"></div><div>Cargando…</div></div>
+  </div>
 </div>
 
 <div class="modal" id="modal">
@@ -2585,8 +2655,8 @@ async function refreshBinancePrices(force){
   persistPricesSoon();
   // No hidratar historial completo: solo detalles ya abiertos.
   try{
-    if(typeof activityDetailsExpanded!=='undefined' && activityDetailsExpanded.size){
-      activityDetailsExpanded.forEach(id=>loadActivityDetailsForOp(id));
+    if(typeof activityDetailsOpenId==='string' && activityDetailsOpenId){
+      loadActivityDetailsForOp(activityDetailsOpenId);
     }
   }catch(_){}
   })();
@@ -3599,7 +3669,7 @@ function renderInvestByCoin(){
  refreshBinancePrices(false);
 }
 
-/* ===== Valor en compra (referencia 1m Binance, no ejecución) ===== */
+/* ===== Valor de compra (referencia 1m Binance, no ejecución) ===== */
 const HIST_PRICE_LS_KEY='cripto_bitacora_hist_price_v1';
 const HIST_PRICE_CONCURRENCY=1;
 const HIST_PRICE_TIMEOUT_MS=8000;
@@ -3728,13 +3798,13 @@ function persistHistPriceCacheSoon(){
   }, 400);
 }
 function histPriceLabelHtml(entry){
-  if(!entry) return `<span class="hist-price is-loading kind-buy">Valor en compra: …</span>`;
-  if(entry.status==='loading') return `<span class="hist-price is-loading kind-buy">Valor en compra: …</span>`;
+  if(!entry) return `<span class="hist-price is-loading kind-buy">Valor de compra: …</span>`;
+  if(entry.status==='loading') return `<span class="hist-price is-loading kind-buy">Valor de compra: …</span>`;
   if(entry.status!=='ok'){
-    return `<span class="hist-price is-missing kind-buy">Valor en compra: No disponible</span>`;
+    return `<span class="hist-price is-missing kind-buy">Valor de compra: No disponible</span>`;
   }
   const usdtTxt=formatHistUsdt(entry.usdt);
-  return `<span class="hist-price is-ready kind-buy" title="Referencia de la vela 1 minuto de Binance en esa fecha/hora (valor al momento de la compra). No es el precio exacto de ejecución.">Valor en compra: $${esc(usdtTxt)} USDT · ref. 1 min Binance</span>`;
+  return `<span class="hist-price is-ready kind-buy" title="Referencia de la vela 1 minuto de Binance en esa fecha/hora (valor al momento de la compra). No es el precio exacto de ejecución.">Valor de compra: $${esc(usdtTxt)} USDT · ref. 1 min Binance</span>`;
 }
 function histBuySymbol(x){
   // Compra y Depósito: referencia de mercado 1m en USDT (no stables/MXN).
@@ -3763,7 +3833,7 @@ function histBuySymbol(x){
   if(!binancePair(sym)) return '';
   return sym;
 }
-/** HTML de Valor en compra para Compra/Depósito (misma marca data-hist-buy para hidratar). */
+/** HTML de Valor de compra para Compra/Depósito (misma marca data-hist-buy para hidratar). */
 function compraHistPriceSlotHtml(x){
   try{
   const buySym=histBuySymbol(x);
@@ -3780,7 +3850,7 @@ function compraHistPriceSlotHtml(x){
     else entry={status:'loading'};
   }
   if(entry.status==='loading'){
-    return `<span class="hist-price is-loading kind-buy" data-hist-buy="1" data-hist-sym="${esc(buySym)}" data-hist-date="${esc(x.date||'')}">Valor en compra: …</span>`;
+    return `<span class="hist-price is-loading kind-buy" data-hist-buy="1" data-hist-sym="${esc(buySym)}" data-hist-date="${esc(x.date||'')}">Valor de compra: …</span>`;
   }
   return histPriceLabelHtml(entry);
   }catch(e){ console.warn('compraHistPriceSlotHtml', e); return ''; }
@@ -4048,7 +4118,7 @@ async function ensureActivityPnlReady(x){
   }
   return computeActivityPnl(x);
 }
-/** ¿Este movimiento admite Valor en compra / Ganancia-pérdida? Sin fetch. */
+/** ¿Este movimiento admite Valor de compra / Ganancia-pérdida? Sin fetch. */
 function activityDetailsApplicable(x){
   if(!x) return false;
   const type=String(x.type||'');
@@ -4066,124 +4136,274 @@ function activityDetailsApplicable(x){
   }
   return false;
 }
-const activityDetailsExpanded=new Set();
+let activityDetailsOpenId=null;
 const activityDetailsLoading=new Set();
+let analisisHistoryPushed=false;
+
 function activityDetailsControlsHtml(x){
   try{
     if(!activityDetailsApplicable(x)) return '';
     const id=String(x.id||'');
     if(!id) return '';
-    const open=activityDetailsExpanded.has(id);
-    const label=open?'Ocultar detalles':'Ver detalles';
-    const body=open
-      ?`<div class="act-details is-loading" data-act-details="${esc(id)}"><span class="hist-price is-loading">Cargando…</span></div>`
-      :`<div class="act-details" data-act-details="${esc(id)}" hidden></div>`;
-    return `<button type="button" class="detailsBtn" data-id="${esc(id)}" aria-expanded="${open?'true':'false'}">${label}</button>${body}`;
+    const open=activityDetailsOpenId===id;
+    return `<button type="button" class="detailsBtn" data-id="${esc(id)}" aria-expanded="${open?'true':'false'}">Ver detalles</button>`;
   }catch(e){
     console.warn('activityDetailsControlsHtml', e);
     return '';
   }
 }
+
+function analisisIco(kind){
+  if(kind==='coins') return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="9" r="5"/><path d="M15.5 8.5a5 5 0 1 1 0 7"/><path d="M9 7v4"/><path d="M7.5 9h3"/></svg>`;
+  if(kind==='candle') return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v3"/><path d="M8 18v3"/><rect x="5.5" y="6" width="5" height="12" rx="1.2"/><path d="M16 5v2"/><path d="M16 17v2"/><rect x="13.5" y="7" width="5" height="10" rx="1.2"/></svg>`;
+  if(kind==='wallet') return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5h15a2.5 2.5 0 0 1 0 5H5.5A2.5 2.5 0 0 1 3 11V7.5A2.5 2.5 0 0 1 5.5 5H19"/><path d="M3 11v5.5A2.5 2.5 0 0 0 5.5 19H19a2 2 0 0 0 2-2v-3.5"/><circle cx="17" cy="13.5" r="1"/></svg>`;
+  if(kind==='down') return `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
+  if(kind==='up') return `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>`;
+  if(kind==='trend-down') return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l7 7 4-4 7 7"/><path d="M14 17h7v-7"/></svg>`;
+  if(kind==='trend-up') return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l7-7 4 4 7-7"/><path d="M14 7h7v7"/></svg>`;
+  return '';
+}
+function analisisSparkSvg(gain){
+  const stroke=gain?'#20c980':'#f6465d';
+  // Decorative sparkline — not real series data
+  const d=gain
+    ? 'M2 22 L8 16 L12 18 L18 9 L28 12 L36 5 L46 8 L58 3'
+    : 'M2 4 L10 8 L16 6 L24 14 L32 11 L40 18 L50 15 L58 22';
+  return `<svg class="analisis-spark" viewBox="0 0 60 26" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/></svg>`;
+}
+
+function resolveHistBuyEntrySync(op){
+  const buySym=histBuySymbol(op);
+  if(!buySym) return null;
+  const minuteMs=histMinuteMs(op.date);
+  const pair=minuteMs!=null?binancePair(buySym):'';
+  if(minuteMs==null || !pair || minuteMs>Date.now()) return {status:'nd'};
+  const cached=histPriceMem[histPriceKey(pair, minuteMs)];
+  if(cached && (cached.status==='ok' || cached.status==='nd')) return cached;
+  return {status:'loading'};
+}
+
+function activityCurrentPriceData(op){
+  try{
+    const sym=activityCurrentPriceSym(op);
+    if(!sym) return null;
+    let unitUsdt=null;
+    if(typeof STABLES!=='undefined' && STABLES.has(sym)) unitUsdt=1;
+    else {
+      try{ unitUsdt=usdPriceOfSym(sym); }catch(_){ unitUsdt=null; }
+    }
+    let unitMxn=null;
+    try{ unitMxn=currentUnitPriceMxn(sym); }catch(_){ unitMxn=null; }
+    if(!(unitMxn>0) && unitUsdt>0 && Number(usdtMxn)>0) unitMxn=unitUsdt*Number(usdtMxn);
+    const qty=activityCurrentQty(op);
+    const valueMxn=(qty>0 && unitMxn>0)? qty*unitMxn : null;
+    return {sym, unitUsdt, valueMxn, loading:!(unitUsdt>0)};
+  }catch(e){
+    console.warn('activityCurrentPriceData', e);
+    return null;
+  }
+}
+
+function buildAnalisisModalHtml(op, histEntry, nowData, pnlRes){
+  const parts=[];
+  // Valor de compra
+  if(histEntry){
+    if(histEntry.status==='ok' && histEntry.usdt>0){
+      parts.push(`<div class="analisis-box buy"><div class="box-lab">${analisisIco('coins')} Valor de compra</div><div class="box-val">$${esc(formatHistUsdt(histEntry.usdt))} USDT</div><div class="box-sub">Referencia: 1 min Binance</div></div>`);
+    } else if(histEntry.status==='loading'){
+      parts.push(`<div class="analisis-box buy"><div class="box-lab">${analisisIco('coins')} Valor de compra</div><div class="box-val">…</div><div class="box-sub">Referencia: 1 min Binance</div></div>`);
+    } else if(histEntry.status==='nd'){
+      parts.push(`<div class="analisis-box buy"><div class="box-lab">${analisisIco('coins')} Valor de compra</div><div class="box-val" style="font-size:16px">No disponible</div><div class="box-sub">Referencia: 1 min Binance</div></div>`);
+    }
+  }
+  // Precio actual + Valor actual
+  if(nowData){
+    const left = nowData.loading || !(nowData.unitUsdt>0)
+      ? `<div class="analisis-box spot"><div class="box-lab">${analisisIco('candle')} Precio actual</div><div class="box-val">…</div></div>`
+      : `<div class="analisis-box spot"><div class="box-lab">${analisisIco('candle')} Precio actual</div><div class="box-val">$${esc(formatHistUsdt(nowData.unitUsdt))} USDT</div></div>`;
+    let right='';
+    if(nowData.valueMxn!=null && Number.isFinite(nowData.valueMxn)){
+      right=`<div class="analisis-box value"><div class="box-lab">${analisisIco('wallet')} Valor actual</div><div class="box-val">$${esc(formatDetailMxnAbs(nowData.valueMxn))} MXN</div></div>`;
+    }
+    if(right) parts.push(`<div class="analisis-row2">${left}${right}</div>`);
+    else parts.push(left);
+  }
+  // Rendimiento
+  if(pnlRes && pnlRes.status==='ok' && Number.isFinite(pnlRes.pnlUsdt) && Number(usdtMxn)>0){
+    const pnlUsdt=Number(pnlRes.pnlUsdt);
+    const pnlMxn=pnlUsdt*Number(usdtMxn);
+    const gain=pnlUsdt>=0;
+    const sign=gain?'+':'−';
+    const cls=gain?'gain':'loss';
+    const pill=gain?'POSITIVO':'NEGATIVO';
+    const arrow=gain?analisisIco('trend-up'):analisisIco('trend-down');
+    const pct=Number(pnlRes.pct);
+    const pctTxt=Number.isFinite(pct)?`${sign}${Math.abs(pct).toFixed(2)}%`:'—';
+    const foot=gain?'Ganancia respecto al valor de compra':'Pérdida respecto al valor de compra';
+    parts.push(
+      `<div class="analisis-box rend ${cls}">`+
+      `<div class="box-lab"><span style="display:inline-flex;align-items:center;gap:6px">${arrow} Rendimiento</span><span class="analisis-pill">${esc(pill)}</span></div>`+
+      `<div class="box-val">${sign}$${esc(formatPnlAbs(pnlUsdt))} USD</div>`+
+      analisisSparkSvg(gain)+
+      `<div class="analisis-split"><div class="cell">% ${esc(pctTxt)}</div><div class="cell" style="display:inline-flex;align-items:center;justify-content:center;gap:5px">${analisisIco('coins')} ${sign}$${esc(formatPnlAbs(pnlMxn))} MXN</div></div>`+
+      `<div class="analisis-foot">${esc(foot)}</div>`+
+      `</div>`
+    );
+  } else if(pnlRes && pnlRes.status==='loading'){
+    parts.push(`<div class="analisis-box rend flat" style="border:1.5px solid rgba(139,151,166,.35)"><div class="box-lab">Rendimiento</div><div class="box-val" style="font-size:18px;color:#8b97a6">…</div></div>`);
+  }
+  if(!parts.length) return `<div class="analisis-empty">Sin detalles disponibles</div>`;
+  return parts.join('');
+}
+
+function updateAnalisisBadge(pnlRes){
+  const badge=document.getElementById('analisisBadge');
+  if(!badge) return;
+  if(!pnlRes || pnlRes.status!=='ok' || !Number.isFinite(pnlRes.pnlUsdt)){
+    badge.hidden=true;
+    badge.textContent='';
+    badge.className='analisis-badge flat';
+    return;
+  }
+  const gain=Number(pnlRes.pnlUsdt)>=0;
+  badge.hidden=false;
+  badge.className='analisis-badge '+(gain?'gain':'loss');
+  badge.innerHTML=(gain?analisisIco('up'):analisisIco('down'))+' '+(gain?'En ganancia':'En pérdida');
+}
+
+function closeAnalisisModal(){
+  const overlay=document.getElementById('analisisOverlay');
+  if(overlay){
+    overlay.classList.remove('show');
+    overlay.setAttribute('aria-hidden','true');
+  }
+  const prevId=activityDetailsOpenId;
+  activityDetailsOpenId=null;
+  if(prevId){
+    document.querySelectorAll('.detailsBtn[data-id="'+String(prevId).replace(/"/g,'')+'"]').forEach(btn=>{
+      btn.setAttribute('aria-expanded','false');
+    });
+  }
+  if(analisisHistoryPushed){
+    analisisHistoryPushed=false;
+    try{
+      if(history.state && history.state.analisisModal) history.back();
+    }catch(_){}
+  }
+}
+
+function openAnalisisModalShell(id){
+  const overlay=document.getElementById('analisisOverlay');
+  const body=document.getElementById('analisisBody');
+  const badge=document.getElementById('analisisBadge');
+  if(!overlay || !body) return;
+  activityDetailsOpenId=String(id||'');
+  if(badge){ badge.hidden=true; badge.textContent=''; }
+  body.className='analisis-loading';
+  body.innerHTML='<div class="spin" aria-hidden="true"></div><div>Cargando…</div>';
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden','false');
+  document.querySelectorAll('.detailsBtn[data-id="'+activityDetailsOpenId.replace(/"/g,'')+'"]').forEach(btn=>{
+    btn.setAttribute('aria-expanded','true');
+  });
+  try{
+    if(!analisisHistoryPushed){
+      history.pushState({analisisModal:true, id:activityDetailsOpenId}, '');
+      analisisHistoryPushed=true;
+    }
+  }catch(_){}
+}
+
 async function loadActivityDetailsForOp(id){
   const key=String(id||'');
   if(!key) return;
-  const box=document.querySelector('[data-act-details="'+key.replace(/"/g,'')+'"]');
   const op=(data||[]).find(o=>String(o.id)===key);
-  if(!box || !op) return;
-  if(!activityDetailsExpanded.has(key)) return;
+  if(!op) return;
+  if(activityDetailsOpenId!==key) return;
   if(activityDetailsLoading.has(key)) return;
   activityDetailsLoading.add(key);
-  box.hidden=false;
-  box.classList.add('is-loading');
-  box.innerHTML='<span class="hist-price is-loading">Cargando…</span>';
+  const body=document.getElementById('analisisBody');
+  if(body){
+    body.className='analisis-loading';
+    body.innerHTML='<div class="spin" aria-hidden="true"></div><div>Cargando…</div>';
+  }
   try{
-    // Precios actuales si hacen falta para P/L (una sola vez, compartido).
     if(!(Number(usdtMxn)>0) || !(Object.keys(priceMap||{}).length)){
       try{ if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false); }catch(_){}
     }
-    let histHtml='';
+    let histEntry=null;
     const buySym=histBuySymbol(op);
     if(buySym){
-      let entry=null;
       const minuteMs=histMinuteMs(op.date);
       const pair=minuteMs!=null?binancePair(buySym):'';
       if(minuteMs==null || !pair || minuteMs>Date.now()){
-        entry={status:'nd'};
+        histEntry={status:'nd'};
       } else {
         const cached=histPriceMem[histPriceKey(pair, minuteMs)];
-        if(cached && (cached.status==='ok' || cached.status==='nd')) entry=cached;
+        if(cached && (cached.status==='ok' || cached.status==='nd')) histEntry=cached;
         else {
-          entry=await resolveHistBuyPrice(buySym, op.date);
-          if(entry && entry.status==='err') entry={status:'nd'};
+          histEntry=await resolveHistBuyPrice(buySym, op.date);
+          if(histEntry && histEntry.status==='err') histEntry={status:'nd'};
         }
       }
-      histHtml=histPriceLabelHtml(entry);
     }
-    let nowHtml=activityCurrentMxnHtml(op);
-    if(nowHtml.includes('Precio actual: …')){
-      // un reintento corto si priceMap acaba de llenarse
+    let nowData=activityCurrentPriceData(op);
+    if(nowData && nowData.loading){
       await new Promise(r=>setTimeout(r, 350));
-      nowHtml=activityCurrentMxnHtml(op);
+      nowData=activityCurrentPriceData(op);
     }
-    const res=await ensureActivityPnlReady(op);
-    let pnlHtml='';
+    let res=await ensureActivityPnlReady(op);
     if(res && res.status==='loading'){
-      // reintento breve por si el refresh acaba de pintar priceMap
       await new Promise(r=>setTimeout(r, 400));
-      const res2=await ensureActivityPnlReady(op);
-      pnlHtml=activityPnlLabelHtml(res2, op.id);
-    } else {
-      pnlHtml=activityPnlLabelHtml(res, op.id);
+      res=await ensureActivityPnlReady(op);
     }
-    if(!activityDetailsExpanded.has(key) || !box.isConnected) return;
-    box.classList.remove('is-loading');
-    // Orden: Valor en compra → Precio actual USDT → Valor actual MXN → P&L
-    const html=(histHtml||'')+(nowHtml||'')+(pnlHtml||'');
-    box.innerHTML=html || '<span class="hist-price is-missing">Sin detalles disponibles</span>';
+    if(activityDetailsOpenId!==key) return;
+    if(body){
+      body.className='';
+      body.innerHTML=buildAnalisisModalHtml(op, histEntry, nowData, res);
+    }
+    updateAnalisisBadge(res);
   }catch(e){
     console.warn('loadActivityDetailsForOp', e);
-    if(box.isConnected){
-      box.classList.remove('is-loading');
-      box.innerHTML='<span class="hist-price is-missing">No disponible</span>';
+    if(activityDetailsOpenId===key && body){
+      body.className='';
+      body.innerHTML='<div class="analisis-empty">No disponible</div>';
     }
   }finally{
     activityDetailsLoading.delete(key);
   }
 }
+
 function toggleActivityDetails(id){
   const key=String(id||'');
   if(!key) return;
-  const btn=document.querySelector('.detailsBtn[data-id="'+key.replace(/"/g,'')+'"]');
-  const box=document.querySelector('[data-act-details="'+key.replace(/"/g,'')+'"]');
-  if(activityDetailsExpanded.has(key)){
-    activityDetailsExpanded.delete(key);
-    if(btn){ btn.textContent='Ver detalles'; btn.setAttribute('aria-expanded','false'); }
-    if(box){ box.hidden=true; box.innerHTML=''; box.classList.remove('is-loading'); }
+  if(activityDetailsOpenId===key){
+    closeAnalisisModal();
     return;
   }
-  activityDetailsExpanded.add(key);
-  if(btn){ btn.textContent='Ocultar detalles'; btn.setAttribute('aria-expanded','true'); }
-  if(box){ box.hidden=false; }
+  // Opening another (or first): close previous without history thrash
+  if(activityDetailsOpenId && activityDetailsOpenId!==key){
+    const prev=activityDetailsOpenId;
+    activityDetailsOpenId=null;
+    document.querySelectorAll('.detailsBtn[data-id="'+String(prev).replace(/"/g,'')+'"]').forEach(btn=>{
+      btn.setAttribute('aria-expanded','false');
+    });
+  }
+  openAnalisisModalShell(key);
   loadActivityDetailsForOp(key);
 }
+
 function scheduleActivityPnlHydration(root){
-  // Ya no hidrata en masa: solo ítems con detalles abiertos.
   try{ scheduleActivityExtrasHydration(root); }catch(_){}
 }
 let activityExtrasTimer=null;
 function scheduleActivityExtrasHydration(root){
-  // Solo rehidratar movimientos YA abiertos (Set). Cero klines para el resto.
-  const target=root||document.getElementById('history');
+  // Solo rehidratar el modal abierto (cero klines para el resto).
   if(activityExtrasTimer) clearTimeout(activityExtrasTimer);
   activityExtrasTimer=setTimeout(()=>{
     activityExtrasTimer=null;
-    if(!activityDetailsExpanded.size) return;
-    activityDetailsExpanded.forEach(id=>{
-      const box=target && target.querySelector
-        ? target.querySelector('[data-act-details="'+String(id).replace(/"/g,'')+'"]')
-        : document.querySelector('[data-act-details="'+String(id).replace(/"/g,'')+'"]');
-      if(box && activityDetailsExpanded.has(String(id))) loadActivityDetailsForOp(id);
-    });
+    if(!activityDetailsOpenId) return;
+    loadActivityDetailsForOp(activityDetailsOpenId);
   }, 40);
 }
 
@@ -4641,6 +4861,26 @@ async function save(){
 }
 function clearAll(){if(data.length&&confirm('¿Borrar todo el historial?')){data=[];localStorage.removeItem(KEY);localStorage.removeItem('cripto_bitacora_v1');persistLocalOps();render();clearOpsCloud().catch(e=>console.warn('clear ops',e));}}
 document.getElementById('closeModalBtn')?.addEventListener('click',()=>closeModal());
+document.getElementById('analisisCloseBtn')?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); closeAnalisisModal(); });
+document.getElementById('analisisOverlay')?.addEventListener('click', (e)=>{
+  if(e.target && e.target.id==='analisisOverlay') closeAnalisisModal();
+});
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && activityDetailsOpenId) closeAnalisisModal(); });
+window.addEventListener('popstate', ()=>{
+  if(activityDetailsOpenId){
+    analisisHistoryPushed=false;
+    const overlay=document.getElementById('analisisOverlay');
+    if(overlay){ overlay.classList.remove('show'); overlay.setAttribute('aria-hidden','true'); }
+    const prevId=activityDetailsOpenId;
+    activityDetailsOpenId=null;
+    if(prevId){
+      document.querySelectorAll('.detailsBtn[data-id="'+String(prevId).replace(/"/g,'')+'"]').forEach(btn=>{
+        btn.setAttribute('aria-expanded','false');
+      });
+    }
+  }
+});
+
 document.getElementById('modal')?.addEventListener('click',e=>{
   if(e.target && e.target.id==='modal') closeModal();
 });
@@ -5401,7 +5641,7 @@ render=function(){
   if(!h || !data.length) return;
 
   // Siempre redibujar el historial con renderHistoryItem para unificar UI
-  // (incluye Valor en compra bajo Ver detalles) y respetar filtros avanzados.
+  // (incluye Valor de compra bajo Ver detalles) y respetar filtros avanzados.
   const hasFilter=!!(
     historySearchTerm.trim() ||
     historyTypeFilter!=='Todas' ||
