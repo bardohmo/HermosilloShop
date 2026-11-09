@@ -400,7 +400,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .type-chip .type-icon{margin-right:0}
 .item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .item-head strong{display:inline-flex;align-items:center;min-width:0}
-.item-when{font-size:11px;color:#8b97a6;font-weight:700;white-space:nowrap}.item .amt{white-space:normal}.hist-price{display:block;margin-top:5px;font-size:11px;font-weight:800;color:#ffd96b;line-height:1.35;max-width:240px;white-space:normal}.hist-price.is-loading{color:#6f7b88}.hist-price.is-ready{color:#a8b3c0}.hist-price.is-missing{color:#8793a1}.act-pnl{display:block;margin-top:3px;font-size:10px;font-weight:800;line-height:1.35;max-width:260px;white-space:normal}.act-pnl.is-loading{color:#6f7b88}.act-pnl.gain{color:#20c980}.act-pnl.loss{color:#f6465d}
+.item-when{font-size:11px;color:#8b97a6;font-weight:700;white-space:nowrap}.item .amt{white-space:normal}.hist-price{display:block;margin-top:5px;font-size:11px;font-weight:800;color:#ffd96b;line-height:1.35;max-width:240px;white-space:normal}.hist-price.is-loading{color:#6f7b88}.hist-price.is-ready{color:#a8b3c0}.hist-price.is-missing{color:#8793a1}.act-pnl{display:block;margin-top:3px;font-size:10px;font-weight:800;line-height:1.35;max-width:260px;white-space:normal}.act-pnl.is-loading{color:#6f7b88}.act-pnl.gain{color:#20c980}.act-pnl.loss{color:#f6465d}.detailsBtn{display:inline-block;margin-top:6px;padding:5px 9px;background:#1c2530;border:1px solid #2c3744;color:#a8b3c0;font-size:10px;font-weight:700;border-radius:8px;cursor:pointer;letter-spacing:.2px}.detailsBtn:hover,.detailsBtn[aria-expanded="true"]{color:#ffd96b;border-color:#3d4a5a}.act-details{margin-top:4px;max-width:260px}.act-details[hidden]{display:none!important}
 .crypto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:10000;display:none;padding:18px;overflow:auto;scroll-behavior:smooth}
 .crypto-overlay.show{display:flex;align-items:flex-start;justify-content:center;padding-top:18px}
 .crypto-panel{width:min(720px,100%);max-height:92vh;overflow:auto;scroll-behavior:smooth;background:#0a1119;border:1px solid #263544;border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
@@ -2584,7 +2584,12 @@ async function refreshBinancePrices(force){
   }
   paintInvestPricesNow();
   persistPricesSoon();
-  try{ scheduleActivityPnlHydration(document.getElementById('history')); }catch(_){}
+  // No hidratar historial completo: solo detalles ya abiertos.
+  try{
+    if(typeof activityDetailsExpanded!=='undefined' && activityDetailsExpanded.size){
+      activityDetailsExpanded.forEach(id=>loadActivityDetailsForOp(id));
+    }
+  }catch(_){}
   })();
   binancePriceInflight=run;
   try{ return await run; }
@@ -3925,6 +3930,7 @@ function activityPnlLabelHtml(res, opId){
   return `<span class="act-pnl ${cls}" data-act-pnl="1"${idAttr} title="Referencia con precios actuales / históricos de mercado. No es liquidación real.">${esc(word)}: ${sign}$${esc(formatPnlAbs(pnlUsdt))} USDT · ${sign}$${esc(formatPnlAbs(pnlMxn))} MXN${esc(pctTxt)}</span>`;
 }
 function activityPnlSlotHtml(x){
+  // Deprecated for render: detalles solo bajo "Ver detalles".
   try{
     const res=computeActivityPnl(x);
     if(!res || res.status==='skip') return '';
@@ -3950,8 +3956,7 @@ function fillActivityPnlEl(el, res){
 }
 async function ensureActivityPnlReady(x){
   const type=String(x?.type||'');
-  // NO llamar refreshBinancePrices aquí: una fila por operación saturaba Binance
-  // (rate-limit/CORS) y dejaba «…» en Invertido / valor actual.
+  // NO llamar refreshBinancePrices aquí salvo desde "Ver detalles" (una sola op).
   if(type==='Venta' || ((type==='Compra' || type==='Depósito') && !(Number(x.amount)>0))){
     const sym = type==='Venta' ? resolveActivityCoinSymbol(x.coin||'') : histBuySymbol(x);
     if(sym){
@@ -3970,52 +3975,136 @@ async function ensureActivityPnlReady(x){
   }
   return computeActivityPnl(x);
 }
-function scheduleActivityPnlHydration(root){
-  const gen=histPriceGen; // share generation with hist hydrate bumps
-  const scope=root||document.getElementById('history')||document;
-  const nodes=Array.from(scope.querySelectorAll('[data-act-pnl="1"]'));
-  if(!nodes.length) return;
-  const run=async (el)=>{
-    if(gen!==histPriceGen) return;
-    if(!el.isConnected) return;
-    const id=el.getAttribute('data-pnl-id')||'';
-    const op=(data||[]).find(o=>String(o.id)===String(id));
-    if(!op){ el.remove(); return; }
-    const res=await ensureActivityPnlReady(op);
-    if(gen!==histPriceGen) return;
-    if(!el.isConnected) return;
-    if(res.status==='loading'){
-      // keep em-dash; retry once prices/hist arrive
-      return;
+/** ¿Este movimiento admite Precio histórico / Ganancia-pérdida? Sin fetch. */
+function activityDetailsApplicable(x){
+  if(!x) return false;
+  const type=String(x.type||'');
+  if(type==='Compra' || type==='Depósito'){
+    return !!histBuySymbol(x);
+  }
+  if(type==='Conversión'){
+    const pair=parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin);
+    const from=normalizeCoinSymbol(x.coinFrom||pair?.from||'');
+    const to=normalizeCoinSymbol(x.coinTo||pair?.to||'');
+    return !!(from && to && opQtyValue(x)>0 && opQtyToValue(x)>0);
+  }
+  if(type==='Venta'){
+    return !!(resolveActivityCoinSymbol(x.coin||'') && opQtyValue(x)>0);
+  }
+  return false;
+}
+const activityDetailsExpanded=new Set();
+const activityDetailsLoading=new Set();
+function activityDetailsControlsHtml(x){
+  try{
+    if(!activityDetailsApplicable(x)) return '';
+    const id=String(x.id||'');
+    if(!id) return '';
+    const open=activityDetailsExpanded.has(id);
+    const label=open?'Ocultar detalles':'Ver detalles';
+    const body=open
+      ?`<div class="act-details is-loading" data-act-details="${esc(id)}"><span class="hist-price is-loading">Cargando…</span></div>`
+      :`<div class="act-details" data-act-details="${esc(id)}" hidden></div>`;
+    return `<button type="button" class="detailsBtn" data-id="${esc(id)}" aria-expanded="${open?'true':'false'}">${label}</button>${body}`;
+  }catch(e){
+    console.warn('activityDetailsControlsHtml', e);
+    return '';
+  }
+}
+async function loadActivityDetailsForOp(id){
+  const key=String(id||'');
+  if(!key) return;
+  const box=document.querySelector('[data-act-details="'+key.replace(/"/g,'')+'"]');
+  const op=(data||[]).find(o=>String(o.id)===key);
+  if(!box || !op) return;
+  if(!activityDetailsExpanded.has(key)) return;
+  if(activityDetailsLoading.has(key)) return;
+  activityDetailsLoading.add(key);
+  box.hidden=false;
+  box.classList.add('is-loading');
+  box.innerHTML='<span class="hist-price is-loading">Cargando…</span>';
+  try{
+    // Precios actuales si hacen falta para P/L (una sola vez, compartido).
+    if(!(Number(usdtMxn)>0) || !(Object.keys(priceMap||{}).length)){
+      try{ if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false); }catch(_){}
     }
-    fillActivityPnlEl(el, res);
-  };
-  nodes.forEach(el=>run(el));
-  // Reintento corto por si los precios actuales llegan un instante después
-  setTimeout(()=>{
-    if(gen!==histPriceGen) return;
-    const left=Array.from((root||document.getElementById('history')||document).querySelectorAll('.act-pnl.is-loading[data-act-pnl="1"]'));
-    left.forEach(el=>run(el));
-  }, 1200);
+    let histHtml='';
+    const buySym=histBuySymbol(op);
+    if(buySym){
+      let entry=null;
+      const minuteMs=histMinuteMs(op.date);
+      const pair=minuteMs!=null?binancePair(buySym):'';
+      if(minuteMs==null || !pair || minuteMs>Date.now()){
+        entry={status:'nd'};
+      } else {
+        const cached=histPriceMem[histPriceKey(pair, minuteMs)];
+        if(cached && (cached.status==='ok' || cached.status==='nd')) entry=cached;
+        else {
+          entry=await resolveHistBuyPrice(buySym, op.date);
+          if(entry && entry.status==='err') entry={status:'nd'};
+        }
+      }
+      histHtml=histPriceLabelHtml(entry);
+    }
+    const res=await ensureActivityPnlReady(op);
+    let pnlHtml='';
+    if(res && res.status==='loading'){
+      // reintento breve por si el refresh acaba de pintar priceMap
+      await new Promise(r=>setTimeout(r, 400));
+      const res2=await ensureActivityPnlReady(op);
+      pnlHtml=activityPnlLabelHtml(res2, op.id);
+    } else {
+      pnlHtml=activityPnlLabelHtml(res, op.id);
+    }
+    if(!activityDetailsExpanded.has(key) || !box.isConnected) return;
+    box.classList.remove('is-loading');
+    const html=(histHtml||'')+(pnlHtml||'');
+    box.innerHTML=html || '<span class="hist-price is-missing">Sin detalles disponibles</span>';
+  }catch(e){
+    console.warn('loadActivityDetailsForOp', e);
+    if(box.isConnected){
+      box.classList.remove('is-loading');
+      box.innerHTML='<span class="hist-price is-missing">No disponible</span>';
+    }
+  }finally{
+    activityDetailsLoading.delete(key);
+  }
+}
+function toggleActivityDetails(id){
+  const key=String(id||'');
+  if(!key) return;
+  const btn=document.querySelector('.detailsBtn[data-id="'+key.replace(/"/g,'')+'"]');
+  const box=document.querySelector('[data-act-details="'+key.replace(/"/g,'')+'"]');
+  if(activityDetailsExpanded.has(key)){
+    activityDetailsExpanded.delete(key);
+    if(btn){ btn.textContent='Ver detalles'; btn.setAttribute('aria-expanded','false'); }
+    if(box){ box.hidden=true; box.innerHTML=''; box.classList.remove('is-loading'); }
+    return;
+  }
+  activityDetailsExpanded.add(key);
+  if(btn){ btn.textContent='Ocultar detalles'; btn.setAttribute('aria-expanded','true'); }
+  if(box){ box.hidden=false; }
+  loadActivityDetailsForOp(key);
+}
+function scheduleActivityPnlHydration(root){
+  // Ya no hidrata en masa: solo ítems con detalles abiertos.
+  try{ scheduleActivityExtrasHydration(root); }catch(_){}
 }
 let activityExtrasTimer=null;
 function scheduleActivityExtrasHydration(root){
-  // Solo después de que el dashboard tenga precios actuales (o timeout).
-  // Nunca llama refreshBinancePrices: los klines históricos van aparte y acotados.
+  // Solo rehidratar movimientos YA abiertos (Set). Cero klines para el resto.
   const target=root||document.getElementById('history');
   if(activityExtrasTimer) clearTimeout(activityExtrasTimer);
-  const started=Date.now();
-  const kick=()=>{
+  activityExtrasTimer=setTimeout(()=>{
     activityExtrasTimer=null;
-    const ready=(Number(usdtMxn)>0 && Object.keys(priceMap||{}).length>0) || (Date.now()-started>5000);
-    if(!ready){
-      activityExtrasTimer=setTimeout(kick, 400);
-      return;
-    }
-    try{ scheduleHistPriceHydration(target); }catch(e){ console.warn('hist hydrate', e); }
-    try{ scheduleActivityPnlHydration(target); }catch(e){ console.warn('pnl hydrate', e); }
-  };
-  activityExtrasTimer=setTimeout(kick, 1200);
+    if(!activityDetailsExpanded.size) return;
+    activityDetailsExpanded.forEach(id=>{
+      const box=target && target.querySelector
+        ? target.querySelector('[data-act-details="'+String(id).replace(/"/g,'')+'"]')
+        : document.querySelector('[data-act-details="'+String(id).replace(/"/g,'')+'"]');
+      if(box && activityDetailsExpanded.has(String(id))) loadActivityDetailsForOp(id);
+    });
+  }, 40);
 }
 
 const klineOpenInflight=new Map();
@@ -4269,8 +4358,7 @@ function render(){
      </div>
      <div class="amt">
        ${activityAmountHtml(x)}
-       ${compraHistPriceSlotHtml(x)}
-       ${activityPnlSlotHtml(x)}
+       ${activityDetailsControlsHtml(x)}
        <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:7px">
          <button type="button" class="editBtn" data-id="${esc(x.id)}"
            style="padding:7px 9px;background:#29333e;color:#fff;font-size:11px">EDITAR</button>
@@ -4478,8 +4566,16 @@ document.getElementById('modal')?.addEventListener('click',e=>{
 });
 
 document.getElementById('history').addEventListener('click', function(e){
+ const det=e.target.closest('.detailsBtn');
  const edit=e.target.closest('.editBtn');
  const del=e.target.closest('.deleteBtn');
+
+ if(det){
+   e.preventDefault();
+   e.stopPropagation();
+   toggleActivityDetails(det.dataset.id);
+   return;
+ }
 
  if(edit){
    e.preventDefault();
@@ -5257,7 +5353,6 @@ function renderHistoryItem(x){
     const ci=cc?.icon?iconValue(cc.icon):'';
     coinHtml=`<span class="coin-display">${ci?`<img src="${esc(ci)}" alt="">`:''}${esc(x.coin||'Cripto')}</span>`;
   }
-  const histHtml=compraHistPriceSlotHtml(x);
   return `<div class="item">
     <div style="display:flex;align-items:center;gap:10px;min-width:0">
       <div style="min-width:0">
@@ -5268,8 +5363,7 @@ function renderHistoryItem(x){
     </div>
     <div class="amt">
       ${activityAmountHtml(x)}
-      ${histHtml}
-      ${activityPnlSlotHtml(x)}
+      ${activityDetailsControlsHtml(x)}
       <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:7px">
         <button type="button" class="editBtn" data-id="${esc(x.id)}" style="padding:7px 9px;background:#29333e;color:#fff;font-size:11px">EDITAR</button>
         <button type="button" class="deleteBtn" data-id="${esc(x.id)}" style="padding:7px 9px;background:#b3261e;color:#fff;font-size:11px;cursor:pointer">BORRAR</button>
