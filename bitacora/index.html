@@ -400,7 +400,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .type-chip .type-icon{margin-right:0}
 .item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .item-head strong{display:inline-flex;align-items:center;min-width:0}
-.item-when{font-size:11px;color:#8b97a6;font-weight:700;white-space:nowrap}
+.item-when{font-size:11px;color:#8b97a6;font-weight:700;white-space:nowrap}.hist-price{display:block;margin-top:4px;font-size:10px;font-weight:700;color:#8b97a6;line-height:1.35;max-width:220px}.hist-price.is-loading{color:#6f7b88}.hist-price.is-ready{color:#a8b3c0}.hist-price.is-missing{color:#8793a1}
 .crypto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:10000;display:none;padding:18px;overflow:auto;scroll-behavior:smooth}
 .crypto-overlay.show{display:flex;align-items:flex-start;justify-content:center;padding-top:18px}
 .crypto-panel{width:min(720px,100%);max-height:92vh;overflow:auto;scroll-behavior:smooth;background:#0a1119;border:1px solid #263544;border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
@@ -3434,6 +3434,225 @@ function renderInvestByCoin(){
  ensureInvestCycle();
  refreshBinancePrices(false);
 }
+
+/* ===== Precio histórico de Compra (referencia 1m Binance, no ejecución) ===== */
+const HIST_PRICE_LS_KEY='cripto_bitacora_hist_price_v1';
+const HIST_PRICE_CONCURRENCY=3;
+const HIST_PRICE_TIMEOUT_MS=8000;
+const histPriceMem=Object.create(null);
+const histPriceInflight=new Map();
+let histPriceActive=0;
+const histPriceWaiters=[];
+let histPriceGen=0;
+let histPricePersistTimer=null;
+try{
+  const raw=localStorage.getItem(HIST_PRICE_LS_KEY);
+  const parsed=raw?JSON.parse(raw):null;
+  if(parsed && typeof parsed==='object'){
+    Object.keys(parsed).forEach(k=>{
+      const v=parsed[k];
+      if(v && (v.status==='ok' || v.status==='nd') && typeof v==='object') histPriceMem[k]=v;
+    });
+  }
+}catch(_){}
+
+function histMinuteMs(iso){
+  const t=Date.parse(iso);
+  if(!Number.isFinite(t)) return null;
+  return Math.floor(t/60000)*60000;
+}
+function histPriceKey(pair, minuteMs){ return String(pair)+'|'+String(minuteMs); }
+function formatHistUsdt(n){
+  const v=Number(n);
+  if(!Number.isFinite(v) || !(v>0)) return '—';
+  if(v>=1000) return v.toLocaleString('es-MX',{maximumFractionDigits:2});
+  if(v>=1) return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:4});
+  return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:8});
+}
+function persistHistPriceCacheSoon(){
+  if(histPricePersistTimer) return;
+  histPricePersistTimer=setTimeout(()=>{
+    histPricePersistTimer=null;
+    try{
+      const out={};
+      let n=0;
+      Object.keys(histPriceMem).forEach(k=>{
+        const v=histPriceMem[k];
+        if(!v || (v.status!=='ok' && v.status!=='nd')) return;
+        out[k]={status:v.status, usdt:v.usdt, minuteMs:v.minuteMs, pair:v.pair};
+        n++;
+      });
+      // Cap local cache size
+      const keys=Object.keys(out);
+      if(keys.length>800){
+        keys.slice(0, keys.length-800).forEach(k=>delete out[k]);
+      }
+      localStorage.setItem(HIST_PRICE_LS_KEY, JSON.stringify(out));
+    }catch(_){}
+  }, 400);
+}
+function histPriceLabelHtml(entry){
+  if(!entry) return `<span class="hist-price is-loading">Precio histórico: …</span>`;
+  if(entry.status==='loading') return `<span class="hist-price is-loading">Precio histórico: …</span>`;
+  if(entry.status!=='ok'){
+    return `<span class="hist-price is-missing">Precio histórico: No disponible</span>`;
+  }
+  const usdtTxt=formatHistUsdt(entry.usdt);
+  return `<span class="hist-price is-ready" title="Referencia de la vela 1 minuto de Binance en esa fecha/hora. No es el precio exacto de ejecución.">Precio histórico: $${esc(usdtTxt)} USDT · ref. 1 min Binance</span>`;
+}
+function histBuySymbol(x){
+  if(!x || String(x.type||'')!=='Compra') return '';
+  const pair=typeof parseConvertPair==='function'
+    ? parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin)
+    : null;
+  if(pair && pair.from && pair.to) return '';
+  const sym=normalizeCoinSymbol(x.coin||'');
+  if(!sym || sym==='MXN') return '';
+  if(typeof STABLES!=='undefined' && STABLES.has(sym)) return '';
+  return sym;
+}
+const klineOpenInflight=new Map();
+async function fetchBinanceKlineOpen(pair, minuteMs){
+  const key=histPriceKey(pair, minuteMs);
+  if(klineOpenInflight.has(key)) return klineOpenInflight.get(key);
+  const p=(async()=>{
+    const url='https://data-api.binance.vision/api/v3/klines?symbol='
+      +encodeURIComponent(pair)
+      +'&interval=1m&startTime='+minuteMs
+      +'&endTime='+(minuteMs+59999)
+      +'&limit=1';
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(), HIST_PRICE_TIMEOUT_MS);
+    try{
+      const r=await fetch(url,{cache:'no-store',signal:ctrl.signal});
+      if(r.status===400) return null;
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const arr=await r.json();
+      if(!Array.isArray(arr) || !arr.length) return null;
+      const openTime=Number(arr[0][0]);
+      if(openTime!==minuteMs) return null;
+      const open=Number(arr[0][1]);
+      if(!(open>0) || !Number.isFinite(open)) return null;
+      return open;
+    } finally {
+      clearTimeout(timer);
+      klineOpenInflight.delete(key);
+    }
+  })();
+  klineOpenInflight.set(key, p);
+  return p;
+}
+function enqueueHistPriceJob(job){
+  return new Promise((resolve,reject)=>{
+    histPriceWaiters.push({job,resolve,reject});
+    pumpHistPriceQueue();
+  });
+}
+function pumpHistPriceQueue(){
+  while(histPriceActive<HIST_PRICE_CONCURRENCY && histPriceWaiters.length){
+    const {job,resolve,reject}=histPriceWaiters.shift();
+    histPriceActive++;
+    Promise.resolve()
+      .then(job)
+      .then(resolve,reject)
+      .finally(()=>{ histPriceActive--; pumpHistPriceQueue(); });
+  }
+}
+async function resolveHistBuyPrice(sym, dateIso){
+  const minuteMs=histMinuteMs(dateIso);
+  if(minuteMs==null) return {status:'nd'};
+  if(minuteMs > Date.now()) return {status:'nd'};
+  const pair=binancePair(sym);
+  if(!pair) return {status:'nd'};
+  const key=histPriceKey(pair, minuteMs);
+  const cached=histPriceMem[key];
+  if(cached && (cached.status==='ok' || cached.status==='nd')) return cached;
+  if(histPriceInflight.has(key)) return histPriceInflight.get(key);
+  const p=enqueueHistPriceJob(async()=>{
+    try{
+      const usdt=await fetchBinanceKlineOpen(pair, minuteMs);
+      if(!(usdt>0)){
+        const nd={status:'nd', pair, minuteMs};
+        histPriceMem[key]=nd;
+        persistHistPriceCacheSoon();
+        return nd;
+      }
+      const ok={status:'ok', pair, minuteMs, usdt};
+      histPriceMem[key]=ok;
+      persistHistPriceCacheSoon();
+      return ok;
+    }catch(e){
+      console.warn('hist price', pair, minuteMs, e);
+      // No cachear errores transitorios como nd permanente
+      return {status:'err', pair, minuteMs};
+    }finally{
+      histPriceInflight.delete(key);
+    }
+  });
+  histPriceInflight.set(key, p);
+  return p;
+}
+function fillHistPriceEl(el, entry){
+  if(!el) return;
+  const tmp=document.createElement('div');
+  tmp.innerHTML=histPriceLabelHtml(entry);
+  const next=tmp.firstElementChild;
+  if(!next) return;
+  el.replaceWith(next);
+}
+function scheduleHistPriceHydration(root){
+  const gen=++histPriceGen;
+  const scope=root||document.getElementById('history')||document;
+  const nodes=Array.from(scope.querySelectorAll('[data-hist-buy="1"]'));
+  if(!nodes.length) return;
+  const run=async (el)=>{
+    if(gen!==histPriceGen) return;
+    if(!el.isConnected) return;
+    const sym=el.getAttribute('data-hist-sym')||'';
+    const dateIso=el.getAttribute('data-hist-date')||'';
+    const minuteMs=histMinuteMs(dateIso);
+    const pair=binancePair(sym);
+    if(!sym || minuteMs==null || !pair){
+      fillHistPriceEl(el, {status:'nd'});
+      return;
+    }
+    const key=histPriceKey(pair, minuteMs);
+    const cached=histPriceMem[key];
+    if(cached && (cached.status==='ok' || cached.status==='nd')){
+      fillHistPriceEl(el, cached);
+      return;
+    }
+    // loading placeholder already in DOM
+    const entry=await resolveHistBuyPrice(sym, dateIso);
+    if(gen!==histPriceGen) return;
+    if(!el.isConnected) return;
+    if(entry.status==='err'){
+      fillHistPriceEl(el, {status:'nd'});
+      return;
+    }
+    fillHistPriceEl(el, entry);
+  };
+  // Lazy: prefer visible rows via IntersectionObserver; fallback queue all
+  if(typeof IntersectionObserver==='function'){
+    const io=new IntersectionObserver((entries)=>{
+      entries.forEach(ent=>{
+        if(!ent.isIntersecting) return;
+        const el=ent.target;
+        io.unobserve(el);
+        run(el);
+      });
+    },{root:null, rootMargin:'120px 0px', threshold:0.01});
+    nodes.forEach(el=>io.observe(el));
+    // Safety: if a node never intersects (hidden overflow quirks), still resolve after idle
+    setTimeout(()=>{
+      if(gen!==histPriceGen) return;
+      nodes.forEach(el=>{ if(el.isConnected && el.hasAttribute('data-hist-buy')) run(el); });
+    }, 2500);
+  } else {
+    nodes.forEach(el=>run(el));
+  }
+}
+
 function activityAmountHtml(x){
   const type=String(x?.type||'');
   const amount=money(Math.abs(Number(x?.amount)||0));
@@ -4500,19 +4719,25 @@ render=function(){
   const h=document.getElementById('history');
   if(!h || !data.length) return;
 
-  // El render original acaba de dibujar todo; sustituimos solamente la lista
-  // por el subconjunto filtrado cuando hay filtro o búsqueda.
-  if(historySearchTerm.trim() || historyTypeFilter!=='Todas'){
-    h.innerHTML=filtered.length
-      ? filtered.slice().reverse().map(x=>renderHistoryItem(x)).join('')
-      : '<div class="history-no-results"><strong>Sin resultados</strong>No hay operaciones que coincidan con tu búsqueda.</div>';
-  }
+  // Siempre redibujar el historial con renderHistoryItem para unificar UI
+  // (incluye Precio histórico en Compra) y respetar filtros avanzados.
+  const hasFilter=!!(
+    historySearchTerm.trim() ||
+    historyTypeFilter!=='Todas' ||
+    historyPlatformFilter!=='Todas' ||
+    historyCoinFilter!=='Todas'
+  );
+  const rows=hasFilter ? filtered : data;
+  h.innerHTML=rows.length
+    ? rows.slice().reverse().map(x=>renderHistoryItem(x)).join('')
+    : '<div class="history-no-results"><strong>Sin resultados</strong>No hay operaciones que coincidan con tu búsqueda.</div>';
+  try{ scheduleHistPriceHydration(h); }catch(e){ console.warn('hist hydrate', e); }
 };
 
 function renderHistoryItem(x){
   const d=new Date(x.date);
   const when=isNaN(d) ? 'Fecha no disponible' :
-    d.toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'});
+    d.toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short',timeZone:'America/Hermosillo'});
   const pl=platformById(x.platform);
   const platformHtml=pl?`<span class="coin-display" style="gap:4px;margin-right:4px"><img src="${esc(pl.icon||'')}" alt="">${esc(pl.name)}</span>`:(x.platform?esc(x.platform):'');
   const pair=parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin);
@@ -4527,6 +4752,26 @@ function renderHistoryItem(x){
     const ci=cc?.icon?iconValue(cc.icon):'';
     coinHtml=`<span class="coin-display">${ci?`<img src="${esc(ci)}" alt="">`:''}${esc(x.coin||'Cripto')}</span>`;
   }
+  let histHtml='';
+  const buySym=histBuySymbol(x);
+  if(buySym){
+    const minuteMs=histMinuteMs(x.date);
+    const pairSym=minuteMs!=null ? binancePair(buySym) : '';
+    let entry=null;
+    if(minuteMs==null || !pairSym || minuteMs>Date.now()){
+      entry={status:'nd'};
+    } else {
+      const key=histPriceKey(pairSym, minuteMs);
+      const cached=histPriceMem[key];
+      if(cached && (cached.status==='ok' || cached.status==='nd')) entry=cached;
+      else entry={status:'loading'};
+    }
+    if(entry.status==='loading'){
+      histHtml=`<span class="hist-price is-loading" data-hist-buy="1" data-hist-sym="${esc(buySym)}" data-hist-date="${esc(x.date||'')}">Precio histórico: …</span>`;
+    } else {
+      histHtml=histPriceLabelHtml(entry);
+    }
+  }
   return `<div class="item">
     <div style="display:flex;align-items:center;gap:10px;min-width:0">
       <div style="min-width:0">
@@ -4537,6 +4782,7 @@ function renderHistoryItem(x){
     </div>
     <div class="amt">
       ${activityAmountHtml(x)}
+      ${histHtml}
       <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:7px">
         <button type="button" class="editBtn" data-id="${esc(x.id)}" style="padding:7px 9px;background:#29333e;color:#fff;font-size:11px">EDITAR</button>
         <button type="button" class="deleteBtn" data-id="${esc(x.id)}" style="padding:7px 9px;background:#b3261e;color:#fff;font-size:11px;cursor:pointer">BORRAR</button>
