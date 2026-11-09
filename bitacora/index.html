@@ -400,7 +400,7 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
 .type-chip .type-icon{margin-right:0}
 .item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .item-head strong{display:inline-flex;align-items:center;min-width:0}
-.item-when{font-size:11px;color:#8b97a6;font-weight:700;white-space:nowrap}.hist-price{display:block;margin-top:4px;font-size:10px;font-weight:700;color:#8b97a6;line-height:1.35;max-width:220px}.hist-price.is-loading{color:#6f7b88}.hist-price.is-ready{color:#a8b3c0}.hist-price.is-missing{color:#8793a1}
+.item-when{font-size:11px;color:#8b97a6;font-weight:700;white-space:nowrap}.item .amt{white-space:normal}.hist-price{display:block;margin-top:5px;font-size:11px;font-weight:800;color:#ffd96b;line-height:1.35;max-width:240px;white-space:normal}.hist-price.is-loading{color:#6f7b88}.hist-price.is-ready{color:#a8b3c0}.hist-price.is-missing{color:#8793a1}
 .crypto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:10000;display:none;padding:18px;overflow:auto;scroll-behavior:smooth}
 .crypto-overlay.show{display:flex;align-items:flex-start;justify-content:center;padding-top:18px}
 .crypto-panel{width:min(720px,100%);max-height:92vh;overflow:auto;scroll-behavior:smooth;background:#0a1119;border:1px solid #263544;border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
@@ -3506,10 +3506,43 @@ function histBuySymbol(x){
     ? parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin)
     : null;
   if(pair && pair.from && pair.to) return '';
-  const sym=normalizeCoinSymbol(x.coin||'');
+  let raw=String(x.coin||'').trim();
+  if(!raw || raw.toLowerCase()==='cripto') return '';
+  // Prefer catalog symbol when the op stored a name or odd form.
+  try{
+    const cc=typeof coinBySymbol==='function'?coinBySymbol(raw):null;
+    if(cc?.symbol) raw=cc.symbol;
+    else if(typeof coins!=='undefined' && Array.isArray(coins)){
+      const up=raw.toUpperCase();
+      const byName=coins.find(c=>String(c.name||'').toUpperCase()===up || String(c.symbol||'').toUpperCase()===up);
+      if(byName?.symbol) raw=byName.symbol;
+    }
+  }catch(_){}
+  const sym=normalizeCoinSymbol(raw);
   if(!sym || sym==='MXN') return '';
   if(typeof STABLES!=='undefined' && STABLES.has(sym)) return '';
+  if(!binancePair(sym)) return '';
   return sym;
+}
+/** HTML del precio histórico para una Compra (misma marca data-hist-buy para hidratar). */
+function compraHistPriceSlotHtml(x){
+  const buySym=histBuySymbol(x);
+  if(!buySym) return '';
+  const minuteMs=histMinuteMs(x.date);
+  const pairSym=minuteMs!=null ? binancePair(buySym) : '';
+  let entry=null;
+  if(minuteMs==null || !pairSym || minuteMs>Date.now()){
+    entry={status:'nd'};
+  } else {
+    const key=histPriceKey(pairSym, minuteMs);
+    const cached=histPriceMem[key];
+    if(cached && (cached.status==='ok' || cached.status==='nd')) entry=cached;
+    else entry={status:'loading'};
+  }
+  if(entry.status==='loading'){
+    return `<span class="hist-price is-loading" data-hist-buy="1" data-hist-sym="${esc(buySym)}" data-hist-date="${esc(x.date||'')}">Precio histórico: …</span>`;
+  }
+  return histPriceLabelHtml(entry);
 }
 const klineOpenInflight=new Map();
 async function fetchBinanceKlineOpen(pair, minuteMs){
@@ -3632,25 +3665,8 @@ function scheduleHistPriceHydration(root){
     }
     fillHistPriceEl(el, entry);
   };
-  // Lazy: prefer visible rows via IntersectionObserver; fallback queue all
-  if(typeof IntersectionObserver==='function'){
-    const io=new IntersectionObserver((entries)=>{
-      entries.forEach(ent=>{
-        if(!ent.isIntersecting) return;
-        const el=ent.target;
-        io.unobserve(el);
-        run(el);
-      });
-    },{root:null, rootMargin:'120px 0px', threshold:0.01});
-    nodes.forEach(el=>io.observe(el));
-    // Safety: if a node never intersects (hidden overflow quirks), still resolve after idle
-    setTimeout(()=>{
-      if(gen!==histPriceGen) return;
-      nodes.forEach(el=>{ if(el.isConnected && el.hasAttribute('data-hist-buy')) run(el); });
-    }, 2500);
-  } else {
-    nodes.forEach(el=>run(el));
-  }
+  // Encolar de inmediato (cola con concurrencia). IO solo prioriza visibles.
+  nodes.forEach(el=>run(el));
 }
 
 function activityAmountHtml(x){
@@ -3767,6 +3783,7 @@ function render(){
      </div>
      <div class="amt">
        ${activityAmountHtml(x)}
+       ${compraHistPriceSlotHtml(x)}
        <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:7px">
          <button type="button" class="editBtn" data-id="${esc(x.id)}"
            style="padding:7px 9px;background:#29333e;color:#fff;font-size:11px">EDITAR</button>
@@ -3776,6 +3793,7 @@ function render(){
      </div>
    </div>`;
  }).join('');
+ try{ scheduleHistPriceHydration(h); }catch(e){ console.warn('hist hydrate', e); }
 }
 
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
@@ -4752,26 +4770,7 @@ function renderHistoryItem(x){
     const ci=cc?.icon?iconValue(cc.icon):'';
     coinHtml=`<span class="coin-display">${ci?`<img src="${esc(ci)}" alt="">`:''}${esc(x.coin||'Cripto')}</span>`;
   }
-  let histHtml='';
-  const buySym=histBuySymbol(x);
-  if(buySym){
-    const minuteMs=histMinuteMs(x.date);
-    const pairSym=minuteMs!=null ? binancePair(buySym) : '';
-    let entry=null;
-    if(minuteMs==null || !pairSym || minuteMs>Date.now()){
-      entry={status:'nd'};
-    } else {
-      const key=histPriceKey(pairSym, minuteMs);
-      const cached=histPriceMem[key];
-      if(cached && (cached.status==='ok' || cached.status==='nd')) entry=cached;
-      else entry={status:'loading'};
-    }
-    if(entry.status==='loading'){
-      histHtml=`<span class="hist-price is-loading" data-hist-buy="1" data-hist-sym="${esc(buySym)}" data-hist-date="${esc(x.date||'')}">Precio histórico: …</span>`;
-    } else {
-      histHtml=histPriceLabelHtml(entry);
-    }
-  }
+  const histHtml=compraHistPriceSlotHtml(x);
   return `<div class="item">
     <div style="display:flex;align-items:center;gap:10px;min-width:0">
       <div style="min-width:0">
