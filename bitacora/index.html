@@ -3438,7 +3438,7 @@ function renderInvestByCoin(){
 
 /* ===== Precio histórico de Compra (referencia 1m Binance, no ejecución) ===== */
 const HIST_PRICE_LS_KEY='cripto_bitacora_hist_price_v1';
-const HIST_PRICE_CONCURRENCY=3;
+const HIST_PRICE_CONCURRENCY=1;
 const HIST_PRICE_TIMEOUT_MS=8000;
 const histPriceMem=Object.create(null);
 const histPriceInflight=new Map();
@@ -3531,6 +3531,7 @@ function histBuySymbol(x){
 }
 /** HTML del precio histórico para Compra/Depósito (misma marca data-hist-buy para hidratar). */
 function compraHistPriceSlotHtml(x){
+  try{
   const buySym=histBuySymbol(x);
   if(!buySym) return '';
   const minuteMs=histMinuteMs(x.date);
@@ -3548,6 +3549,7 @@ function compraHistPriceSlotHtml(x){
     return `<span class="hist-price is-loading" data-hist-buy="1" data-hist-sym="${esc(buySym)}" data-hist-date="${esc(x.date||'')}">Precio histórico: …</span>`;
   }
   return histPriceLabelHtml(entry);
+  }catch(e){ console.warn('compraHistPriceSlotHtml', e); return ''; }
 }
 
 function resolveActivityCoinSymbol(rawIn){
@@ -3699,14 +3701,14 @@ function computeActivityPnl(x){
     if(!(Number(usdtMxn)>0)) return {status:'loading'};
     let nowSrc=null, nowRecv=null;
     if(from==='MXN') nowSrc=qFrom/usdtMxn;
-    else if(STABLES.has(from)) nowSrc=qFrom;
+    else if(typeof STABLES!=='undefined' && STABLES.has(from)) nowSrc=qFrom;
     else {
       const px=usdPriceOfSym(from);
       if(!(px>0)) return {status:'loading'};
       nowSrc=qFrom*px;
     }
     if(to==='MXN') nowRecv=qTo/usdtMxn;
-    else if(STABLES.has(to)) nowRecv=qTo;
+    else if(typeof STABLES!=='undefined' && STABLES.has(to)) nowRecv=qTo;
     else {
       const px=usdPriceOfSym(to);
       if(!(px>0)) return {status:'loading'};
@@ -3764,9 +3766,14 @@ function activityPnlLabelHtml(res, opId){
   return `<span class="act-pnl ${cls}" data-act-pnl="1"${idAttr} title="Referencia con precios actuales / históricos de mercado. No es liquidación real.">${esc(word)}: ${sign}$${esc(formatPnlAbs(pnlUsdt))} USDT · ${sign}$${esc(formatPnlAbs(pnlMxn))} MXN${esc(pctTxt)}</span>`;
 }
 function activityPnlSlotHtml(x){
-  const res=computeActivityPnl(x);
-  if(!res || res.status==='skip') return '';
-  return activityPnlLabelHtml(res, x.id);
+  try{
+    const res=computeActivityPnl(x);
+    if(!res || res.status==='skip') return '';
+    return activityPnlLabelHtml(res, x.id);
+  }catch(e){
+    console.warn('activityPnlSlotHtml', e);
+    return '';
+  }
 }
 function fillActivityPnlEl(el, res){
   if(!el) return;
@@ -3784,10 +3791,8 @@ function fillActivityPnlEl(el, res){
 }
 async function ensureActivityPnlReady(x){
   const type=String(x?.type||'');
-  // Asegura precios actuales
-  if(!(Number(usdtMxn)>0) || (typeof priceMap==='object' && !Object.keys(priceMap||{}).length)){
-    try{ if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false); }catch(_){}
-  }
+  // NO llamar refreshBinancePrices aquí: una fila por operación saturaba Binance
+  // (rate-limit/CORS) y dejaba «…» en Invertido / valor actual.
   if(type==='Venta' || ((type==='Compra' || type==='Depósito') && !(Number(x.amount)>0))){
     const sym = type==='Venta' ? resolveActivityCoinSymbol(x.coin||'') : histBuySymbol(x);
     if(sym){
@@ -3834,9 +3839,16 @@ function scheduleActivityPnlHydration(root){
     left.forEach(el=>run(el));
   }, 1200);
 }
+let activityExtrasTimer=null;
 function scheduleActivityExtrasHydration(root){
-  try{ scheduleHistPriceHydration(root); }catch(e){ console.warn('hist hydrate', e); }
-  try{ scheduleActivityPnlHydration(root); }catch(e){ console.warn('pnl hydrate', e); }
+  // Diferir para no competir con el primer refresh de precios de Invertido.
+  const target=root||document.getElementById('history');
+  if(activityExtrasTimer) clearTimeout(activityExtrasTimer);
+  activityExtrasTimer=setTimeout(()=>{
+    activityExtrasTimer=null;
+    try{ scheduleHistPriceHydration(target); }catch(e){ console.warn('hist hydrate', e); }
+    try{ scheduleActivityPnlHydration(target); }catch(e){ console.warn('pnl hydrate', e); }
+  }, 1800);
 }
 
 const klineOpenInflight=new Map();
