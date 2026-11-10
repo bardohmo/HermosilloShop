@@ -509,6 +509,9 @@ input:focus,select:focus{border-color:rgba(245,184,63,.7);box-shadow:0 0 0 2px r
   .invest-row .invest-val .amt.avg-mxn{font-size:12px}
   .invest-val .avg-ccy,.invest-val .avg-per{font-size:9px}
 }
+
+/* Cantidad ajustada en Análisis (v42) */
+.analisis-qty-note{margin:0 0 10px;padding:8px 10px;border-radius:10px;border:1px solid rgba(240,180,41,.5);background:rgba(240,180,41,.1);color:#f0b429;font-size:10px;font-weight:700;line-height:1.4;text-align:left}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -4107,19 +4110,129 @@ function formatPnlAbs(n){
   return v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 /** @returns {{status:'skip'|'loading'|'nd'|'ok', pnlUsdt?:number, pct?:number}} */
+const QTY_MISMATCH_RATIO=0.25;
+const histUsdtMxnMem=Object.create(null);
+const histUsdtMxnInflight=new Map();
+function histUsdtMxnDay(iso){
+  const t=Date.parse(iso);
+  if(!Number.isFinite(t)) return '';
+  return new Date(t).toISOString().slice(0,10);
+}
+function cachedHistUsdtMxn(iso){
+  const day=histUsdtMxnDay(iso);
+  if(!day) return null;
+  const hit=histUsdtMxnMem[day];
+  if(hit && Number(hit.fx)>0) return Number(hit.fx);
+  return null;
+}
+function fxForBuyOp(op){
+  const histFx=cachedHistUsdtMxn(op && op.date);
+  if(histFx>0) return histFx;
+  return Number(usdtMxn)>0?Number(usdtMxn):null;
+}
+function histUsdtForBuyOp(op){
+  const sym=histBuySymbol(op);
+  if(!sym) return null;
+  const minuteMs=histMinuteMs(op.date);
+  const pair=minuteMs!=null?binancePair(sym):'';
+  if(minuteMs==null || !pair || minuteMs>Date.now()) return null;
+  const hist=histPriceMem[histPriceKey(pair, minuteMs)];
+  if(hist && hist.status==='ok' && hist.usdt>0) return Number(hist.usdt);
+  return null;
+}
+async function resolveHistUsdtMxn(iso){
+  const fallback=Number(usdtMxn)>0?Number(usdtMxn):null;
+  const day=histUsdtMxnDay(iso);
+  if(!day) return fallback;
+  const cached=cachedHistUsdtMxn(iso);
+  if(cached>0) return cached;
+  if(histUsdtMxnInflight.has(day)) return histUsdtMxnInflight.get(day);
+  const job=(async()=>{
+    const dayMs=Date.parse(day+'T00:00:00Z');
+    // 1) Binance USDTMXN diario (disponible desde abr 2024)
+    try{
+      if(!(typeof binanceIsCoolingDown==='function' && binanceIsCoolingDown()) && Number.isFinite(dayMs)){
+        const url='https://data-api.binance.vision/api/v3/klines?symbol=USDTMXN&interval=1d&startTime='+dayMs+'&limit=1';
+        const res=await fetchWithTimeout(url, 7000);
+        if(res && res.ok){
+          const k=await res.json();
+          const row=Array.isArray(k)&&k[0];
+          if(row){
+            const openT=Number(row[0]);
+            // Solo si la vela es de ese día (o a lo sumo el siguiente, por desfases)
+            if(Number.isFinite(openT) && Math.abs(openT-dayMs)<36e5*36){
+              const open=Number(row[1]), close=Number(row[4]);
+              const fx=(open>0?open:(close>0?close:0));
+              if(fx>0){ histUsdtMxnMem[day]={fx, source:'binance'}; return fx; }
+            }
+          }
+        }
+      }
+    }catch(_){}
+    // 2) Frankfurter USD/MXN (aprox. USDT/MXN) en esa fecha
+    try{
+      const url='https://api.frankfurter.app/'+encodeURIComponent(day)+'?from=USD&to=MXN';
+      const res=await fetchWithTimeout(url, 7000);
+      if(res && res.ok){
+        const j=await res.json();
+        const fx=Number(j?.rates?.MXN);
+        if(fx>0){ histUsdtMxnMem[day]={fx, source:'frankfurter'}; return fx; }
+      }
+    }catch(_){}
+    if(fallback>0) histUsdtMxnMem[day]={fx:fallback, source:'current'};
+    return fallback;
+  })();
+  histUsdtMxnInflight.set(day, job);
+  try{ return await job; }finally{ histUsdtMxnInflight.delete(day); }
+}
+function expectedBuyQty(amountMxn, histUsdt, fx){
+  if(!(amountMxn>0) || !(histUsdt>0) || !(fx>0)) return null;
+  return amountMxn/(histUsdt*fx);
+}
+/** @returns {{qty:number, adjusted:boolean, storedQty:number, expectedQty:?number, fx:?number, histUsdt:?number}} */
+function resolveBuyQtyForAnalysis(op){
+  const stored=opQtyValue(op)||0;
+  const type=String(op?.type||'');
+  if(type!=='Compra' && type!=='Depósito'){
+    return {qty:stored, adjusted:false, storedQty:stored, expectedQty:null, fx:null, histUsdt:null};
+  }
+  const paid=Number(op.amount)||0;
+  const histUsdt=histUsdtForBuyOp(op);
+  const fx=fxForBuyOp(op);
+  const expected=(paid>0 && histUsdt>0 && fx>0) ? expectedBuyQty(paid, histUsdt, fx) : null;
+  if(!(expected>0)){
+    return {qty:stored, adjusted:false, storedQty:stored, expectedQty:expected, fx, histUsdt};
+  }
+  const missing=!(stored>0);
+  const ratio=missing?Infinity:(stored/expected);
+  const drifted=missing || ratio>1+QTY_MISMATCH_RATIO || ratio<1-QTY_MISMATCH_RATIO;
+  if(drifted){
+    return {qty:expected, adjusted:true, storedQty:stored, expectedQty:expected, fx, histUsdt};
+  }
+  return {qty:stored, adjusted:false, storedQty:stored, expectedQty:expected, fx, histUsdt};
+}
+
 function computeActivityPnl(x){
   if(!x) return {status:'skip'};
   const type=String(x.type||'');
   if(type==='Compra' || type==='Depósito'){
     const sym=histBuySymbol(x);
     if(!sym) return {status:'skip'};
-    const qty=opQtyValue(x);
-    if(!(qty>0)) return {status:'skip'};
     const paidMxn=Number(x.amount)||0;
+    const adj=resolveBuyQtyForAnalysis(x);
+    const qty=Number(adj.qty)||0;
     // Preferir lo pagado/registrado en MXN vs valor actual (lo que el usuario realmente puso).
     // En Depósito el amount también es la referencia MXN que guarda la app.
+    // Si qty registrada no cuadra con lo pagado vs. precio histórico, usar expectedQty.
     if(paidMxn>0){
       if(!(Number(usdtMxn)>0)) return {status:'loading'};
+      // Sin hist aún (y hay monto): cargar vela para poder detectar qty inflada/faltante.
+      const minuteMs=histMinuteMs(x.date);
+      const pair=minuteMs!=null?binancePair(sym):'';
+      if(minuteMs!=null && pair && minuteMs<=Date.now()){
+        const hist=histPriceMem[histPriceKey(pair, minuteMs)];
+        if(!hist) return {status:'loading'};
+      }
       let unitMxn=null;
       try{ unitMxn=currentUnitPriceMxn(sym); }catch(_){ unitMxn=null; }
       if(!(unitMxn>0)){
@@ -4127,13 +4240,16 @@ function computeActivityPnl(x){
         if(!(cur>0)) return {status:'loading'};
         unitMxn=cur*Number(usdtMxn);
       }
+      if(!(qty>0)) return {status:'skip'};
       const valueNowMxn=qty*unitMxn;
       const pnlMxn=valueNowMxn-paidMxn;
       const pct=(pnlMxn/paidMxn)*100;
       const pnlUsdt=pnlMxn/Number(usdtMxn);
-      return {status:'ok', pnlUsdt, pct, basis:'paid_mxn', valueNowMxn, paidMxn};
+      return {status:'ok', pnlUsdt, pct, basis:'paid_mxn', valueNowMxn, paidMxn,
+        qtyUsed:qty, qtyAdjusted:!!adj.adjusted, storedQty:adj.storedQty, expectedQty:adj.expectedQty};
     }
     // Fallback: sin monto MXN → método histórico Binance (precio actual − 1m) × qty
+    if(!(qty>0)) return {status:'skip'};
     const minuteMs=histMinuteMs(x.date);
     if(minuteMs==null || minuteMs>Date.now()) return {status:'nd'};
     const pair=binancePair(sym);
@@ -4251,7 +4367,7 @@ function fillActivityPnlEl(el, res){
 async function ensureActivityPnlReady(x){
   const type=String(x?.type||'');
   // NO llamar refreshBinancePrices aquí salvo desde "Ver detalles" (una sola op).
-  if(type==='Venta' || ((type==='Compra' || type==='Depósito') && !(Number(x.amount)>0))){
+  if(type==='Venta' || type==='Compra' || type==='Depósito'){
     const sym = type==='Venta' ? resolveActivityCoinSymbol(x.coin||'') : histBuySymbol(x);
     if(sym){
       const minuteMs=histMinuteMs(x.date);
@@ -4265,6 +4381,9 @@ async function ensureActivityPnlReady(x){
           }
         }
       }
+    }
+    if(type==='Compra' || type==='Depósito'){
+      try{ await resolveHistUsdtMxn(x.date); }catch(_){}
     }
   }
   return computeActivityPnl(x);
@@ -4362,9 +4481,11 @@ function activityCurrentPriceData(op){
     let unitMxn=null;
     try{ unitMxn=currentUnitPriceMxn(sym); }catch(_){ unitMxn=null; }
     if(!(unitMxn>0) && unitUsdt>0 && Number(usdtMxn)>0) unitMxn=unitUsdt*Number(usdtMxn);
-    const qty=activityCurrentQty(op);
+    const adj=resolveBuyQtyForAnalysis(op);
+    const qty=Number(adj.qty)||0;
     const valueMxn=(qty>0 && unitMxn>0)? qty*unitMxn : null;
-    return {sym, unitUsdt, valueMxn, loading:!(unitUsdt>0)};
+    return {sym, unitUsdt, valueMxn, loading:!(unitUsdt>0),
+      qtyAdjusted:!!adj.adjusted, storedQty:adj.storedQty, expectedQty:adj.expectedQty, qtyUsed:qty};
   }catch(e){
     console.warn('activityCurrentPriceData', e);
     return null;
@@ -4412,6 +4533,12 @@ function buildAnalisisModalHtml(op, histEntry, nowData, pnlRes){
   if(pastBox || valueBox){
     if(pastBox && valueBox) parts.push(`<div class="analisis-row2">${pastBox}${valueBox}</div>`);
     else parts.push(pastBox || valueBox);
+  }
+  const adjInfo=(pnlRes && pnlRes.qtyAdjusted)?pnlRes:((nowData && nowData.qtyAdjusted)?nowData:null);
+  if(adjInfo && adjInfo.qtyAdjusted && adjInfo.expectedQty>0){
+    const xTxt=formatQty(Number(adjInfo.storedQty)||0);
+    const yTxt=formatQty(Number(adjInfo.expectedQty)||0);
+    parts.push(`<div class="analisis-qty-note">Cantidad ajustada: lo registrado (${esc(xTxt)}) no cuadra con lo pagado; se usa ≈${esc(yTxt)}</div>`);
   }
 
   // Rendimiento (full width)
@@ -4537,6 +4664,7 @@ async function loadActivityDetailsForOp(id){
         }
       }
     }
+    try{ await resolveHistUsdtMxn(op.date); }catch(_){}
     let nowData=activityCurrentPriceData(op);
     if(nowData && nowData.loading){
       await new Promise(r=>setTimeout(r, 350));
