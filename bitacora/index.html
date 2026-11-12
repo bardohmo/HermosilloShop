@@ -2710,6 +2710,16 @@ async function refreshBinancePrices(force){
   }
   const run=(async()=>{
   const syms=dashboardPriceSyms();
+  try{
+    if(typeof activityDetailsOpenId==='string' && activityDetailsOpenId && typeof activitySpotPriceSyms==='function'){
+      const openOp=(data||[]).find(o=>String(o.id)===String(activityDetailsOpenId));
+      if(openOp){
+        for(const extra of activitySpotPriceSyms(openOp)){
+          if(extra && !syms.includes(extra)) syms.push(extra);
+        }
+      }
+    }
+  }catch(_){}
   const pairs=[...new Set(syms.map(s=>binancePair(s)).filter(Boolean))];
   // Si hay cache, pintar de inmediato (último precio conocido) mientras se refresca.
   if(Object.keys(priceMap||{}).length || usdtMxn>0){
@@ -2806,6 +2816,35 @@ async function refreshBinancePrices(force){
   binancePriceInflight=run;
   try{ return await run; }
   finally{ if(binancePriceInflight===run) binancePriceInflight=null; }
+}
+/** Precio spot de un par concreto (ticker/price). No depende de dashboardPriceSyms. */
+async function ensureBinanceSpotPrice(sym){
+  const s=normalizeCoinSymbol(sym);
+  if(!s || s==='MXN') return null;
+  if(typeof STABLES!=='undefined' && STABLES.has(s)) return 1;
+  try{
+    const have=usdPriceOfSym(s);
+    if(have>0) return have;
+  }catch(_){}
+  const pair=binancePair(s);
+  if(!pair) return null;
+  if(typeof binanceIsCoolingDown==='function' && binanceIsCoolingDown()) return null;
+  try{
+    const r=await fetchWithTimeout('https://data-api.binance.vision/api/v3/ticker/price?symbol='+encodeURIComponent(pair), 4000);
+    if(r.status===418 || r.status===429){
+      try{ markBinanceFailure(r.status); }catch(_){}
+      return null;
+    }
+    if(!r.ok) return null;
+    const j=await r.json();
+    const px=Number(j.price);
+    if(Number.isFinite(px) && px>0){
+      priceMap[pair]=px;
+      try{ persistPricesSoon(); }catch(_){}
+      return px;
+    }
+  }catch(_){}
+  return null;
 }
 function renderInvestPricesOnly(){
   try{ renderPlatformBreakdown(); }catch(_){}
@@ -3893,6 +3932,27 @@ function activityCurrentPriceSym(x){
   }
   return '';
 }
+/** Símbolos cuyo precio spot hace falta para el análisis de esta op (cualquier moneda, no solo las del dashboard). */
+function activitySpotPriceSyms(x){
+  if(!x) return [];
+  const type=String(x.type||'');
+  const out=[];
+  const push=(raw)=>{
+    const s=normalizeCoinSymbol(raw||'');
+    if(!s || s==='MXN') return;
+    if(typeof STABLES!=='undefined' && STABLES.has(s)) return;
+    if(!binancePair(s)) return;
+    if(!out.includes(s)) out.push(s);
+  };
+  if(type==='Conversión'){
+    const pair=parseConvertPair(x.coinFrom||x.coinTo?{coinFrom:x.coinFrom,coinTo:x.coinTo}:x.coin);
+    push(x.coinFrom||pair?.from||'');
+    push(x.coinTo||pair?.to||'');
+  } else {
+    push(activityCurrentPriceSym(x) || histBuySymbol(x) || (typeof resolveActivityCoinSymbol==='function'?resolveActivityCoinSymbol(x.coin||''):'') || '');
+  }
+  return out;
+}
 function activityCurrentQty(x){
   if(!x) return 0;
   const type=String(x.type||'');
@@ -4648,6 +4708,13 @@ async function loadActivityDetailsForOp(id){
     if(!(Number(usdtMxn)>0) || !(Object.keys(priceMap||{}).length)){
       try{ if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false); }catch(_){}
     }
+    // Aunque priceMap ya tenga otras monedas, pedir el par de ESTA op si falta.
+    try{
+      const spotSyms=activitySpotPriceSyms(op);
+      for(const spotSym of spotSyms){
+        if(!(usdPriceOfSym(spotSym)>0)) await ensureBinanceSpotPrice(spotSym);
+      }
+    }catch(_){}
     let histEntry=null;
     const buySym=histBuySymbol(op);
     if(buySym){
@@ -4666,10 +4733,6 @@ async function loadActivityDetailsForOp(id){
     }
     try{ await resolveHistUsdtMxn(op.date); }catch(_){}
     let nowData=activityCurrentPriceData(op);
-    if(nowData && nowData.loading){
-      await new Promise(r=>setTimeout(r, 350));
-      nowData=activityCurrentPriceData(op);
-    }
     let res=await ensureActivityPnlReady(op);
     if(res && res.status==='loading'){
       await new Promise(r=>setTimeout(r, 400));
