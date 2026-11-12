@@ -3862,7 +3862,7 @@ function renderInvestByCoin(){
  refreshBinancePrices(false);
 }
 
-/* ===== Valor de compra (referencia 1m Binance, no ejecución) ===== */
+/* ===== Valor de compra: precio de ejecución si se conoce; vela 1m como respaldo/referencia ===== */
 const HIST_PRICE_LS_KEY='cripto_bitacora_hist_price_v1';
 const HIST_PRICE_CONCURRENCY=1;
 const HIST_PRICE_TIMEOUT_MS=8000;
@@ -4249,6 +4249,76 @@ function expectedBuyQty(amountMxn, histUsdt, fx){
   if(!(amountMxn>0) || !(histUsdt>0) || !(fx>0)) return null;
   return amountMxn/(histUsdt*fx);
 }
+/** USDT/MXN en el minuto de la op (vela 1m), si existe; si no, el FX diario de resolveHistUsdtMxn. */
+async function resolveUsdtMxnAtOp(iso){
+  const minuteMs=histMinuteMs(iso);
+  if(minuteMs!=null && minuteMs<=Date.now()){
+    const key=histPriceKey('USDTMXN', minuteMs);
+    const cached=histPriceMem[key];
+    if(cached && cached.status==='ok' && Number(cached.usdt)>0) return Number(cached.usdt);
+    if(!(cached && cached.status==='nd')){
+      try{
+        if(!(typeof binanceIsCoolingDown==='function' && binanceIsCoolingDown())){
+          const px=await fetchBinanceKlineOpen('USDTMXN', minuteMs);
+          if(px>0){
+            histPriceMem[key]={status:'ok', pair:'USDTMXN', minuteMs, usdt:px};
+            try{ persistHistPriceCacheSoon(); }catch(_){}
+            return px;
+          }
+          if(cached==null) histPriceMem[key]={status:'nd', pair:'USDTMXN', minuteMs};
+        }
+      }catch(_){}
+    }
+  }
+  return resolveHistUsdtMxn(iso);
+}
+function fxForExecPrice(op, fxOverride){
+  if(Number(fxOverride)>0) return Number(fxOverride);
+  const minuteMs=op?histMinuteMs(op.date):null;
+  if(minuteMs!=null){
+    const hit=histPriceMem[histPriceKey('USDTMXN', minuteMs)];
+    if(hit && hit.status==='ok' && Number(hit.usdt)>0) return Number(hit.usdt);
+  }
+  return fxForBuyOp(op);
+}
+/**
+ * Precio de ejecución en USDT por unidad, a partir del amount y la qty REGISTRADOS:
+ *   execUsdt = amountMxn / (storedQty × USDTMXN de la op)
+ * Regla:
+ * - Nunca usa la qty ajustada del guard (expectedQty). No inventa un precio con una qty sustituida (caso PEPE).
+ * - Requiere amount>0, qty registrada>0 y FX>0. Si falta alguno (p. ej. compra BTC con qty 0), no hay ejecución conocida.
+ * - Si existe vela 1m y el implícito se desvía más de QTY_MISMATCH_RATIO (25%) respecto a ella,
+ *   amount y qty no se consideran coherentes: no se muestra ese implícito como ejecución.
+ * - Si no hay vela para contrastar, se acepta el implícito de los datos registrados.
+ */
+function impliedExecUsdtFromStored(op, fx){
+  const type=String(op?.type||'');
+  if(type!=='Compra' && type!=='Depósito') return null;
+  const paid=Number(op.amount)||0;
+  const qty=opQtyValue(op)||0;
+  if(!(paid>0) || !(qty>0) || !(fx>0)) return null;
+  const usdt=paid/(qty*fx);
+  return (Number.isFinite(usdt) && usdt>0)?usdt:null;
+}
+function execPriceIsCoherent(execUsdt, histUsdt){
+  if(!(execUsdt>0)) return false;
+  if(!(histUsdt>0)) return true;
+  const ratio=execUsdt/histUsdt;
+  return ratio<=1+QTY_MISMATCH_RATIO && ratio>=1-QTY_MISMATCH_RATIO;
+}
+/** @returns {{status:string, source?:string, usdt?:number, histUsdt?:number, fx?:number}} */
+function resolveExecBuyView(op, histEntry, fx){
+  const histUsdt=(histEntry && histEntry.status==='ok' && Number(histEntry.usdt)>0)?Number(histEntry.usdt):null;
+  const exec=impliedExecUsdtFromStored(op, fx);
+  if(exec>0 && execPriceIsCoherent(exec, histUsdt)){
+    return {status:'ok', source:'exec', usdt:exec, histUsdt, fx:fx||null};
+  }
+  if(histUsdt>0){
+    return {status:'ok', source:'hist', usdt:histUsdt, histUsdt, fx:fx||null, execRejected:!!(exec>0)};
+  }
+  if(histEntry && histEntry.status==='loading') return {status:'loading', fx:fx||null};
+  return {status:'nd', fx:fx||null, execRejected:!!(exec>0)};
+}
 /** @returns {{qty:number, adjusted:boolean, storedQty:number, expectedQty:?number, fx:?number, histUsdt:?number}} */
 function resolveBuyQtyForAnalysis(op){
   const stored=opQtyValue(op)||0;
@@ -4557,16 +4627,26 @@ function buildAnalisisModalHtml(op, histEntry, nowData, pnlRes){
   const moneyUsdt=(n)=>`$${esc(formatHistUsdt(n))}<span class="ccy">USDT</span>`;
   const moneyMxn=(n)=>`$${esc(formatDetailMxnAbs(n))}<span class="ccy">MXN</span>`;
 
-  // Row 1: Valor de compra | Precio actual
+  // Row 1: Valor de compra (ejecución si se conoce) | Precio actual
   let buyBox='';
-  if(histEntry){
-    if(histEntry.status==='ok' && histEntry.usdt>0){
-      buyBox=`<div class="analisis-box buy"><div class="box-lab">${analisisIco('coins')} Valor de compra</div><div class="box-val">${moneyUsdt(histEntry.usdt)}</div><div class="box-sub">Referencia: 1 min Binance</div></div>`;
-    } else if(histEntry.status==='loading'){
-      buyBox=`<div class="analisis-box buy"><div class="box-lab">${analisisIco('coins')} Valor de compra</div><div class="box-val">…</div><div class="box-sub">Referencia: 1 min Binance</div></div>`;
-    } else if(histEntry.status==='nd'){
-      buyBox=`<div class="analisis-box buy"><div class="box-lab">${analisisIco('coins')} Valor de compra</div><div class="box-val" style="font-size:14px">No disponible</div><div class="box-sub">Referencia: 1 min Binance</div></div>`;
+  const fxBuy=fxForExecPrice(op);
+  const buyView=resolveExecBuyView(op, histEntry, fxBuy);
+  if(buyView && buyView.status==='ok' && buyView.usdt>0){
+    let sub;
+    if(buyView.source==='exec'){
+      sub=(buyView.histUsdt>0)
+        ? ('ref. vela 1m $'+formatHistUsdt(buyView.histUsdt)+' USDT')
+        : 'Precio de ejecución';
+    } else {
+      sub=buyView.execRejected
+        ? 'Referencia: vela 1m Binance'
+        : 'Referencia: 1 min Binance';
     }
+    buyBox=`<div class="analisis-box buy"><div class="box-lab">${analisisIco('coins')} Valor de compra</div><div class="box-val">${moneyUsdt(buyView.usdt)}</div><div class="box-sub">${esc(sub)}</div></div>`;
+  } else if(buyView && buyView.status==='loading'){
+    buyBox=`<div class="analisis-box buy"><div class="box-lab">${analisisIco('coins')} Valor de compra</div><div class="box-val">…</div><div class="box-sub">Precio de ejecución</div></div>`;
+  } else if(histEntry || buyView){
+    buyBox=`<div class="analisis-box buy"><div class="box-lab">${analisisIco('coins')} Valor de compra</div><div class="box-val" style="font-size:14px">No disponible</div><div class="box-sub">Sin precio de ejecución ni vela 1m</div></div>`;
   }
   let spotBox='';
   if(nowData){
@@ -4611,7 +4691,7 @@ function buildAnalisisModalHtml(op, histEntry, nowData, pnlRes){
     const arrow=tone==='gain'?analisisIco('trend-up'):(tone==='loss'?analisisIco('trend-down'):'');
     const pct=Number(pnlRes.pct);
     const pctTxt=Number.isFinite(pct)?`${sign}${Math.abs(pct).toFixed(2)}%`:'—';
-    const foot=tone==='gain'?'Ganancia respecto al valor de compra':(tone==='loss'?'Pérdida respecto al valor de compra':'Sin cambio respecto al valor de compra');
+    const foot=tone==='gain'?'Ganancia respecto a lo pagado':(tone==='loss'?'Pérdida respecto a lo pagado':'Sin cambio respecto a lo pagado');
     parts.push(
       `<div class="analisis-box rend ${tone}" style="margin-bottom:4px">`+
       `<div class="box-lab"><span style="display:inline-flex;align-items:center;gap:6px">${arrow} Rendimiento</span><span class="analisis-pill">${esc(pill)}</span></div>`+
@@ -4731,7 +4811,9 @@ async function loadActivityDetailsForOp(id){
         }
       }
     }
-    try{ await resolveHistUsdtMxn(op.date); }catch(_){}
+    try{ await resolveUsdtMxnAtOp(op.date); }catch(_){
+      try{ await resolveHistUsdtMxn(op.date); }catch(__){}
+    }
     let nowData=activityCurrentPriceData(op);
     let res=await ensureActivityPnlReady(op);
     if(res && res.status==='loading'){
