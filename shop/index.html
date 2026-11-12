@@ -2001,6 +2001,10 @@
               <label><span>Costo por unidad</span><input type="number" id="incomingNewCost" min="0" step="0.01" /></label>
               <label><span>Precio de venta</span><input type="number" id="incomingPrice" min="0" step="0.01" /></label>
             </div>
+            <div id="incomingCategoriesWrap" class="article-categories-editor">
+              <span style="font-size:0.85rem;color:var(--muted)"><strong style="color:var(--text)">Categorías</strong></span>
+              <div id="incomingCategories" class="article-category-checks"></div>
+            </div>
             <div>
               <span style="font-size:0.85rem;color:var(--muted)"><strong style="color:var(--text)">Foto</strong></span>
               <div class="photo-preview" id="incomingPhotoPreview" style="margin-top:8px">Sin foto</div>
@@ -3255,6 +3259,9 @@
       };
       const { error } = await supabaseClient.from("articles").upsert(row);
       if (error) throw error;
+      if (Array.isArray(fields.categories) && fields.categories.length && typeof window.saveArticleCategories === "function") {
+        window.saveArticleCategories(id, fields.categories);
+      }
       await loadArticles();
       return articles.find((a) => a.id === id) || row;
     };
@@ -7707,6 +7714,7 @@
     paintIncomingPhoto();
     if($("incomingPhotoFile")) $("incomingPhotoFile").value="";
     fillIncomingPicker();
+    if(typeof window.renderArticleCategoryChecks==="function") window.renderArticleCategoryChecks([], "incomingCategories");
     $("incomingOverlay")?.classList.add("open");
   }
   function closeIncoming(){ $("incomingOverlay")?.classList.remove("open"); }
@@ -7747,7 +7755,8 @@
         if(!Number.isFinite(unitCost)||unitCost<0){ if(typeof toast==="function") toast("Costo inválido"); return; }
         if(typeof window.createIncomingArticle!=="function") throw new Error("No se pudo crear el artículo");
         const pending=!!$("incomingPending")?.checked;
-        const art=await window.createIncomingArticle({name, price, purchase_price:unitCost, photoDataUrl:incomingPhotoDataUrl, stock: pending?0:qty});
+        const categories=typeof window.getSelectedArticleCategories==="function"?window.getSelectedArticleCategories("incomingCategories"):[];
+        const art=await window.createIncomingArticle({name, price, purchase_price:unitCost, photoDataUrl:incomingPhotoDataUrl, stock: pending?0:qty, categories});
         pushPending(art, qty, unitCost, date, time, pending);
       } else {
         const pending=!!$("incomingPending")?.checked;
@@ -8118,7 +8127,7 @@ $("categorySaveBtn")?.addEventListener("click",()=>{
 const name=$("categoryNameInput").value.trim(), ic=autoCategoryIcon(name);if(!name)return;
 if(editing){const c=cats.find(x=>x.id===editing);if(c){c.name=name;c.icon=ic;if(pendingCategoryImage)c.image=pendingCategoryImage;else if(clearCategoryImage)delete c.image}}
 else{let id=slug(name),b=id,n=2;while(cats.some(x=>x.id===id))id=b+"-"+n++;cats.push({id,name,icon:ic,...(pendingCategoryImage?{image:pendingCategoryImage}:{})})}
-save();renderArticleCategoryChecks(getSelectedArticleCategories());render();if(typeof window.renderArticles==="function")window.renderArticles();closeEditor()});
+save();renderArticleCategoryChecks(getSelectedArticleCategories());refreshIncomingCategoryChecks();render();if(typeof window.renderArticles==="function")window.renderArticles();closeEditor()});
 $("categoryImageBtn")?.addEventListener("click",()=>$("categoryImageInput")?.click());
 $("categoryImageClear")?.addEventListener("click",()=>{pendingCategoryImage=null;clearCategoryImage=true;if($("categoryImageInput"))$("categoryImageInput").value="";renderCategoryImagePreview()});
 $("categoryImageInput")?.addEventListener("change",async()=>{
@@ -8158,6 +8167,7 @@ if(de){
     writeArticleCategoryMap(m);
     save();
     renderArticleCategoryChecks([]);
+    refreshIncomingCategoryChecks();
     render();
     if(typeof window.renderArticles==="function")window.renderArticles();
   }
@@ -8209,10 +8219,11 @@ function compressCategoryImage(file){
 }
 function readArticleCategoryMap(){try{const x=JSON.parse(localStorage.getItem("hs_article_categories_v1")||"{}");return x&&typeof x==="object"?x:{}}catch(_){return {}}}
 function writeArticleCategoryMap(m){try{localStorage.setItem("hs_article_categories_v1",JSON.stringify(m))}catch(_) {} try{if(typeof window.schedulePushShopState==="function")window.schedulePushShopState()}catch(_){}}
-function getSelectedArticleCategories(){return [...document.querySelectorAll("#articleCategories input[type=checkbox]:checked")].map(x=>x.value)}
-function renderArticleCategoryChecks(selected){const box=document.getElementById("articleCategories");if(!box)return;const set=new Set(Array.isArray(selected)?selected:[]);const available=cats.filter(c=>c.id!=="all");if(!available.length){box.innerHTML='<div class="article-category-empty">No hay categorías creadas. Puedes agregarlas desde Menú → Categorías.</div>';return}box.innerHTML=available.map(c=>'<label class="article-category-check" title="'+esc(c.name)+'"><input type="checkbox" value="'+esc(c.id)+'" '+(set.has(c.id)?"checked":"")+'><span class="article-cat-icon">'+icon(c.icon)+'</span><span class="article-cat-name">'+esc(c.name)+'</span><span class="article-cat-selected" aria-hidden="true">✓</span></label>').join("")}
+function getSelectedArticleCategories(boxId){return [...document.querySelectorAll("#"+(boxId||"articleCategories")+" input[type=checkbox]:checked")].map(x=>x.value)}
+function refreshIncomingCategoryChecks(){if(document.getElementById("incomingCategories"))renderArticleCategoryChecks(getSelectedArticleCategories("incomingCategories"),"incomingCategories")}
+function renderArticleCategoryChecks(selected,boxId){const box=document.getElementById(boxId||"articleCategories");if(!box)return;const set=new Set(Array.isArray(selected)?selected:[]);const available=cats.filter(c=>c.id!=="all");if(!available.length){box.innerHTML='<div class="article-category-empty">No hay categorías creadas. Puedes agregarlas desde Menú → Categorías.</div>';return}box.innerHTML=available.map(c=>'<label class="article-category-check" title="'+esc(c.name)+'"><input type="checkbox" value="'+esc(c.id)+'" '+(set.has(c.id)?"checked":"")+'><span class="article-cat-icon">'+icon(c.icon)+'</span><span class="article-cat-name">'+esc(c.name)+'</span><span class="article-cat-selected" aria-hidden="true">✓</span></label>').join("")}
 function saveArticleCategories(id,categories){const m=readArticleCategoryMap();if(Array.isArray(categories)&&categories.length)m[id]=categories;else delete m[id];writeArticleCategoryMap(m);}
-window.reloadCatalogCategoriesFromStorage=function(){try{let x=JSON.parse(localStorage.getItem(KEY));if(!(Array.isArray(x)&&x.length)){try{const legacy=JSON.parse(localStorage.getItem("hs_categories_v1")||"null");if(Array.isArray(legacy)&&legacy.length)x=legacy;}catch(_){}}if(!(Array.isArray(x)&&x.length))x=defaults.slice();const have=new Set(x.map(c=>c&&c.id));for(const c of RECOVER_CATEGORIES){if(c&&c.id&&!have.has(c.id)){x.push(c);have.add(c.id);}}cats=x;window.catalogCategories=cats;render();renderArticleCategoryChecks([]);}catch(e){console.warn(e);}};
+window.reloadCatalogCategoriesFromStorage=function(){try{let x=JSON.parse(localStorage.getItem(KEY));if(!(Array.isArray(x)&&x.length)){try{const legacy=JSON.parse(localStorage.getItem("hs_categories_v1")||"null");if(Array.isArray(legacy)&&legacy.length)x=legacy;}catch(_){}}if(!(Array.isArray(x)&&x.length))x=defaults.slice();const have=new Set(x.map(c=>c&&c.id));for(const c of RECOVER_CATEGORIES){if(c&&c.id&&!have.has(c.id)){x.push(c);have.add(c.id);}}cats=x;window.catalogCategories=cats;render();renderArticleCategoryChecks([]);refreshIncomingCategoryChecks();}catch(e){console.warn(e);}};
 window.renderCatalogCategories=render;window.renderArticleCategoryChecks=renderArticleCategoryChecks;window.getSelectedArticleCategories=getSelectedArticleCategories;window.saveArticleCategories=saveArticleCategories;window.catalogCategories=cats;window.getActiveCatalogCategory=()=>active;renderArticleCategoryChecks([]);render();
 })();
 </script>
