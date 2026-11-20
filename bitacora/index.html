@@ -1694,8 +1694,8 @@ async function fetchUsdtMxnFresh(){
   return usdtMxn>0?usdtMxn:null;
 }
 
-async function fetchUsdtMxnFallback(){
-  if(usdtMxn>0) return usdtMxn;
+async function fetchUsdtMxnFallback(force){
+  if(usdtMxn>0 && !force) return usdtMxn;
   try{
     const r=await fetch('https://open.er-api.com/v6/latest/USD',{cache:'no-store'});
     if(r.ok){ const j=await r.json(); const px=Number(j?.rates?.MXN); if(px>0){ usdtMxn=px; return px; } }
@@ -2642,8 +2642,119 @@ async function fetchWithTimeout(url, ms=5000, opts={}){
     clearTimeout(timer);
   }
 }
+/* ===== Precio en vivo (v45) =====
+   El cache (localStorage) solo sirve de placeholder mientras carga: nunca cuenta como precio válido
+   para los modales. livePriceAt guarda cuándo se confirmó cada par en ESTA sesión. */
+const BINANCE_API='https://data-api.binance.vision/api/v3';
+const livePriceAt={};
+let usdtMxnLiveAt=0;
+// Pares que Binance no tiene. Ojo: el 400 de Binance llega SIN cabecera CORS, así que en el navegador
+// se ve como error de red; se marca un par como inválido solo si en el mismo lote otros pares sí respondieron.
+// Caduca a las 24 h por si fue un fallo pasajero.
+const BAD_PAIRS_LS_KEY='cripto_bitacora_bad_pairs_v1';
+const BAD_PAIR_TTL_MS=24*60*60*1000;
+const badBinancePairsTs=(()=>{
+  try{
+    const j=JSON.parse(localStorage.getItem(BAD_PAIRS_LS_KEY)||'{}');
+    return (j && typeof j==='object' && !Array.isArray(j)) ? j : {};
+  }catch(_){ return {}; }
+})();
+const badBinancePairs={ has:(pair)=>{ const t=Number(badBinancePairsTs[pair]||0); return t>0 && Date.now()-t<BAD_PAIR_TTL_MS; } };
+function markBadBinancePair(pair){
+  if(!pair || pair==='USDTMXN') return;
+  badBinancePairsTs[pair]=Date.now();
+  try{ localStorage.setItem(BAD_PAIRS_LS_KEY, JSON.stringify(badBinancePairsTs)); }catch(_){}
+}
+/** Guarda un precio USDT fresco de Binance. Borra el MXN directo viejo (CoinGecko) para que no gane al nuevo. */
+function setLiveUsdtPrice(pair, px){
+  if(!pair || !(Number(px)>0)) return false;
+  priceMap[pair]=Number(px);
+  delete priceMap[pair+'_MXN'];
+  livePriceAt[pair]=Date.now();
+  return true;
+}
+function isPairLiveSince(pair, sinceMs){
+  return !!pair && Number(livePriceAt[pair]||0)>=Number(sinceMs||0) && Number(livePriceAt[pair]||0)>0;
+}
+/** Un ticker/price de Binance. Devuelve {px} | {bad:true} | {rate:true} | {netErr:true} | null. */
+async function fetchBinanceTickerPrice(pair, ms=5000){
+  try{
+    const r=await fetchWithTimeout(BINANCE_API+'/ticker/price?symbol='+encodeURIComponent(pair), ms);
+    if(r.status===418 || r.status===429){ markBinanceFailure(r.status); return {rate:true}; }
+    if(r.status===400){ return {bad:true}; }
+    if(!r.ok) return null;
+    const j=await r.json();
+    const px=Number(j && j.price);
+    return (Number.isFinite(px) && px>0) ? {px} : null;
+  }catch(e){
+    // AbortError = timeout (no dice nada del par). TypeError = red o 400 sin CORS (posible par inválido).
+    return (e && e.name==='AbortError') ? null : {netErr:true};
+  }
+}
+/** Pide varios pares por separado, en paralelo. Marca como inválidos los que fallan mientras otros sí responden. */
+async function fetchBinancePairsIndividually(pairs, ms=5000){
+  const res={};
+  await Promise.allSettled(pairs.map(async pair=>{ res[pair]=await fetchBinanceTickerPrice(pair, ms); }));
+  const anyOk=Object.values(res).some(o=>o && o.px);
+  Object.keys(res).forEach(pair=>{
+    const o=res[pair];
+    if(o && (o.bad || (o.netErr && anyOk))) markBadBinancePair(pair);
+  });
+  return res;
+}
+const liveFetchInflight=new Map();
+/**
+ * Precio EN VIVO de las monedas indicadas + USDT/MXN. Ignora el cache y el backoff general
+ * (lo dispara el usuario al abrir un modal). Binance ticker/price por símbolo; CoinGecko de respaldo.
+ * @returns {Promise<{ok:boolean, fresh:string[], failed:string[], fxLive:boolean}>}
+ */
+function fetchLiveSpotPrices(syms){
+  const list=[...new Set((syms||[]).map(x=>normalizeCoinSymbol(x)).filter(x=>x && x!=='MXN' && !STABLES.has(x)))];
+  const key=list.slice().sort().join(',');
+  if(liveFetchInflight.has(key)) return liveFetchInflight.get(key);
+  const run=(async()=>{
+    const startedAt=Date.now();
+    const pairOf={};
+    list.forEach(x=>{ const p=binancePair(x); if(p) pairOf[x]=p; });
+    const pairs=[...new Set(Object.values(pairOf))];
+    const fresh=new Set();
+    let fxLive=false;
+    const res=await fetchBinancePairsIndividually(pairs.filter(p=>!badBinancePairs.has(p)).concat(['USDTMXN']), 5000);
+    Object.keys(res).forEach(p=>{
+      const out=res[p];
+      if(!(out && out.px)) return;
+      if(p==='USDTMXN'){ usdtMxn=out.px; usdtMxnLiveAt=Date.now(); fxLive=true; }
+      else if(setLiveUsdtPrice(p, out.px)) fresh.add(p);
+    });
+    if(fresh.size){ binanceFailing=false; }
+    const missingSyms=list.filter(x=>pairOf[x] && !fresh.has(pairOf[x]));
+    if(missingSyms.length || !fxLive){
+      try{
+        const ok=await fetchCoinGeckoAll(missingSyms.length?missingSyms:['USDT'], {overwrite:fresh, keepFx:fxLive});
+        if(ok && !fxLive && usdtMxn>0){ fxLive=true; usdtMxnLiveAt=Date.now(); }
+        missingSyms.forEach(x=>{ if(isPairLiveSince(pairOf[x], startedAt)) fresh.add(pairOf[x]); });
+      }catch(e){ console.warn('CoinGecko live', e); }
+    }
+    if(!fxLive){
+      try{ const fx=await fetchUsdtMxnFallback(true); if(fx>0){ fxLive=true; usdtMxnLiveAt=Date.now(); } }catch(_){}
+    }
+    if(fresh.size || fxLive){
+      priceFetchedAt=Date.now();
+      priceFromCache=false;
+      try{ persistPricesSoon(); }catch(_){}
+    }
+    const failed=list.filter(x=>pairOf[x] && !fresh.has(pairOf[x]));
+    return {ok:failed.length===0 && fxLive, fresh:[...fresh], failed, fxLive};
+  })();
+  liveFetchInflight.set(key, run);
+  run.finally(()=>{ if(liveFetchInflight.get(key)===run) liveFetchInflight.delete(key); });
+  return run;
+}
 /** CoinGecko: precios actuales USD/MXN para cualquier símbolo del dashboard. */
-async function fetchCoinGeckoAll(syms){
+async function fetchCoinGeckoAll(syms, opts={}){
+  // opts.overwrite: true = sobrescribir todo; Set = sobrescribir todo salvo esos pares (ya frescos de Binance).
+  const ow=opts && opts.overwrite;
+  const canOverwrite=(pair)=> ow===true || (ow instanceof Set && !ow.has(pair));
   const list=[...new Set((syms||[]).map(s=>String(s||'').toUpperCase()).filter(Boolean))];
   const need=list.filter(s=>COINGECKO_IDS[s] || STABLES.has(s));
   if(!need.includes('USDT')) need.push('USDT'); // FX
@@ -2657,7 +2768,8 @@ async function fetchCoinGeckoAll(syms){
   const j=await r.json();
   let changed=false;
   const tetherMxn=Number(j?.tether?.mxn);
-  if(tetherMxn>0){ usdtMxn=tetherMxn; changed=true; }
+  const fxFromBinance=!!(opts && opts.keepFx);
+  if(tetherMxn>0 && !fxFromBinance){ usdtMxn=tetherMxn; changed=true; }
   need.forEach(sym=>{
     const id=COINGECKO_IDS[sym];
     if(!id) return;
@@ -2666,14 +2778,16 @@ async function fetchCoinGeckoAll(syms){
     const usd=Number(row.usd), mxn=Number(row.mxn);
     const pair=binancePair(sym);
     if(mxn>0){
-      if(pair){ priceMap[pair+'_MXN']=mxn; }
-      if(pair && !(Number(priceMap[pair])>0)){
-        priceMap[pair]=usdtMxn>0 ? mxn/usdtMxn : (usd>0?usd:0);
+      if(pair && (canOverwrite(pair) || !(Number(priceMap[pair])>0))){
+        priceMap[pair+'_MXN']=mxn;
+        priceMap[pair]=usd>0 ? usd : (usdtMxn>0 ? mxn/usdtMxn : 0);
+        livePriceAt[pair]=Date.now();
+        changed=true;
       }
-      changed=true;
-    } else if(usd>0 && pair){
+    } else if(usd>0 && pair && (canOverwrite(pair) || !(Number(priceMap[pair])>0))){
       priceMap[pair]=usd;
-      if(usdtMxn>0) priceMap[pair+'_MXN']=usd*usdtMxn;
+      if(usdtMxn>0) priceMap[pair+'_MXN']=usd*usdtMxn; else delete priceMap[pair+'_MXN'];
+      livePriceAt[pair]=Date.now();
       changed=true;
     }
   });
@@ -2738,71 +2852,88 @@ async function refreshBinancePrices(force){
   if(priceLoading) renderInvestPricesOnly();
 
   let gotLive=false;
+  const freshPairs=new Set();
+  let fxLive=false;
   const skipBinance = !force && Date.now()<binanceBackoffUntil;
 
   if(!skipBinance){
     try{
-      const url='https://data-api.binance.vision/api/v3/ticker/24hr';
-      const res=await fetchWithTimeout(url, 5000);
-      if(res.status===418 || res.status===429){
+      // v45: solo los símbolos necesarios (no todo el mercado de ~2MB).
+      // Binance responde 400 a TODO el request si un símbolo no existe: se filtran los ya conocidos como
+      // inválidos y, si aun así falla con 400, se cae a ticker/price por símbolo.
+      const reqPairs=[...new Set(pairs.filter(p=>!badBinancePairs.has(p)).concat(['USDTMXN']))];
+      const url=BINANCE_API+'/ticker/24hr?symbols='+encodeURIComponent(JSON.stringify(reqPairs));
+      let res=null;
+      try{ res=await fetchWithTimeout(url, 6000); }
+      catch(e){
+        // Timeout => Binance lento/caído: directo a CoinGecko. Error de red => puede ser el 400 sin CORS
+        // de un símbolo inválido: probar por símbolo.
+        if(e && e.name==='AbortError') throw e;
+        res=null;
+      }
+      if(res && (res.status===418 || res.status===429)){
         markBinanceFailure(res.status);
         throw new Error('HTTP '+res.status);
       }
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const all=await res.json();
-      const want=new Set(pairs);
-      (all||[]).forEach(row=>{
-        const sym=String(row.symbol||'');
-        const px=Number(row.lastPrice!=null?row.lastPrice:row.price);
-        if(sym==='USDTMXN' && Number.isFinite(px) && px>0) usdtMxn=px;
-        if(!want.has(sym)) return;
-        if(Number.isFinite(px) && px>0) priceMap[sym]=px;
-        const chg=Number(row.priceChangePercent);
-        if(Number.isFinite(chg)) changeMap[sym]=chg;
-      });
-      if(!(usdtMxn>0)){
-        try{
-          const rMx=await fetchWithTimeout('https://data-api.binance.vision/api/v3/ticker/price?symbol=USDTMXN', 4000);
-          if(rMx.ok){ const j=await rMx.json(); const px=Number(j.price); if(px>0) usdtMxn=px; }
-        }catch(_){}
+      if(res && res.ok){
+        const all=await res.json();
+        (Array.isArray(all)?all:[]).forEach(row=>{
+          const sym=String(row.symbol||'');
+          const px=Number(row.lastPrice!=null?row.lastPrice:row.price);
+          if(sym==='USDTMXN'){
+            if(Number.isFinite(px) && px>0){ usdtMxn=px; usdtMxnLiveAt=Date.now(); fxLive=true; }
+            return;
+          }
+          if(Number.isFinite(px) && px>0 && setLiveUsdtPrice(sym, px)) freshPairs.add(sym);
+          const chg=Number(row.priceChangePercent);
+          if(Number.isFinite(chg)) changeMap[sym]=chg;
+        });
+      } else if(res && res.status!==400){
+        throw new Error('HTTP '+res.status);
       }
-      for(const pair of pairs){
-        if(Number(priceMap[pair])>0) continue;
-        if(binanceIsCoolingDown()) break;
-        try{
-          const r=await fetchWithTimeout('https://data-api.binance.vision/api/v3/ticker/price?symbol='+encodeURIComponent(pair), 4000);
-          if(r.status===418 || r.status===429){ markBinanceFailure(r.status); break; }
-          if(r.ok){ const j=await r.json(); const px=Number(j.price); if(px>0) priceMap[pair]=px; }
-        }catch(_){}
+      // 400 (símbolo inválido) o pares que no vinieron: por símbolo, en paralelo.
+      const todo=reqPairs.filter(p=>p==='USDTMXN' ? !fxLive : !freshPairs.has(p));
+      if(todo.length && !(Date.now()<binanceBackoffUntil && binanceBackoffUntil-Date.now()>60*1000)){
+        const out=await fetchBinancePairsIndividually(todo, 5000);
+        Object.keys(out).forEach(pair=>{
+          const o=out[pair];
+          if(!(o && o.px)) return;
+          if(pair==='USDTMXN'){ usdtMxn=o.px; usdtMxnLiveAt=Date.now(); fxLive=true; }
+          else if(setLiveUsdtPrice(pair, o.px)) freshPairs.add(pair);
+        });
       }
-      priceFetchedAt=Date.now();
-      priceFromCache=false;
-      binanceFailing=false;
-      gotLive=pairs.some(p=>Number(priceMap[p])>0);
+      if(!freshPairs.size && !fxLive) throw new Error('Binance sin respuesta');
+      if(freshPairs.size || fxLive){
+        priceFetchedAt=Date.now();
+        priceFromCache=false;
+        binanceFailing=false;
+      }
+      gotLive=freshPairs.size>0;
     }catch(e){
       console.warn('Binance 24hr', e);
       const msg=String(e&&e.message||e||'');
       if(/418|429/.test(msg)) markBinanceFailure(/418/.test(msg)?418:429);
       else markBinanceFailure(0);
-      // No martillar con N requests individuales si Binance ya falló.
     }
   }
 
-  // Respaldo completo: CoinGecko para TODOS los activos (no solo memes).
-  const missing=pairs.filter(p=>!(Number(priceMap[p])>0));
-  if(missing.length || !(usdtMxn>0) || !gotLive){
+  // Respaldo: CoinGecko si Binance falló / hizo timeout, o si quedaron pares sin precio FRESCO
+  // (un valor del cache no cuenta como precio válido).
+  const notFresh=pairs.filter(p=>!freshPairs.has(p));
+  if(notFresh.length || !fxLive || !gotLive){
     try{
-      const cgSyms=syms.filter(s=>!STABLES.has(s) || s==='USDT');
-      const changed=await fetchCoinGeckoAll(cgSyms);
+      const cgSyms=syms.filter(s=>(!STABLES.has(s) || s==='USDT') && !freshPairs.has(binancePair(s)));
+      const changed=await fetchCoinGeckoAll(cgSyms.length?cgSyms:['USDT'], {overwrite:freshPairs, keepFx:fxLive});
       if(changed){
         priceFetchedAt=Date.now();
         priceFromCache=false;
         gotLive=true;
+        if(!fxLive && usdtMxn>0){ fxLive=true; usdtMxnLiveAt=Date.now(); }
       }
     }catch(e){ console.warn('CoinGecko fallback',e); }
   }
-  if(!(usdtMxn>0)){
-    try{ await fetchUsdtMxnFallback(); }catch(_){}
+  if(!fxLive){
+    try{ await fetchUsdtMxnFallback(!(usdtMxn>0) || force); }catch(_){}
   }
   paintInvestPricesNow();
   persistPricesSoon();
@@ -2822,27 +2953,11 @@ async function ensureBinanceSpotPrice(sym){
   const s=normalizeCoinSymbol(sym);
   if(!s || s==='MXN') return null;
   if(typeof STABLES!=='undefined' && STABLES.has(s)) return 1;
+  // v45: el cache NO es válido; siempre pedir el precio en vivo (con CoinGecko de respaldo).
   try{
-    const have=usdPriceOfSym(s);
-    if(have>0) return have;
-  }catch(_){}
-  const pair=binancePair(s);
-  if(!pair) return null;
-  if(typeof binanceIsCoolingDown==='function' && binanceIsCoolingDown()) return null;
-  try{
-    const r=await fetchWithTimeout('https://data-api.binance.vision/api/v3/ticker/price?symbol='+encodeURIComponent(pair), 4000);
-    if(r.status===418 || r.status===429){
-      try{ markBinanceFailure(r.status); }catch(_){}
-      return null;
-    }
-    if(!r.ok) return null;
-    const j=await r.json();
-    const px=Number(j.price);
-    if(Number.isFinite(px) && px>0){
-      priceMap[pair]=px;
-      try{ persistPricesSoon(); }catch(_){}
-      return px;
-    }
+    const out=await fetchLiveSpotPrices([s]);
+    const px=usdPriceOfSym(s);
+    if(out && out.fresh.includes(binancePair(s)) && px>0) return px;
   }catch(_){}
   return null;
 }
@@ -3218,10 +3333,31 @@ function investedOpsForCoin(sym){
   rows.sort((a,b)=>new Date(b.date)-new Date(a.date));
   return rows;
 }
+let openCoinMiniSym=null;
+function openCoinInvestMiniLive(sym){
+  const s=String(sym||'').toUpperCase();
+  openCoinInvestMini(s);
+  // v45: precio en vivo al abrir; repintar solo si sigue abierto para esa moneda.
+  fetchLiveSpotPrices([s]).then(()=>{
+    if(openCoinMiniSym===s && document.getElementById('platMini')?.classList.contains('show')) openCoinInvestMini(s);
+  }).catch(()=>{});
+}
+function openPlatMiniLive(platId){
+  const plat=String(platId||'').toLowerCase();
+  openPlatMini(plat);
+  let syms=[];
+  try{ syms=assetsOnPlatform(plat).map(r=>r.sym); }catch(_){}
+  if(!syms.length) return;
+  fetchLiveSpotPrices(syms).then(()=>{
+    if(openPlatMiniId===plat && document.getElementById('platMini')?.classList.contains('show')) openPlatMini(plat);
+  }).catch(()=>{});
+}
 function openCoinInvestMini(sym){
   const s=String(sym||'').toUpperCase();
   const mini=document.getElementById('platMini');
   if(!mini) return;
+  openCoinMiniSym=s;
+  openPlatMiniId=null;
   const cc=coinBySymbol(s);
   const icon=document.getElementById('platMiniIcon');
   const name=document.getElementById('platMiniName');
@@ -3274,10 +3410,12 @@ function closePlatMini(){
   el.classList.remove('show');
   el.setAttribute('aria-hidden','true');
   openPlatMiniId=null;
+  openCoinMiniSym=null;
 }
 function openPlatMini(platId){
   const plat=String(platId||'').toLowerCase();
   openPlatMiniId=plat;
+  openCoinMiniSym=null;
   const pl=platformById(plat);
   const mini=document.getElementById('platMini');
   if(!mini) return;
@@ -3319,14 +3457,14 @@ function renderPlatformBreakdown(){
     return `<button type="button" class="plat-row" data-plat="${esc(id)}" title="Ver desglose"><span class="plat-left">${icon?`<img src="${esc(icon)}" alt="">`:''}<span>${esc(name)}</span></span><span class="plat-amt">${shown}</span></button>`;
   }).join('');
   el.querySelectorAll('.plat-row[data-plat]').forEach(btn=>{
-    btn.addEventListener('click',()=>openPlatMini(btn.dataset.plat));
+    btn.addEventListener('click',()=>openPlatMiniLive(btn.dataset.plat));
   });
 }
 function bindInvestRowBreakdown(){
   document.querySelectorAll('#investByCoin .invest-row[data-invest-sym]').forEach(btn=>{
     btn.onclick=e=>{
       e.preventDefault();
-      openCoinInvestMini(btn.getAttribute('data-invest-sym'));
+      openCoinInvestMiniLive(btn.getAttribute('data-invest-sym'));
     };
   });
 }
@@ -4538,6 +4676,19 @@ function activityDetailsApplicable(x){
 }
 let activityDetailsOpenId=null;
 const activityDetailsLoading=new Set();
+/** v45: estado del precio en vivo del modal abierto. state: idle|pending|ok|partial|failed */
+let analisisLive={id:'', openedAt:0, state:'idle'};
+/** 'live' | 'pending' | 'stale' | '' — si el precio actual de la op ya se confirmó en vivo desde que se abrió el modal. */
+function analisisPriceState(op){
+  try{
+    if(!op || analisisLive.id!==String(op.id||'')) return '';
+    const syms=activitySpotPriceSyms(op);
+    if(!syms.length) return 'live';
+    const allLive=syms.every(x=>isPairLiveSince(binancePair(x), analisisLive.openedAt));
+    if(allLive) return 'live';
+    return analisisLive.state==='pending' ? 'pending' : 'stale';
+  }catch(_){ return ''; }
+}
 let analisisHistoryPushed=false;
 
 function activityDetailsControlsHtml(x){
@@ -4650,9 +4801,15 @@ function buildAnalisisModalHtml(op, histEntry, nowData, pnlRes){
   }
   let spotBox='';
   if(nowData){
+    const pxState=analisisPriceState(op);
+    const spotSub=pxState==='pending'
+      ? `<div class="box-sub" data-live="pending">actualizando…</div>`
+      : (pxState==='stale'
+        ? `<div class="box-sub" data-live="stale">Sin conexión · último precio guardado</div>`
+        : (pxState==='live' ? `<div class="box-sub" data-live="ok">En vivo</div>` : ''));
     spotBox = (nowData.loading || !(nowData.unitUsdt>0))
-      ? `<div class="analisis-box spot"><div class="box-lab">${analisisIco('candle')} Precio actual</div><div class="box-val">…</div></div>`
-      : `<div class="analisis-box spot"><div class="box-lab">${analisisIco('candle')} Precio actual</div><div class="box-val">${moneyUsdt(nowData.unitUsdt)}</div></div>`;
+      ? `<div class="analisis-box spot"><div class="box-lab">${analisisIco('candle')} Precio actual</div><div class="box-val">…</div>${spotSub}</div>`
+      : `<div class="analisis-box spot"><div class="box-lab">${analisisIco('candle')} Precio actual</div><div class="box-val">${moneyUsdt(nowData.unitUsdt)}</div>${spotSub}</div>`;
   }
   if(buyBox || spotBox){
     if(buyBox && spotBox) parts.push(`<div class="analisis-row2">${buyBox}${spotBox}</div>`);
@@ -4771,7 +4928,7 @@ function openAnalisisModalShell(id){
   }catch(_){}
 }
 
-async function loadActivityDetailsForOp(id){
+async function loadActivityDetailsForOp(id, opts){
   const key=String(id||'');
   if(!key) return;
   const op=(data||[]).find(o=>String(o.id)===key);
@@ -4785,16 +4942,33 @@ async function loadActivityDetailsForOp(id){
     body.innerHTML='<div class="spin" aria-hidden="true"></div><div>Cargando…</div>';
   }
   try{
-    if(!(Number(usdtMxn)>0) || !(Object.keys(priceMap||{}).length)){
-      try{ if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false); }catch(_){}
-    }
-    // Aunque priceMap ya tenga otras monedas, pedir el par de ESTA op si falta.
-    try{
-      const spotSyms=activitySpotPriceSyms(op);
-      for(const spotSym of spotSyms){
-        if(!(usdPriceOfSym(spotSym)>0)) await ensureBinanceSpotPrice(spotSym);
+    // v45: al abrir el modal SIEMPRE se pide el precio en vivo de esta op (el cache solo es placeholder).
+    let liveP=null;
+    if(opts && opts.live){
+      let spotSyms=[];
+      try{ spotSyms=activitySpotPriceSyms(op); }catch(_){}
+      liveP=fetchLiveSpotPrices(spotSyms).then(r=>{
+        if(analisisLive.id===key) analisisLive.state=r.ok?'ok':(r.fresh.length?'partial':'failed');
+        return r;
+      }).catch(e=>{
+        console.warn('live price', e);
+        if(analisisLive.id===key) analisisLive.state='failed';
+        return null;
+      });
+      // Sin nada en cache que mostrar: esperar al precio en vivo antes de pintar.
+      if(!(Number(usdtMxn)>0) || spotSyms.some(x=>!(usdPriceOfSym(x)>0))) await liveP;
+    } else {
+      if(!(Number(usdtMxn)>0) || !(Object.keys(priceMap||{}).length)){
+        try{ if(typeof refreshBinancePrices==='function') await refreshBinancePrices(false); }catch(_){}
       }
-    }catch(_){}
+      // Aunque priceMap ya tenga otras monedas, pedir el par de ESTA op si falta.
+      try{
+        const spotSyms=activitySpotPriceSyms(op);
+        for(const spotSym of spotSyms){
+          if(!(usdPriceOfSym(spotSym)>0)) await ensureBinanceSpotPrice(spotSym);
+        }
+      }catch(_){}
+    }
     let histEntry=null;
     const buySym=histBuySymbol(op);
     if(buySym){
@@ -4814,18 +4988,29 @@ async function loadActivityDetailsForOp(id){
     try{ await resolveUsdtMxnAtOp(op.date); }catch(_){
       try{ await resolveHistUsdtMxn(op.date); }catch(__){}
     }
-    let nowData=activityCurrentPriceData(op);
-    let res=await ensureActivityPnlReady(op);
-    if(res && res.status==='loading'){
-      await new Promise(r=>setTimeout(r, 400));
-      res=await ensureActivityPnlReady(op);
+    const paint=async()=>{
+      let nowData=activityCurrentPriceData(op);
+      let res=await ensureActivityPnlReady(op);
+      if(res && res.status==='loading'){
+        await new Promise(r=>setTimeout(r, 400));
+        res=await ensureActivityPnlReady(op);
+      }
+      if(activityDetailsOpenId!==key) return false;
+      // Mientras el precio en vivo no llega, no mostrar un rendimiento calculado con el precio del cache.
+      if(analisisPriceState(op)==='pending' && res && res.status==='ok') res={status:'loading'};
+      if(body){
+        body.className='';
+        body.innerHTML=buildAnalisisModalHtml(op, histEntry, nowData, res);
+      }
+      updateAnalisisBadge(res);
+      return true;
+    };
+    if(!(await paint())) return;
+    if(liveP){
+      await liveP;
+      if(activityDetailsOpenId!==key) return;
+      await paint();
     }
-    if(activityDetailsOpenId!==key) return;
-    if(body){
-      body.className='';
-      body.innerHTML=buildAnalisisModalHtml(op, histEntry, nowData, res);
-    }
-    updateAnalisisBadge(res);
   }catch(e){
     console.warn('loadActivityDetailsForOp', e);
     if(activityDetailsOpenId===key && body){
@@ -4854,7 +5039,8 @@ function toggleActivityDetails(id){
     });
   }
   openAnalisisModalShell(key);
-  loadActivityDetailsForOp(key);
+  analisisLive={id:key, openedAt:Date.now(), state:'pending'};
+  loadActivityDetailsForOp(key, {live:true});
 }
 
 function scheduleActivityPnlHydration(root){
